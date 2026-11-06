@@ -187,6 +187,12 @@ exportable et affiche l’échec ; elle n’est pas annoncée comme un enregistr
 - Valider le JSON avec `parseGarage`, puis vérifier qu’un second passage conserve
   le résultat intégral : `parseGarage(JSON.stringify(parseGarage(json)))`.
 
-La sauvegarde précédente est téléchargée avant le remplacement du garage dans
-l’interface. Le fichier produit pour une personne reste privé et ne doit pas être
+Le téléchargement d’une copie précédente est demandé avant le remplacement du garage
+dans l’interface ; le navigateur ne confirme pas sa conservation sur disque. Les copies
+ont un nom unique horodaté et les copies précédant un import portent `avant-import`.
+La liaison facultative à un fichier et le suivi des exports restent propres au navigateur
+et au chemin publié : ils n’ajoutent aucun champ au JSON portable. Le fichier lié est
+vérifié avant écriture et relu après écriture ; un changement externe détecté suspend
+sa mise à jour. Les modifications de plusieurs appareils ne sont pas fusionnées.
+Le fichier produit pour une personne reste privé et ne doit pas être
 ajouté aux exemples ou au dépôt public.

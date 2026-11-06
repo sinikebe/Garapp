@@ -1,9 +1,11 @@
-import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_BACKUP_BYTES, MAX_DOCUMENT_BYTES, today, uid, chronological, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, vehicleStats, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
+import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, vehicleStats, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
 import { suiteLinks } from './app-switcher.js';
 import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
 import { initHeaderMenus } from './header-menus.js';
+import { BackupPanel } from './backup-panel.js';
+import { readBackupFile, fingerprint } from './backups.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -22,12 +24,14 @@ const repository = new WorkspaceStorage(key);
 let garage;
 let unsaved = false;
 let pendingImport = null;
+let importGeneration = 0;
 let editingVehicle = null;
 let editingRecord = null;
 let editingComponent = null;
 let editingLines = [];
 let toastTimer;
 let saving = false;
+let localConflict = false;
 let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
@@ -43,6 +47,7 @@ try {
   if (!garage.vehicles.some((one) => one.example)) $('save-status').textContent = 'Enregistré sur cet appareil';
 } catch {
   garage = exampleGarage();
+  unsaved = true;
   storageWarning('Le garage enregistré est illisible ou inaccessible. Son contenu est conservé. La copie ouverte reste exportable.');
 }
 try {
@@ -50,6 +55,13 @@ try {
   if (['horizon', 'atelier', 'parcours'].includes(saved?.layout)) preferences.layout = saved.layout;
   if (['auto', 'light', 'dark'].includes(saved?.theme)) preferences.theme = saved.theme;
 } catch { /* Appearance preferences are independent of garage data. */ }
+
+const backups = new BackupPanel({
+  key, development: suiteLinks(base).preview, getGarage: () => garage,
+  canAutoSave: () => !unsaved && !saving && !localConflict && !repository.invalid,
+  download, announce, showDialog, openFile: prepareImport,
+});
+await backups.restore();
 
 async function save(next) {
   if (saving) throw Error('Un enregistrement est déjà en cours.');
@@ -60,11 +72,14 @@ async function save(next) {
   try {
     await repository.save(next);
     unsaved = false;
+    localConflict = false;
     $('storage-warning').hidden = true;
     $('save-status').textContent = 'Enregistré sur cet appareil';
   } catch (error) { storageWarning(error.message.includes('onglet') || error.message.includes('illisible') ? error.message : 'L’enregistrement local a échoué. La copie ouverte contient les modifications et les documents ; exportez-la avant de quitter.'); }
   finally { saving = false; }
   render();
+  if (unsaved) backups.suspend();
+  void backups.update(!unsaved);
 }
 function applyPreferences() {
   document.body.dataset.layout = preferences.layout;
@@ -369,13 +384,10 @@ function openGarage() {
 }
 function download(blob, name) {
   const url = URL.createObjectURL(blob); const link = document.createElement('a');
-  link.href = url; link.download = name; link.click();
+  link.href = url; link.download = name; link.hidden = true; document.body.append(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-function exportGarage() {
-  download(new Blob([JSON.stringify(garage, null, 2)], { type: 'application/json' }), `garapp-${today()}.json`);
-  announce('Sauvegarde complète téléchargée, documents inclus.');
-}
+function exportGarage(options) { backups.export(options); }
 function downloadDocument(token, draftDocument = null) {
   const doc = draftDocument ?? downloadableDocuments.get(token); if (!doc) return;
   const binary = atob(doc.dataUrl.slice(doc.dataUrl.indexOf(',') + 1));
@@ -459,7 +471,9 @@ document.addEventListener('input', (event) => {
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
-  commands: openCommands, export: exportGarage, import: () => $('backup-file').click(), print: () => window.print(), reload: () => location.reload(),
+  commands: openCommands, backups: () => backups.open(), export: () => { try { exportGarage(); } catch { /* The backup panel reports export errors. */ } },
+  import: () => $('backup-file').click(), 'backup-create': () => backups.create(), 'backup-open': () => backups.chooseExisting(),
+  'backup-write': () => backups.write(), 'backup-unlink': () => backups.unlink(), print: () => window.print(), reload: () => location.reload(),
 };
 document.addEventListener('click', (event) => {
   const target = event.target;
@@ -500,30 +514,52 @@ function filterCommands() {
   $('command-empty').hidden = buttons.some((button) => !button.hidden);
 }
 $('command-search').addEventListener('input', filterCommands);
-window.addEventListener('beforeunload', (event) => { if (unsaved) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', (event) => { if (unsaved || backups.needsFlush()) { event.preventDefault(); event.returnValue = ''; } });
 repository.subscribe(async () => {
-  if (openDialogs().length || unsaved || saving) return storageWarning('Le garage a changé dans un autre onglet. Exportez les modifications ouvertes avant de recharger.');
-  try { garage = await repository.load() ?? exampleGarage(); render(); }
+  if (openDialogs().length || unsaved || saving) { localConflict = true; backups.suspend(); return storageWarning('Le garage a changé dans un autre onglet. Exportez les modifications ouvertes avant de recharger.'); }
+  try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); }
   catch { storageWarning('Une modification provenant d’un autre onglet est illisible. La copie ouverte est conservée.'); }
 });
+async function prepareImport(file, handle = null) {
+  if ($('import-confirm').dataset.importing) throw Error('Un import est déjà en cours.');
+  const generation = ++importGeneration;
+  pendingImport = null;
+  const incoming = await readBackupFile(file);
+  if (generation !== importGeneration) return;
+  pendingImport = { ...incoming, handle };
+  const before = inventory(garage), after = inventory(incoming.garage);
+  $('import-description').textContent = `${file.name} · ${number(Math.ceil(file.size / 1024))} Kio. Le contenu a été vérifié, y compris les documents intégrés et les relations entre les fiches.`;
+  $('import-counts').innerHTML = [['vehicles', 'Véhicules'], ['records', 'Fiches'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']].map(([field, label]) => `<tr><th scope="row">${label}</th><td>${number(before[field])}</td><td>${number(after[field])}</td></tr>`).join('');
+  $('import-vehicles').textContent = `Véhicules du fichier : ${incoming.garage.vehicles.map((one) => one.name).join(' · ') || 'aucun'}. Les champs complémentaires sont conservés.`;
+  $('import-link-note').textContent = handle ? 'Après confirmation, ce fichier sera lié au garage. L’écriture automatique restera désactivée.' : 'Toute liaison au fichier précédent sera détachée pour préserver son contenu.';
+  $('import-error').hidden = true;
+  showDialog('import-dialog');
+}
 $('backup-file').addEventListener('change', async (event) => {
   const file = event.target.files[0]; event.target.value = ''; pendingImport = null; if (!file) return;
-  try {
-    if (file.size > MAX_BACKUP_BYTES) throw Error('La sauvegarde dépasse 512 Mio.');
-    pendingImport = parseGarage(await file.text());
-    const counts = inventory(pendingImport);
-    $('import-description').textContent = `Cette sauvegarde contient ${counts.vehicles} véhicule(s), ${counts.records} fiche(s), ${counts.components} composant(s), ${counts.lines} ligne(s) détaillée(s) et ${counts.documents} document(s) intégrés. Les champs complémentaires seront conservés. Elle remplacera le garage actuellement ouvert.`;
-    showDialog('import-dialog');
-  } catch (error) { announce(`Import refusé. ${error.message}`); }
+  try { await prepareImport(file); }
+  catch (error) { backups.announce(`Import refusé. ${error.message}`); }
 });
 $('import-confirm').addEventListener('click', async () => {
-  if (!pendingImport || saving) return;
+  if (!pendingImport || saving || backups.files.busy || $('import-confirm').dataset.importing) return;
   const button = $('import-confirm'); button.disabled = true;
+  button.dataset.importing = 'true';
+  $('import-error').hidden = true;
   try {
-    exportGarage(); await save(pendingImport); pendingImport = null; $('import-dialog').close();
-    announce(unsaved ? 'Garage importé dans la copie ouverte. Exportez-le avant de quitter : l’enregistrement local a échoué.' : 'Garage et documents importés. La sauvegarde précédente a été téléchargée.');
-  } catch (error) { announce(error.message); }
-  finally { button.disabled = false; }
+    const incoming = pendingImport;
+    if (incoming.handle && await fingerprint(await incoming.handle.getFile()) !== incoming.fileHash) throw Error('Le fichier a changé depuis sa vérification. Ouvrez-le à nouveau avant d’importer. Le garage actuel est conservé.');
+    exportGarage({ beforeImport: true });
+    backups.suspend(); await backups.files.disconnect();
+    await save(incoming.garage); pendingImport = null; $('import-dialog').close();
+    let linkError = '';
+    if (incoming.handle && !unsaved) {
+      try { await backups.files.link(incoming.handle, incoming); }
+      catch (error) { linkError = ` Le garage a été importé, mais le fichier n’a pas été lié : ${error.message}`; }
+    }
+    await backups.update(false);
+    announce(unsaved ? 'Garage importé dans la copie ouverte. Exportez-le avant de quitter : l’enregistrement local a échoué.' : `Garage et documents importés. Le téléchargement de la copie précédente a été demandé.${linkError}`);
+  } catch (error) { $('import-error').textContent = error.message; $('import-error').hidden = false; }
+  finally { delete button.dataset.importing; backups.render(); }
 });
 const suite = suiteLinks(base);
 $('dev-banner').hidden = !suite.preview;

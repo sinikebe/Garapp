@@ -29,8 +29,8 @@ adaptée au suivi d'un véhicule :
 Les véhicules, interventions, événements, composants et lignes détaillées peuvent
 être ajoutés et modifiés dans l’application. Les documents locaux peuvent être
 ajoutés, renommés, décrits et téléchargés depuis les fiches. La recherche parcourt
-les notes et les lignes d’intervention. Le garage s’exporte et s’importe en JSON. L'import est vérifié avant remplacement et télécharge d'abord
-une copie du garage ouvert. L'impression/PDF et les actions rapides avec
+les notes et les lignes d’intervention. Le garage s’exporte et s’importe en JSON. L’import est vérifié avant remplacement et demande d’abord le téléchargement
+d’une copie du garage ouvert. L’impression/PDF et les actions rapides avec
 **Ctrl/Cmd K** sont disponibles.
 
 Le premier lancement propose un **garage d'exemple fictif**, clairement identifié.
@@ -96,6 +96,44 @@ la copie ouverte restent exportables. Les transactions IndexedDB et les notifica
 entre onglets protègent contre le remplacement silencieux d’une autre copie. Le
 stockage navigateur reste local à un appareil et à un chemin de publication : les
 exports sont nécessaires pour conserver une sauvegarde indépendante.
+
+### Sauvegardes par fichiers
+
+**Outils → Gérer les sauvegardes** regroupe les copies JSON, le suivi du dernier
+export et la liaison facultative à un fichier. Un raccourci dans le pied de page
+indique si des modifications ont eu lieu depuis le dernier export ou si un fichier
+lié reste à actualiser. L’enregistrement local et la copie externe sont distingués.
+
+- Chaque copie téléchargée reçoit un nom unique horodaté en UTC. Les noms
+  distinguent les versions de développement et les copies précédant un import.
+  Le navigateur ne confirme pas la conservation d’un téléchargement : l’interface
+  indique une demande d’export et invite à vérifier le fichier.
+- Dans les navigateurs proposant les sélecteurs de fichiers en lecture/écriture,
+  un fichier JSON peut être créé et lié au garage. Un fichier déjà rempli est
+  refusé à la création ; il doit être ouvert et vérifié avant import. La liaison
+  reste mémorisée dans IndexedDB si le navigateur le permet, séparément du JSON.
+- Une mise à jour explicite demande l’autorisation nécessaire, vérifie l’empreinte
+  SHA-256 du fichier avant écriture et après obtention du flux, puis relit le
+  résultat après fermeture. Une différence externe détectée bloque l’écrasement.
+  Web Locks sérialise les écritures provenant de Garapp sur une même origine ;
+  cela ne constitue pas un verrou distribué entre appareils ou logiciels.
+- L’écriture automatique est facultative et doit être activée à chaque ouverture
+  de page. Elle intervient après une modification enregistrée localement et une
+  courte pause. Elle est suspendue en cas d’erreur, de conflit local ou externe,
+  d’import ou de changement de fichier. Elle ne fonctionne pas navigateur fermé.
+  Une écriture en cours ou en attente déclenche la protection de sortie du navigateur.
+- Avant import, un tableau compare le garage ouvert et le fichier : véhicules,
+  fiches, composants, lignes et documents. Les noms des véhicules sont affichés.
+  Le contenu d’un fichier lié est revérifié avant confirmation. L’import ordinaire
+  détache l’ancien fichier ; ouvrir un fichier existant le lie après import réussi,
+  avec l’écriture automatique désactivée.
+
+Pour travailler sur un autre appareil, transférer puis importer le dernier fichier
+avant de poursuivre. Aucune fusion ni synchronisation entre appareils n’est effectuée.
+Conserver plusieurs copies datées, dont une sur un autre support, permet de récupérer
+un état antérieur et de résister à la perte du navigateur ou de l’appareil.
+Le format portable reste en version 2 et inclut toujours les documents et les champs
+complémentaires. Aucun service distant, compte ou secret d’application n’est ajouté.
 
 ## Versions publiées
 
