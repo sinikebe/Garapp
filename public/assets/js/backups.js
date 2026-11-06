@@ -78,6 +78,7 @@ const changedFile = () => Error('Le fichier a changé ailleurs. Aucune modificat
 const permissionDenied = () => Error('L’accès au fichier doit être autorisé. Utilisez « Mettre à jour le fichier » pour réessayer, ou téléchargez une copie JSON.');
 
 export function backupErrorMessage(error) {
+  if (/show(?:Save|Open)FilePicker/.test(error.message)) return 'Ce navigateur ne permet pas d’ouvrir le sélecteur de fichiers dans ce contexte. Le téléchargement et l’import JSON restent disponibles.';
   if (['NotAllowedError', 'SecurityError'].includes(error.name)) return 'L’accès direct aux fichiers n’a pas été autorisé par ce navigateur. Le téléchargement et l’import JSON restent disponibles.';
   if (error.name === 'NotFoundError') return 'Le fichier lié est introuvable. Téléchargez une copie JSON ou sélectionnez à nouveau un fichier.';
   if (error.name === 'NoModificationAllowedError') return 'Le fichier est occupé par une autre écriture. Réessayez après sa fermeture ou téléchargez une copie JSON.';

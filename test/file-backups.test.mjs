@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { BackupSettings, FileBackup, backupKey, backupBlob, backupFilename, fingerprint, readBackupFile } from '../public/assets/js/backups.js';
+import { BackupSettings, FileBackup, backupKey, backupBlob, backupFilename, fingerprint, readBackupFile, backupErrorMessage } from '../public/assets/js/backups.js';
 import { exampleGarage, MAX_BACKUP_BYTES, parseGarage } from '../public/assets/js/garage.js';
 
 const garage = () => exampleGarage('2026-11-06');
@@ -149,6 +149,12 @@ test('a platform-level denial keeps the file intact and offers the portable fall
   assert.equal(backup.state.fileHash, checkpoint);
   assert.equal(backup.auto, false);
   assert.match(backup.error, /ce navigateur/);
+});
+
+test('picker failures without a DOM exception name have a readable fallback', () => {
+  const error = Error("Failed to execute 'showSaveFilePicker' on 'Window': The request is not allowed by the user agent or the platform in the current context.");
+  assert.match(backupErrorMessage(error), /sélecteur de fichiers/);
+  assert.match(backupErrorMessage(error), /téléchargement et l’import JSON/);
 });
 
 test('opening an existing file never writes, and rechecks its content before linking', async () => {
