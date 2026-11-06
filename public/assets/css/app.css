@@ -253,3 +253,40 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
 @media (pointer: coarse) { .text-button, .record-title, .component-name, .component-last button, .record-row > .icon-button { min-height: 44px; } select, .layout-picker select { font-size: var(--type-md); } }
 @media print { body[data-layout] { color-scheme: light; background: white; padding: 0; } .app-bar, .workspace-sidebar, .example-note, .environment-note, .storage-warning, .section-toolbar, dialog, .toast, .app-footer, .text-button, .hero-tag { display: none !important; } .workspace-shell, body[data-layout="parcours"] .workspace-shell { display: block; } main { padding: 0; max-width: none; } .panel { box-shadow: none; break-inside: avoid; } .component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Detailed records stay behind progressive disclosure in all three layouts. */
+.wide-dialog { width: min(850px, calc(100vw - 32px)); }
+.supplemental { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-lg); margin-block: var(--space-lg); min-width: 0; }
+.supplemental > summary { font-size: var(--type-sm); font-weight: 550; min-height: 32px; display: list-item; }
+.supplemental[open] > summary { margin-bottom: var(--space-xl); }
+.supplemental .form-grid { margin-top: var(--space-lg); }
+.line-editor { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: var(--space-xl); margin-block: var(--space-xl); background: var(--surface-2); }
+.line-editor .supplemental { background: var(--surface-1); }
+.line-editor .text-button { font-size: var(--type-xs); }
+.detail-lines { margin-block: var(--space-xl) var(--space-3xl); }
+.detail-line { border-top: 1px solid var(--border); padding-block: var(--space-xl); }
+.detail-line h3 { margin-top: var(--space-lg); }
+.detail-line .bar-heading { align-items: start; }
+.detail-line .bar-heading > span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.detail-notes { overflow-wrap: anywhere; line-height: 1.65; }
+.detail-notes + h3 { margin-top: var(--space-2xl); }
+.raw-data { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; font-size: var(--type-xs); max-height: 320px; overflow: auto; padding: var(--space-lg); background: var(--surface-2); border-radius: var(--radius-sm); }
+.cost-note { display: block; font-size: var(--type-3xs); font-weight: 400; color: var(--text-secondary); white-space: normal; margin-top: var(--space-xs); }
+.document-list, .draft-documents { display: grid; gap: var(--space-lg); margin-block: var(--space-xl); }
+.document-card { display: flex; align-items: start; gap: var(--space-lg); padding: var(--space-lg); border: 1px solid var(--border); border-radius: var(--radius-sm); min-width: 0; }
+.document-card > div { min-width: 0; }
+.document-card strong { overflow-wrap: anywhere; font-size: var(--type-sm); }
+.document-card img { width: 84px; height: 100px; object-fit: contain; background: var(--surface-2); border-radius: var(--radius-sm); }
+.document-card .text-button { font-size: var(--type-xs); }
+.document-editor { margin-block: var(--space-xl); }
+.document-editor label { display: grid; gap: var(--space-sm); font-size: var(--type-sm); }
+.draft-document { display: grid; gap: var(--space-md); border-top: 1px solid var(--border); padding-top: var(--space-lg); }
+.draft-document .text-button { justify-self: start; }
+.form-error { padding: var(--space-lg); color: var(--text-primary); border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); font-size: var(--type-sm); line-height: 1.6; margin-top: var(--space-xl); }
+#garage-form > label { display: grid; gap: var(--space-sm); font-size: var(--type-sm); }
+@media (max-width: 760px) {
+  .record-cost { white-space: normal; text-align: right; max-width: 110px; }
+  .detail-line .bar-heading { flex-wrap: wrap; }
+  .document-card img { width: 60px; height: 76px; }
+  .line-editor { padding: var(--space-lg); }
+}

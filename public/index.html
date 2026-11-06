@@ -51,6 +51,7 @@
       <details class="tools-menu"><summary class="icon-button" aria-label="Outils du garage"><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg></summary><div class="tools-content">
         <button type="button" data-action="export">Exporter mon garage</button>
         <button type="button" data-action="import">Importer une sauvegarde</button>
+        <button type="button" data-action="garage-details">Documents et informations du garage</button>
         <button type="button" data-action="print">Imprimer / PDF</button>
       </div></details>
     </div>
@@ -86,15 +87,74 @@
         <p class="reference-note">Les barres représentent des intervalles personnalisables, pas l’état réel des pièces. Un contrôle reste nécessaire pour connaître leur état.</p><div id="components-list" class="component-grid"></div>
       </section>
       <section id="depenses-view" aria-label="Dépenses" hidden>
-        <div class="section-toolbar"><p class="hint">Uniquement les interventions enregistrées, pièces et main-d’œuvre.</p><label class="year-picker" for="expense-year"><span>Période</span><select id="expense-year"></select></label></div><div id="expense-content"></div>
+        <div class="section-toolbar"><label class="year-picker"><span>Périmètre</span><select id="expense-scope"><option value="maintenance">Interventions</option><option value="all">Tous les événements</option></select></label><label class="year-picker" for="expense-year"><span>Période</span><select id="expense-year"></select></label></div><div id="expense-content"></div>
       </section>
       <footer class="app-footer"><span>Garapp <span aria-hidden="true">·</span> Votre véhicule, pièce par pièce.</span><span id="save-status" role="status">Sur cet appareil</span><a href="https://github.com/sinikebe/Garapp">GitHub</a></footer>
     </main>
   </div>
 
-  <dialog id="vehicle-dialog" aria-labelledby="vehicle-dialog-title"><form id="vehicle-form"><div class="dialog-heading"><div><p class="eyebrow">MON GARAGE</p><h2 id="vehicle-dialog-title">Ajouter un véhicule</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="form-grid"><label class="full-width">Nom du véhicule<input name="name" required maxlength="160" placeholder="Ex. Renault Captur" autocomplete="off"></label><label>Année<input name="year" type="number" min="1900" max="2100" required></label><label>Kilométrage actuel<input name="odometer" type="number" min="0" max="5000000" step="1" required></label><label class="full-width">Motorisation<input name="engine" required maxlength="160" placeholder="Ex. 1.5 dCi 90" autocomplete="off"></label></div><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le véhicule</button></div></form></dialog>
-  <dialog id="record-dialog" aria-labelledby="record-dialog-title"><form id="record-form"><div class="dialog-heading"><div><p class="eyebrow">HISTORIQUE</p><h2 id="record-dialog-title">Ajouter une intervention</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="form-grid"><label class="full-width">Intitulé<input name="title" required maxlength="160" placeholder="Ex. Révision et vidange"></label><label>Type<select name="type"><option value="revision">Révision</option><option value="entretien">Entretien</option><option value="reparation">Réparation</option><option value="controle">Contrôle</option></select></label><label>Date<input name="date" type="date" required></label><label>Kilométrage à l’intervention<input name="odometer" type="number" min="0" step="1" required></label><div></div><label>Pièces (€)<input name="parts" inputmode="decimal" placeholder="0,00" value="0" required></label><label>Main-d’œuvre / prestation (€)<input name="labor" inputmode="decimal" placeholder="0,00" value="0" required></label><fieldset class="full-width"><legend>Composants remplacés ou renouvelés</legend><p class="hint">Leur dernier remplacement sera lié à cette intervention.</p><div id="record-components" class="checkbox-grid"></div></fieldset><label class="full-width">Notes<textarea name="notes" rows="3" maxlength="2000" placeholder="Garage, référence des pièces, détails utiles…"></textarea></label></div><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer l’intervention</button></div></form></dialog>
-  <dialog id="component-dialog" aria-labelledby="component-dialog-title"><form id="component-form"><div class="dialog-heading"><div><p class="eyebrow">COMPOSANTS</p><h2 id="component-dialog-title">Ajouter un composant</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="form-grid"><label class="full-width">Nom du composant<input name="name" maxlength="160" required placeholder="Ex. Filtre à air"></label><label class="full-width">Ensemble<input name="group" maxlength="160" required placeholder="Ex. Moteur"></label><label>Intervalle en kilomètres<input name="intervalKm" type="number" min="1" max="1000000" step="1" placeholder="Facultatif"></label><label>Intervalle en mois<input name="intervalMonths" type="number" min="1" max="600" step="1" placeholder="Facultatif"></label><p class="reference-note full-width">Choisissez vos repères à partir du carnet d’entretien et des conseils du professionnel. Si les deux sont renseignés, le premier atteint détermine l’échéance affichée.</p></div><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le composant</button></div></form></dialog>
+  <dialog id="vehicle-dialog" aria-labelledby="vehicle-dialog-title">
+    <form id="vehicle-form">
+      <div class="dialog-heading"><div><p class="eyebrow">MON GARAGE</p><h2 id="vehicle-dialog-title">Ajouter un véhicule</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label class="full-width">Nom du véhicule<input name="name" required maxlength="2000" placeholder="Ex. Véhicule familial" autocomplete="off"></label>
+        <label>Année<input name="year" type="number" min="1900" max="2100" placeholder="Non renseignée"></label>
+        <label>Kilométrage actuel<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Inconnu"></label>
+        <label>Motorisation<input name="engine" maxlength="2000" placeholder="Non renseignée" autocomplete="off"></label>
+        <label>Date du relevé actuel<input name="odometerDate" type="date"></label>
+        <label class="full-width">Notes<textarea name="notes" rows="3"></textarea></label>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid">
+          <label class="full-width">Contenu de la fiche<textarea name="content" rows="4"></textarea></label>
+          <div class="full-width" id="vehicle-documents"></div>
+          <label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea><span class="hint">Informations conservées telles quelles, notamment les références et données d’origine.</span></label>
+        </div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le véhicule</button></div>
+    </form>
+  </dialog>
+  <dialog id="record-dialog" class="wide-dialog" aria-labelledby="record-dialog-title">
+    <form id="record-form">
+      <div class="dialog-heading"><div><p class="eyebrow">HISTORIQUE</p><h2 id="record-dialog-title">Ajouter une intervention</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label class="full-width">Intitulé<input name="title" required maxlength="2000" placeholder="Ex. Révision et vidange"></label>
+        <label>Type<select name="type" id="record-form-type"></select></label>
+        <label>État du dossier<select name="status"><option value="done">Enregistré</option><option value="incomplete">À compléter</option><option value="planned">Prévu</option></select></label>
+        <label>Date<input name="date" type="date"></label><label>Kilométrage<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Inconnu"></label>
+        <div class="full-width form-grid" id="summary-costs"><label>Pièces (€)<input name="partsAmount" inputmode="decimal" placeholder="Inconnu"></label><label>Main-d’œuvre / prestation (€)<input name="laborAmount" inputmode="decimal" placeholder="Inconnu"></label></div>
+        <label class="full-width">Total indiqué sur le justificatif (€)<input name="totalAmount" inputmode="decimal" placeholder="Facultatif, sinon calculé à partir des montants connus"><span class="hint">Un montant vide reste inconnu. Zéro signifie qu’aucun montant n’a été facturé.</span></label>
+        <details id="record-lines-details" class="full-width supplemental"><summary>Lignes de l’intervention</summary><p class="hint">Pièces, prestations, forfaits et frais. Les montants sont les totaux TTC de chaque ligne et gardent toutes leurs décimales.</p><div id="line-editors"></div><button class="ghost-button" id="add-line" type="button">Ajouter une ligne</button></details>
+        <fieldset class="full-width"><legend>Autres composants remplacés ou renouvelés</legend><p class="hint">Les lignes peuvent aussi préciser leur composant et l’action réalisée. Un contrôle ne réinitialise pas le suivi.</p><div id="record-components" class="checkbox-grid"></div></fieldset>
+        <label class="full-width">Notes<textarea name="notes" rows="3" placeholder="Garage, références, détails utiles…"></textarea></label>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid">
+          <label class="full-width">Contenu de la fiche<textarea name="content" rows="4"></textarea></label><div class="full-width" id="record-documents"></div>
+          <label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea></label>
+        </div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer l’intervention</button></div>
+    </form>
+  </dialog>
+  <dialog id="component-dialog" aria-labelledby="component-dialog-title">
+    <form id="component-form">
+      <div class="dialog-heading"><div><p class="eyebrow">COMPOSANTS</p><h2 id="component-dialog-title">Ajouter un composant</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label class="full-width">Nom du composant<input name="name" maxlength="2000" required placeholder="Ex. Filtre à air"></label><label class="full-width">Ensemble<input name="group" maxlength="2000" placeholder="Non classé"></label>
+        <label>Intervalle en kilomètres<input name="intervalKm" type="number" min="1" max="1000000" step="1" placeholder="Facultatif"></label><label>Intervalle en mois<input name="intervalMonths" type="number" min="1" max="1200" step="1" placeholder="Facultatif"></label>
+        <label class="full-width">Description<textarea name="description" rows="3"></textarea></label><label class="full-width">Notes<textarea name="notes" rows="3"></textarea></label>
+        <p class="reference-note full-width">Les intervalles sont des repères personnalisés à choisir avec le carnet d’entretien et les conseils du professionnel.</p>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid">
+          <label class="full-width">Contenu de la fiche<textarea name="content" rows="4"></textarea></label><div class="full-width" id="component-documents"></div>
+          <label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea></label>
+        </div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le composant</button></div>
+    </form>
+  </dialog>
+  <dialog id="garage-dialog" aria-labelledby="garage-dialog-title"><form id="garage-form">
+    <div class="dialog-heading"><h2 id="garage-dialog-title">Informations du garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p class="hint">Documents généraux et informations conservées avec l’ensemble du garage.</p><div id="garage-documents"></div>
+    <label>Autres données (JSON)<textarea name="extras" rows="10" spellcheck="false"></textarea></label>
+    <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div>
+  </form></dialog>
   <dialog id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><div><p id="detail-eyebrow" class="eyebrow"></p><h2 id="detail-title"></h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div id="detail-content"></div></dialog>
   <dialog id="commands-dialog" aria-labelledby="commands-title"><div class="dialog-heading"><h2 id="commands-title">Actions rapides</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div class="command-list"><button type="button" data-action="new-record">Ajouter une intervention <span>Historique</span></button><button type="button" data-action="new-component">Ajouter un composant <span>Entretien</span></button><button type="button" data-action="new-vehicle">Ajouter un véhicule <span>Garage</span></button><button type="button" data-action="export">Exporter mon garage <span>Sauvegarde JSON</span></button></div></dialog>
   <dialog id="import-dialog" aria-labelledby="import-title"><div class="dialog-heading"><h2 id="import-title">Importer un garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><p id="import-description"></p><p class="hint">Le garage actuel sera exporté avant le remplacement. Les préférences d’apparence seront conservées.</p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-confirm" class="primary-button" type="button">Importer et remplacer</button></div></dialog>

@@ -26,9 +26,10 @@ adaptée au suivi d'un véhicule :
   d'intervention. Une intervention liée à plusieurs composants est comptée une
   seule fois. Le carburant et l'assurance ne sont pas inclus dans ces totaux.
 
-On peut ajouter des véhicules, des interventions et des composants, modifier les
-informations d'un véhicule, rechercher dans l'historique et exporter/importer un
-garage en JSON. L'import est vérifié avant remplacement et télécharge d'abord
+Les véhicules, interventions, événements, composants et lignes détaillées peuvent
+être ajoutés et modifiés dans l’application. Les documents locaux peuvent être
+ajoutés, renommés, décrits et téléchargés depuis les fiches. La recherche parcourt
+les notes et les lignes d’intervention. Le garage s’exporte et s’importe en JSON. L'import est vérifié avant remplacement et télécharge d'abord
 une copie du garage ouvert. L'impression/PDF et les actions rapides avec
 **Ctrl/Cmd K** sont disponibles.
 
@@ -37,8 +38,9 @@ Ses montants et intervalles servent à explorer l'interface, pas de préconisati
 constructeur. Les repères d'entretien ne constituent pas un diagnostic de l'état
 réel des pièces.
 
-Les données sont enregistrées dans le navigateur sous des clés propres à Garapp
-et au chemin de publication. La version `dev` et la version principale ont des
+Les données et documents sont enregistrés dans IndexedDB, avec un repli vers le
+stockage local historique lorsque celui-ci est disponible. Les clés sont propres
+à Garapp et au chemin de publication. La version `dev` et la version principale ont des
 garages distincts. Un échec d'enregistrement est affiché et la copie ouverte
 reste exportable. Les écritures utilisent Web Locks lorsque le navigateur le
 permet et refusent de remplacer silencieusement les données d'un autre onglet.
@@ -48,9 +50,38 @@ de Finapp et de Garapp entre elles et les versions principales entre elles.
 Dans Finapp, ce menu suit le choix français/anglais. Les applications conservent
 leurs propres données et préférences.
 
-La gestion des factures et la vue 3D éclatée avec composants cliquables restent
-à développer. Les palettes et le serveur de développement repris de Finapp sont
+La vue 3D éclatée avec composants cliquables reste à développer. Les palettes et le serveur de développement repris de Finapp sont
 attribués dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Données complètes et sauvegardes
+
+Le [format JSON version 2](docs/backup-format.md) décrit les champs, les règles de
+calcul et les documents embarqués. Un [exemple entièrement fictif](docs/examples/garage-v2.json)
+est fourni pour les outils qui produisent une sauvegarde. Aucun accès à un service
+externe n’est nécessaire pour importer ou consulter un garage.
+
+- Les lignes d’intervention portent leurs propres libellés, descriptions, montants
+  exacts, documents et liens de composants. Pièces, prestations, forfaits et frais
+  restent distincts ; un contrôle ne réinitialise pas le suivi d’un remplacement.
+- Les montants utilisent des chaînes décimales en euros. Le détail conserve la
+  précision d’origine ; les synthèses sont arrondies aux centimes après addition.
+- Dates, kilométrages, catégories et montants peuvent rester inconnus. Une valeur
+  inconnue est distinguée de zéro, et les relevés contradictoires sont conservés.
+- Les acquisitions, mises en circulation, programmes d’entretien et relevés ont
+  leur place dans l’historique, avec un périmètre de dépenses séparé.
+- Les notes, corps de fiches et champs JSON supplémentaires sont conservés dans les
+  sauvegardes et peuvent être corrigés dans l’application.
+- Les documents sont intégrés au JSON en base64 : les originaux restent accessibles
+  sans dépendre d’un lien de téléchargement temporaire. Chaque fichier est limité
+  à 64 Mio ; une sauvegarde est limitée à 512 Mio, base64 inclus.
+- Les anciennes sauvegardes version 1 restent lisibles et sont mises à niveau sans
+  supprimer les propriétés supplémentaires. Les versions futures inconnues sont refusées.
+
+Un échec de stockage ou de quota est affiché ; les modifications et documents de
+la copie ouverte restent exportables. Les transactions IndexedDB et les notifications
+entre onglets protègent contre le remplacement silencieux d’une autre copie. Le
+stockage navigateur reste local à un appareil et à un chemin de publication : les
+exports sont nécessaires pour conserver une sauvegarde indépendante.
 
 ## Versions publiées
 

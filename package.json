@@ -1,6 +1,6 @@
 {
   "name": "garapp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Votre véhicule, pièce par pièce. Un garage personnel dans le navigateur.",

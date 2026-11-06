@@ -37,7 +37,7 @@ test('the first reached time or distance interval governs the planning reference
 test('a new replacement uses the date and mileage of that same intervention', () => {
   const vehicle = exampleGarage(date).vehicles[0];
   const part = vehicle.components[0];
-  vehicle.records.push({ id: 'new', title: 'Nouvelle vidange', type: 'entretien', date, odometer: 128400, partsCents: 7500, laborCents: 5000, componentIds: ['oil'], notes: '' });
+  vehicle.records.push({ id: 'new', title: 'Nouvelle vidange', type: 'entretien', date, odometer: 128400, partsAmount: '75', laborAmount: '50', componentIds: ['oil'], notes: '' });
   const original = structuredClone(vehicle);
   const life = componentLife(vehicle, part, date);
   assert.equal(life.last.id, 'new');
@@ -58,9 +58,9 @@ test('backups reject broken relations, duplicate IDs, impossible dates and inval
   for (const corrupt of [
     (vehicle) => { vehicle.records[0].componentIds = ['missing']; },
     (vehicle) => { vehicle.records[0].date = '2026-02-30'; },
-    (vehicle) => { vehicle.records[0].laborCents = -1; },
-    (vehicle) => { vehicle.records[0].partsCents = '7900'; },
-    (vehicle) => { vehicle.records[0].odometer = vehicle.odometer + 1; },
+    (vehicle) => { vehicle.records[0].laborAmount = 'not-an-amount'; },
+    (vehicle) => { vehicle.records[0].partsAmount = 7900; },
+    (vehicle) => { vehicle.records[0].odometer = -1; },
     (vehicle) => { vehicle.components[1].id = vehicle.components[0].id; },
   ]) {
     const garage = exampleGarage(date);
