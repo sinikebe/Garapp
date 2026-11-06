@@ -7,29 +7,50 @@ sur son véhicule, comprendre l'état de ses composants et suivre ce qu'il coût
 au fil du temps.
 
 L'application appartient à la famille **finapps**, aux côtés de
-[Finapp](https://github.com/sinikebe/finapp), et reprendra son identité visuelle
-une fois sa refonte finalisée.
+[Finapp](https://github.com/sinikebe/finapp), et reprend son identité visuelle
+à partir de sa version de développement.
 
-> **État du projet : initialisation.** Le dépôt contient la documentation et la
-> chaîne de publication. Les fonctionnalités ci-dessous restent à développer.
-> GitHub Pages affiche une page d'attente tant que l'application n'est pas présente.
+## Première interface
 
-## Ce que Garapp doit permettre
+L'interface reprend les palettes, la typographie, les contrôles et les trois
+ambiances **Horizon**, **Atelier** et **Parcours** de Finapp. Sa navigation est
+adaptée au suivi d'un véhicule :
 
-- **Garage** : regrouper les informations du véhicule et son kilométrage.
-- **Interventions** : conserver les révisions, réparations et opérations
-  d'entretien avec leur date, leur kilométrage, leurs notes et leurs factures.
-- **Composants** : identifier les pièces et retrouver les interventions qui les
-  ont contrôlées, entretenues ou remplacées.
-- **Échéances** : suivre les intervalles en temps et en kilomètres pour anticiper
-  les prochains entretiens.
-- **Coûts** : distinguer pièces, main-d'œuvre et autres dépenses, puis consulter
-  les dépenses par intervention, composant ou période. Le carburant, l'assurance
-  et les autres frais pourront compléter le coût de possession.
-- **Exploration visuelle, à étudier** : une vue 3D éclatée du véhicule, avec des
-  composants cliquables et une coloration selon leur durée de vie estimée
-  restante ou leur prix. Les estimations devront être distinguées des mesures
-  et des préconisations constructeur.
+- **Vue d'ensemble** : véhicule sélectionné, kilométrage, repères à prévoir,
+  dépenses enregistrées et interventions récentes.
+- **Interventions** : journal filtrable, détail des coûts, notes et liens vers
+  les composants remplacés ou renouvelés.
+- **Composants** : historique des remplacements et intervalles personnalisables
+  en kilomètres ou en mois. Le premier intervalle atteint gouverne le repère.
+- **Dépenses** : total par période, pièces, main-d'œuvre et répartition par type
+  d'intervention. Une intervention liée à plusieurs composants est comptée une
+  seule fois. Le carburant et l'assurance ne sont pas inclus dans ces totaux.
+
+On peut ajouter des véhicules, des interventions et des composants, modifier les
+informations d'un véhicule, rechercher dans l'historique et exporter/importer un
+garage en JSON. L'import est vérifié avant remplacement et télécharge d'abord
+une copie du garage ouvert. L'impression/PDF et les actions rapides avec
+**Ctrl/Cmd K** sont disponibles.
+
+Le premier lancement propose un **garage d'exemple fictif**, clairement identifié.
+Ses montants et intervalles servent à explorer l'interface, pas de préconisations
+constructeur. Les repères d'entretien ne constituent pas un diagnostic de l'état
+réel des pièces.
+
+Les données sont enregistrées dans le navigateur sous des clés propres à Garapp
+et au chemin de publication. La version `dev` et la version principale ont des
+garages distincts. Un échec d'enregistrement est affiché et la copie ouverte
+reste exportable. Les écritures utilisent Web Locks lorsque le navigateur le
+permet et refusent de remplacer silencieusement les données d'un autre onglet.
+
+Le **logo ouvre le menu des applications finapps**. Il relie les versions `dev`
+de Finapp et de Garapp entre elles et les versions principales entre elles.
+Dans Finapp, ce menu suit le choix français/anglais. Les applications conservent
+leurs propres données et préférences.
+
+La gestion des factures et la vue 3D éclatée avec composants cliquables restent
+à développer. Les palettes et le serveur de développement repris de Finapp sont
+attribués dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Versions publiées
 
@@ -39,8 +60,8 @@ une fois sa refonte finalisée.
 | `dev` | Développement et validation | <https://sinikebe.github.io/Garapp/dev/> |
 
 Ces adresses sont disponibles après activation de GitHub Pages et réussite du
-premier déploiement. Au démarrage, elles affichent une page d'attente identifiant
-la branche et donnant accès à l'autre version.
+premier déploiement. La branche `dev` contient la première interface ; la version de référence reste
+sous le contrôle du mainteneur.
 
 Le travail courant se fait sur `dev`. Une fusion de `dev` vers `main` publie la
 version de référence.
@@ -50,8 +71,8 @@ version de référence.
 Les workflows [CI](.github/workflows/ci.yml) et
 [GitHub Pages](.github/workflows/pages.yml) :
 
-1. Vérifient la préparation du site à chaque push sur `main` ou `dev` et sur les
-   pull requests visant ces branches.
+1. Vérifient la préparation du site et exécutent les tests Node sur chaque push
+   sur `main` ou `dev` et sur les pull requests visant ces branches.
 2. Après une CI réussie sur un push ou un lancement manuel depuis `main` ou
    `dev`, récupèrent les dernières versions de **ces deux branches**.
 3. Assemblent `main` à la racine et `dev` dans le sous-dossier `dev/`, puis publient
@@ -86,7 +107,7 @@ Le workflow peut ensuite être relancé depuis
 avec **Run workflow** en sélectionnant `main`, ou par un nouveau push sur `main`
 ou `dev` qui passe la CI.
 
-### Ajouter l'application ultérieurement
+### Dossier publié
 
 Le script [scripts/prepare_pages.py](scripts/prepare_pages.py) publie le contenu
 de `public/` lorsqu'il existe. Ce dossier doit contenir un `index.html` non vide.
@@ -104,16 +125,24 @@ Les éventuels service workers devront limiter leur portée à leur version.
 Les deux versions partagent une origine GitHub Pages : les clés de stockage
 local devront aussi être distinctes pour éviter de mélanger leurs données.
 
-## Vérification locale
+## Développement et vérification locale
 
-Python 3.10 ou plus récent suffit pour préparer la publication actuelle, sans
-dépendance à installer :
+Node 22 ou plus récent suffit pour utiliser et tester l'application, sans
+installation de dépendances :
+
+```sh
+npm start
+npm test
+```
+
+Ouvrir <http://localhost:4173>. `npm run dev` utilise le même serveur local.
+Le site publié utilise exclusivement des chemins de ressources relatifs.
+
+Python 3.10 ou plus récent est utilisé pour assembler les fichiers de publication :
 
 ```sh
 python3 scripts/prepare_pages.py --source . --output /tmp/garapp-preview --branch dev
-python3 -m http.server 8000 --directory /tmp/garapp-preview
 ```
 
-Ouvrir <http://localhost:8000>. Le dossier de sortie doit être nouveau ; choisir
-un autre chemin pour une seconde préparation. Cette commande sert à prévisualiser
-une branche seule. L'assemblage des deux versions est effectué par le workflow.
+Le dossier de sortie doit être nouveau. La CI assemble les deux branches dans
+un même site avec `main` à la racine et `dev` sous `/dev/`.

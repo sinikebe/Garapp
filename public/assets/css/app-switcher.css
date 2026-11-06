@@ -1,0 +1,22 @@
+/* Shared launcher. Native disclosure and ordinary links retain keyboard navigation. */
+.suite-switcher { position: relative; display: block; min-width: 0; }
+.suite-trigger { display: flex; align-items: center; gap: var(--space-sm); min-height: 44px; cursor: pointer; list-style: none; border-radius: var(--radius-sm); width: fit-content; }
+.suite-trigger::-webkit-details-marker { display: none; }
+.suite-trigger::marker { content: ''; }
+.suite-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.suite-grid { width: 18px; height: 18px; margin-left: var(--space-xs); color: var(--text-secondary); }
+.suite-switcher[open] .suite-grid { color: var(--accent); }
+.suite-panel { position: absolute; top: calc(100% + 12px); left: 0; width: min(340px, calc(100vw - 32px)); padding: var(--space-xl); border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface-1); box-shadow: var(--shadow); z-index: 100; color: var(--text-primary); letter-spacing: normal; }
+.suite-panel > p { margin: 0; }
+.suite-panel [data-suite-title] { font-size: var(--type-sm); font-weight: 600; }
+.suite-panel [data-suite-environment] { font-size: var(--type-2xs); color: var(--text-secondary); margin-top: var(--space-2xs); }
+.suite-apps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-sm); margin-top: var(--space-xl); }
+.suite-apps a { display: grid; justify-items: center; align-content: start; gap: var(--space-sm); padding: var(--space-xl) var(--space-sm); border: 1px solid transparent; border-radius: var(--radius-sm); text-align: center; text-decoration: none; color: var(--text-primary); min-width: 0; }
+.suite-apps a:hover { background: var(--surface-2); }
+.suite-apps a[aria-current="page"] { background: var(--accent-wash, var(--surface-2)); border-color: var(--border-strong); }
+.suite-app-mark { display: grid; place-items: center; width: 44px; height: 44px; background: var(--surface-2); color: var(--accent); border-radius: 14px; font-size: var(--type-xl); font-weight: 650; }
+.suite-apps strong { font-size: var(--type-sm); font-weight: 600; }
+.suite-apps small { font-size: var(--type-2xs); font-weight: 400; color: var(--text-secondary); line-height: 1.4; }
+@media (max-width: 420px) { .suite-grid { margin-left: 0; width: 16px; } }
+@media (forced-colors: active) { .suite-apps a[aria-current="page"] { outline: 2px solid Highlight; } }
+@media print { .suite-panel { display: none !important; } }
