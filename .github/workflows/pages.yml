@@ -1,9 +1,9 @@
 name: GitHub Pages
 
 on:
-  push:
-    branches: [main, dev]
-  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main, dev]
   workflow_dispatch:
 
@@ -13,35 +13,21 @@ permissions:
 # Keep the lock through both checkout and deployment, so queued runs rebuild
 # from current branch heads instead of publishing an older assembled artifact.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.event.pull_request.number) || 'pages' }}
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  check:
-    name: Check site preparation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout the proposed revision
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Prepare the current revision
-        env:
-          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: >-
-          python3 scripts/prepare_pages.py
-          --source .
-          --output "$RUNNER_TEMP/garapp-check"
-          --branch "$TARGET_BRANCH"
-
   publish:
     name: Publish main and dev
-    needs: check
+    # workflow_run executes on the default branch. Keep Pages deployments on
+    # main even when validation was triggered by a push to dev.
     if: >-
-      github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (github.event.workflow_run.event == 'push' ||
+         github.event.workflow_run.event == 'workflow_dispatch')))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -55,6 +41,7 @@ jobs:
       - name: Checkout publishing tools
         uses: actions/checkout@v6
         with:
+          ref: main
           persist-credentials: false
           path: tooling
 

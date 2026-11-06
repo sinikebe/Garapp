@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check site preparation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the proposed revision
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare the current revision
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: >-
+          python3 scripts/prepare_pages.py
+          --source .
+          --output "$RUNNER_TEMP/garapp-check"
+          --branch "$TARGET_BRANCH"

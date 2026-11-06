@@ -47,19 +47,25 @@ version de référence.
 
 ## CI et publication
 
-Le workflow [GitHub Pages](.github/workflows/pages.yml) :
+Les workflows [CI](.github/workflows/ci.yml) et
+[GitHub Pages](.github/workflows/pages.yml) :
 
-1. Vérifie la préparation du site à chaque push sur `main` ou `dev` et sur les
+1. Vérifient la préparation du site à chaque push sur `main` ou `dev` et sur les
    pull requests visant ces branches.
-2. Lors d'un push sur l'une de ces branches, ou d'un lancement manuel depuis
-   `main` ou `dev`, récupère les dernières versions de **ces deux branches**.
-3. Assemble `main` à la racine et `dev` dans le sous-dossier `dev/`, puis publie
+2. Après une CI réussie sur un push ou un lancement manuel depuis `main` ou
+   `dev`, récupèrent les dernières versions de **ces deux branches**.
+3. Assemblent `main` à la racine et `dev` dans le sous-dossier `dev/`, puis publient
    un seul artefact GitHub Pages.
 
 Une pull request est vérifiée sans publication. Les publications sont
 sérialisées et chaque exécution récupère les deux branches après sa mise en
 attente : publier `dev` conserve la version issue de `main`, et inversement.
 Une erreur de préparation interrompt la publication complète.
+
+La publication s'exécute toujours depuis `main`, même lorsqu'un changement de
+`dev` l'a déclenchée. Elle fonctionne ainsi avec un environnement `github-pages`
+qui n'autorise que `main`. Les pull requests, y compris celles issues d'un fork,
+ne déclenchent aucune publication.
 
 La CI utilise les actions officielles GitHub et le `GITHUB_TOKEN` fourni par
 GitHub Actions. Aucun secret personnel et aucune branche `gh-pages` ne sont
@@ -71,13 +77,14 @@ Dans [Settings → Pages](https://github.com/sinikebe/Garapp/settings/pages),
 sélectionner **GitHub Actions** comme source de publication.
 
 Si l'environnement `github-pages` limite les branches de déploiement, autoriser
-**`main` et `dev`** dans
+**`main`** dans
 [Settings → Environments](https://github.com/sinikebe/Garapp/settings/environments).
 Les deux branches doivent exister pour assembler le site.
 
 Le workflow peut ensuite être relancé depuis
 [Actions → GitHub Pages](https://github.com/sinikebe/Garapp/actions/workflows/pages.yml)
-avec **Run workflow**, ou par un nouveau push sur `main` ou `dev`.
+avec **Run workflow** en sélectionnant `main`, ou par un nouveau push sur `main`
+ou `dev` qui passe la CI.
 
 ### Ajouter l'application ultérieurement
 
