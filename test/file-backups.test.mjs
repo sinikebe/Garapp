@@ -138,6 +138,19 @@ test('a failed read-back is never reported as a successful saved checkpoint', as
   assert.equal(backup.verified, false);
 });
 
+test('a platform-level denial keeps the file intact and offers the portable fallback', async () => {
+  const file = fileHandle(), backup = new FileBackup(settings(), { locks: null });
+  await backup.create(file.handle, garage());
+  const original = file.text, checkpoint = backup.state.fileHash;
+  file.handle.requestPermission = async () => { throw new DOMException('Platform access denied', 'SecurityError'); };
+  backup.auto = true;
+  await assert.rejects(backup.write({ ...garage(), notes: 'Modification fictive' }, true), /téléchargement et l’import JSON/);
+  assert.equal(file.text, original);
+  assert.equal(backup.state.fileHash, checkpoint);
+  assert.equal(backup.auto, false);
+  assert.match(backup.error, /ce navigateur/);
+});
+
 test('opening an existing file never writes, and rechecks its content before linking', async () => {
   const file = fileHandle(JSON.stringify(garage())), backup = new FileBackup(settings(), { locks: null });
   const incoming = await readBackupFile(await file.handle.getFile());

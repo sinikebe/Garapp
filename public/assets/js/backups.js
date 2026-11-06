@@ -77,6 +77,14 @@ export class BackupSettings {
 const changedFile = () => Error('Le fichier a changé ailleurs. Aucune modification n’a été écrite. Téléchargez la copie ouverte, puis ouvrez le fichier pour comparer les versions avant de poursuivre.');
 const permissionDenied = () => Error('L’accès au fichier doit être autorisé. Utilisez « Mettre à jour le fichier » pour réessayer, ou téléchargez une copie JSON.');
 
+export function backupErrorMessage(error) {
+  if (['NotAllowedError', 'SecurityError'].includes(error.name)) return 'L’accès direct aux fichiers n’a pas été autorisé par ce navigateur. Le téléchargement et l’import JSON restent disponibles.';
+  if (error.name === 'NotFoundError') return 'Le fichier lié est introuvable. Téléchargez une copie JSON ou sélectionnez à nouveau un fichier.';
+  if (error.name === 'NoModificationAllowedError') return 'Le fichier est occupé par une autre écriture. Réessayez après sa fermeture ou téléchargez une copie JSON.';
+  if (['NotReadableError', 'InvalidStateError'].includes(error.name)) return 'Le fichier est inaccessible. Téléchargez une copie JSON et vérifiez le fichier avant de réessayer.';
+  return error.message || 'L’opération sur le fichier a échoué. Le téléchargement JSON reste disponible.';
+}
+
 export class FileBackup {
   constructor(settings, { locks = globalThis.navigator?.locks, onChange = () => {} } = {}) {
     this.settings = settings;
@@ -137,8 +145,8 @@ export class FileBackup {
     } catch (error) {
       this.verified = false;
       this.auto = false;
-      this.error = error.message;
-      throw error;
+      this.error = backupErrorMessage(error);
+      throw Error(this.error, { cause: error });
     } finally { this.onChange(); }
   }
 
@@ -207,8 +215,8 @@ export class FileBackup {
     } catch (error) {
       this.auto = false;
       this.verified = false;
-      this.error = error.message;
-      throw error;
+      this.error = backupErrorMessage(error);
+      throw Error(this.error, { cause: error });
     } finally { this.busy = false; this.onChange(); }
   }
 }

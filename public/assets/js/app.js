@@ -5,7 +5,7 @@ import { suiteLinks } from './app-switcher.js';
 import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
 import { initHeaderMenus } from './header-menus.js';
 import { BackupPanel } from './backup-panel.js';
-import { readBackupFile, fingerprint } from './backups.js';
+import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -524,6 +524,7 @@ async function prepareImport(file, handle = null) {
   if ($('import-confirm').dataset.importing) throw Error('Un import est déjà en cours.');
   const generation = ++importGeneration;
   pendingImport = null;
+  backups.suspend();
   const incoming = await readBackupFile(file);
   if (generation !== importGeneration) return;
   pendingImport = { ...incoming, handle };
@@ -538,7 +539,7 @@ async function prepareImport(file, handle = null) {
 $('backup-file').addEventListener('change', async (event) => {
   const file = event.target.files[0]; event.target.value = ''; pendingImport = null; if (!file) return;
   try { await prepareImport(file); }
-  catch (error) { backups.announce(`Import refusé. ${error.message}`); }
+  catch (error) { backups.announce(`Import refusé. ${backupErrorMessage(error)}`); }
 });
 $('import-confirm').addEventListener('click', async () => {
   if (!pendingImport || saving || backups.files.busy || $('import-confirm').dataset.importing) return;
@@ -554,11 +555,11 @@ $('import-confirm').addEventListener('click', async () => {
     let linkError = '';
     if (incoming.handle && !unsaved) {
       try { await backups.files.link(incoming.handle, incoming); }
-      catch (error) { linkError = ` Le garage a été importé, mais le fichier n’a pas été lié : ${error.message}`; }
+      catch (error) { linkError = ` Le garage a été importé, mais le fichier n’a pas été lié : ${backupErrorMessage(error)}`; }
     }
     await backups.update(false);
     announce(unsaved ? 'Garage importé dans la copie ouverte. Exportez-le avant de quitter : l’enregistrement local a échoué.' : `Garage et documents importés. Le téléchargement de la copie précédente a été demandé.${linkError}`);
-  } catch (error) { $('import-error').textContent = error.message; $('import-error').hidden = false; }
+  } catch (error) { $('import-error').textContent = backupErrorMessage(error); $('import-error').hidden = false; }
   finally { delete button.dataset.importing; backups.render(); }
 });
 const suite = suiteLinks(base);

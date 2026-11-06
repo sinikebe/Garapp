@@ -1,5 +1,5 @@
 import { inventory } from './garage.js';
-import { BackupSettings, FileBackup, backupKey, backupBlob, backupFilename, fingerprint } from './backups.js';
+import { BackupSettings, FileBackup, backupKey, backupBlob, backupFilename, fingerprint, backupErrorMessage } from './backups.js';
 
 const $ = (id) => document.getElementById(id);
 const dateTime = (value) => {
@@ -114,7 +114,7 @@ export class BackupPanel {
       await this.files.create(handle, this.getGarage());
       await this.update(false);
       this.announce('Fichier de sauvegarde écrit et vérifié.');
-    } catch (error) { if (error.name !== 'AbortError') this.announce(error.message); }
+    } catch (error) { if (error.name !== 'AbortError') this.announce(backupErrorMessage(error)); }
     finally { this.picking = false; this.render(); }
   }
 
@@ -125,7 +125,7 @@ export class BackupPanel {
     try {
       const [handle] = await window.showOpenFilePicker({ ...this.pickerOptions(), multiple: false, mode: 'readwrite' });
       await this.openFile(await handle.getFile(), handle);
-    } catch (error) { if (error.name !== 'AbortError') this.announce(error.message); }
+    } catch (error) { if (error.name !== 'AbortError') this.announce(backupErrorMessage(error)); }
     finally { this.picking = false; this.render(); }
   }
 
