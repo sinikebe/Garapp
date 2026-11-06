@@ -38,19 +38,7 @@ export function initAppSwitcher(root = document, address = new URL('../../', imp
   translate();
   const observer = new MutationObserver(translate);
   observer.observe(root.documentElement, { attributes: true, attributeFilter: ['lang'] });
-  launcher.addEventListener('toggle', () => {
-    if (launcher.open) root.querySelectorAll('.tools-menu[open]').forEach((menu) => { menu.open = false; });
-  });
-  root.addEventListener('click', (event) => {
-    if (launcher.open && !launcher.contains(event.target)) launcher.open = false;
-  });
-  launcher.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && launcher.open) {
-      event.preventDefault();
-      launcher.open = false;
-      trigger.focus();
-    }
-  });
+
 }
 
 if (typeof document !== 'undefined') initAppSwitcher();

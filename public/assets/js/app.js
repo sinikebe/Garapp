@@ -2,17 +2,22 @@ import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_BACKUP_BYTES, MAX_DOCUMENT_BYT
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
 import { suiteLinks } from './app-switcher.js';
+import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
+import { initHeaderMenus } from './header-menus.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 const number = (value) => value === null || value === undefined ? 'Non renseigné' : new Intl.NumberFormat('fr-FR').format(value);
 const mileage = (value) => value === null || value === undefined ? 'Kilométrage inconnu' : `${number(value)} km`;
 const dateText = (date, options = { day: 'numeric', month: 'short', year: 'numeric' }) => date ? new Date(`${date}T12:00:00Z`).toLocaleDateString('fr-FR', options) : 'Date inconnue';
-const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const icon = (name) => `<svg class="icon ui-icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const labels = { due: 'Échéance atteinte', soon: 'À prévoir', ok: 'Repère non atteint', unknown: 'Suivi à compléter' };
 const base = new URL('../../', import.meta.url);
 const key = storageKey(base);
 const preferenceKey = key.replace('workspace', 'preferences');
+const navigationStorageKey = navigationKey(base);
+let navigation = normalizeNavigation(null, today().slice(0, 4));
+try { navigation = readNavigation(localStorage, navigationStorageKey, today().slice(0, 4)); } catch { /* Navigation remains usable without storage access. */ }
 const repository = new WorkspaceStorage(key);
 let garage;
 let unsaved = false;
@@ -27,9 +32,10 @@ let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
 const downloadableDocuments = new Map();
+let commandReturnFocus = null;
 const openDialogs = () => [...document.querySelectorAll('dialog[open]')];
 const vehicle = () => garage.vehicles.find((one) => one.id === garage.activeId);
-const closeMenus = () => document.querySelectorAll('.tools-menu[open], [data-suite-switcher][open]').forEach((menu) => { menu.open = false; });
+const closeMenus = initHeaderMenus(document);
 const announce = (message) => { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6000); };
 function storageWarning(message) { $('storage-warning').hidden = false; $('storage-message').textContent = message; $('save-status').textContent = 'Modifications non enregistrées'; }
 try {
@@ -66,7 +72,15 @@ function applyPreferences() {
   else document.documentElement.dataset.theme = preferences.theme;
   $('layout-select').value = preferences.layout;
   const names = { auto: 'automatique', light: 'claire', dark: 'sombre' };
-  $('theme-toggle').setAttribute('aria-label', `Apparence ${names[preferences.theme]}. Changer l’apparence.`);
+  const next = { auto: 'claire', light: 'sombre', dark: 'automatique' };
+  $('appearance-value').textContent = { auto: 'Auto', light: 'Clair', dark: 'Sombre' }[preferences.theme];
+  $('theme-toggle').setAttribute('aria-label', `Apparence ${names[preferences.theme]}. Passer à l’apparence ${next[preferences.theme]}.`);
+  const descriptions = {
+    horizon: 'Horizon : tableau de bord aéré et composants en grille sur grand écran.',
+    atelier: 'Atelier : cartes plus rapprochées et composants en deux colonnes sur grand écran.',
+    parcours: 'Panorama : espace centré et navigation en haut sur grand écran, sans étapes imposées.',
+  };
+  $('presentation-description').textContent = descriptions[preferences.layout];
   try { localStorage.setItem(preferenceKey, JSON.stringify(preferences)); } catch { /* Optional preferences. */ }
 }
 function pill(life) { return `<span class="status-pill" data-status="${life.status}">${labels[life.status]}</span>`; }
@@ -130,7 +144,17 @@ const views = {
   composants: ['Chaque pièce a son histoire.', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
   depenses: ['Savoir où va votre budget.', 'Les dépenses connues et les montants à compléter.'],
 };
-let section = Object.hasOwn(views, location.hash.slice(1)) ? location.hash.slice(1) : 'garage';
+let section = resolveSection(location.hash, navigation.section);
+
+function rememberNavigation() {
+  navigation.section = section;
+  if (garage.activeId) navigation.filters[garage.activeId] = normalizeFilters({
+    recordSearch: $('record-search').value, recordType: $('record-type').value,
+    componentSearch: $('component-search').value, componentStatus: $('component-status').value,
+    expenseYear: $('expense-year').value, expenseScope: $('expense-scope').value,
+  }, today().slice(0, 4));
+  try { writeNavigation(localStorage, navigationStorageKey, navigation); } catch { /* Optional UI context. */ }
+}
 function render() {
   const current = vehicle();
   document.body.dataset.section = section;
@@ -147,15 +171,21 @@ function render() {
     $('dashboard').innerHTML = empty('Votre garage commence ici.', 'Ajoutez un véhicule, puis ses interventions et ses composants.', 'new-vehicle', 'Ajouter un véhicule');
     return;
   }
-  const previousType = $('record-type').value || 'all';
+  const filters = normalizeFilters(Object.hasOwn(navigation.filters, current.id) ? navigation.filters[current.id] : null, today().slice(0, 4));
+  $('record-search').value = filters.recordSearch;
+  $('component-search').value = filters.componentSearch;
+  $('component-status').value = filters.componentStatus;
+  $('expense-scope').value = filters.expenseScope;
+  const previousType = filters.recordType;
   const types = [...new Set([...Object.keys(TYPES), ...current.records.map((record) => record.type)])];
   $('record-type').innerHTML = '<option value="all">Tous les types</option>' + types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
   $('record-type').value = types.includes(previousType) ? previousType : 'all';
-  const previousYear = $('expense-year').value || today().slice(0, 4);
+  const previousYear = filters.expenseYear;
   const years = [...new Set([today().slice(0, 4), ...current.records.map((record) => record.date?.slice(0, 4)).filter(Boolean)])].sort().reverse();
   $('expense-year').innerHTML = years.map((year) => `<option value="${year}">${year}</option>`).join('') + '<option value="undated">Sans date</option><option value="all">Tout l’historique</option>';
   $('expense-year').value = ['all', 'undated', ...years].includes(previousYear) ? previousYear : today().slice(0, 4);
   renderDashboard(current); renderRecords(); renderComponents(); renderExpenses();
+  rememberNavigation();
 }
 
 const CORE = {
@@ -192,9 +222,23 @@ function documentsMarkup(documents) {
 function showDialog(id) {
   closeMenus();
   for (const dialog of openDialogs()) if (dialog.id !== id) dialog.close();
+  if (id === 'commands-dialog') { $('command-search').value = ''; filterCommands(); }
   if (!$(id).open) $(id).showModal();
   else { const heading = $(id).querySelector('h2'); heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
 }
+function openCommands() {
+  if (!$('commands-dialog').open) {
+    const active = document.activeElement;
+    commandReturnFocus = active?.closest('.tools-menu') ? document.querySelector('.tools-menu > summary') : active;
+  }
+  showDialog('commands-dialog');
+  $('command-search').focus({ preventScroll: true });
+}
+$('commands-dialog').addEventListener('close', () => {
+  if (openDialogs().length) return;
+  const target = commandReturnFocus?.isConnected && commandReturnFocus.getClientRects().length ? commandReturnFocus : document.querySelector('.tools-menu > summary');
+  target?.focus({ preventScroll: true });
+});
 function detailRecord(id) {
   const current = vehicle();
   const record = current?.records.find((one) => one.id === id);
@@ -415,7 +459,7 @@ document.addEventListener('input', (event) => {
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
-  export: exportGarage, import: () => $('backup-file').click(), print: () => window.print(), reload: () => location.reload(),
+  commands: openCommands, export: exportGarage, import: () => $('backup-file').click(), print: () => window.print(), reload: () => location.reload(),
 };
 document.addEventListener('click', (event) => {
   const target = event.target;
@@ -431,17 +475,31 @@ document.addEventListener('click', (event) => {
   const removeDoc = target.closest('[data-remove-document]');
   if (removeDoc) { const draft = documentDrafts.get(removeDoc.dataset.owner); draft.documents = draft.documents.filter((doc) => doc.id !== removeDoc.dataset.removeDocument); refreshDocuments(removeDoc.dataset.owner); return; }
   const route = target.closest('[data-route]'); if (route) location.hash = route.dataset.route;
-  document.querySelectorAll('.tools-menu[open]').forEach((menu) => { if (!menu.contains(target)) menu.open = false; });
 });
-$('vehicle-select').addEventListener('change', async (event) => { try { await save({ ...garage, activeId: event.target.value }); } catch (error) { announce(error.message); } });
+$('vehicle-select').addEventListener('change', async (event) => { rememberNavigation(); try { await save({ ...garage, activeId: event.target.value }); } catch (error) { announce(error.message); } });
 $('layout-select').addEventListener('change', (event) => { preferences.layout = event.target.value; applyPreferences(); });
 $('theme-toggle').addEventListener('click', () => { preferences.theme = { auto: 'light', light: 'dark', dark: 'auto' }[preferences.theme]; applyPreferences(); });
-$('commands-open').addEventListener('click', () => showDialog('commands-dialog'));
-document.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!openDialogs().some((dialog) => dialog.querySelector('form'))) showDialog('commands-dialog'); } });
-for (const id of ['record-search', 'record-type']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', renderRecords);
-for (const id of ['component-search', 'component-status']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', renderComponents);
-for (const id of ['expense-year', 'expense-scope']) $(id).addEventListener('change', renderExpenses);
-window.addEventListener('hashchange', () => { const next = location.hash.slice(1); if (!Object.hasOwn(views, next)) return; section = next; render(); $('view-title').focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' }); });
+$('commands-open').addEventListener('click', openCommands);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && $('commands-dialog').open) { event.preventDefault(); $('commands-dialog').close(); return; }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); if (!openDialogs().some((dialog) => dialog.querySelector('form'))) openCommands(); }
+});
+for (const id of ['record-search', 'record-type']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', () => { rememberNavigation(); renderRecords(); });
+for (const id of ['component-search', 'component-status']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', () => { rememberNavigation(); renderComponents(); });
+for (const id of ['expense-year', 'expense-scope']) $(id).addEventListener('change', () => { rememberNavigation(); renderExpenses(); });
+window.addEventListener('hashchange', () => {
+  if (location.hash === '#main') return;
+  rememberNavigation();
+  section = resolveSection(location.hash, navigation.section);
+  render(); $('view-title').focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'instant' });
+});
+function filterCommands() {
+  const query = searchText($('command-search').value);
+  const buttons = [...document.querySelectorAll('#commands-dialog .command-list button')];
+  buttons.forEach((button) => { button.hidden = !searchText(button.textContent).includes(query); });
+  $('command-empty').hidden = buttons.some((button) => !button.hidden);
+}
+$('command-search').addEventListener('input', filterCommands);
 window.addEventListener('beforeunload', (event) => { if (unsaved) { event.preventDefault(); event.returnValue = ''; } });
 repository.subscribe(async () => {
   if (openDialogs().length || unsaved || saving) return storageWarning('Le garage a changé dans un autre onglet. Exportez les modifications ouvertes avant de recharger.');

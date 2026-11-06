@@ -20,3 +20,4 @@
 @media (max-width: 420px) { .suite-grid { margin-left: 0; width: 16px; } }
 @media (forced-colors: active) { .suite-apps a[aria-current="page"] { outline: 2px solid Highlight; } }
 @media print { .suite-panel { display: none !important; } }
+.suite-panel { max-height: calc(100dvh - 112px); overflow-y: auto; overscroll-behavior: contain; }

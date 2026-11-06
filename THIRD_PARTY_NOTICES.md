@@ -5,6 +5,10 @@ and the development server in `tools/serve.mjs`,
 are adapted from [Finapp](https://github.com/sinikebe/finapp), dev snapshot
 `537f23198e58c3e6ab6babbd230143e0e88f6b88` (v71).
 
+The locally bundled `public/assets/css/finapps-ui.css` is the finapps UI
+foundation v1.0.0 from Finapp commit
+`40ab9cd50d885bee16e0c3383e2a143c7c07124f`, under the same MIT license.
+
 MIT License
 
 Copyright (c) 2026 sinikebe

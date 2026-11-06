@@ -12,8 +12,8 @@ L'application appartient à la famille **finapps**, aux côtés de
 
 ## Première interface
 
-L'interface reprend les palettes, la typographie, les contrôles et les trois
-ambiances **Horizon**, **Atelier** et **Parcours** de Finapp. Sa navigation est
+L'interface reprend les palettes, la typographie, les contrôles et trois
+présentations adaptées au garage : **Horizon**, **Atelier** et **Panorama**. Sa navigation est
 adaptée au suivi d'un véhicule :
 
 - **Vue d'ensemble** : véhicule sélectionné, kilométrage, repères à prévoir,
@@ -44,6 +44,20 @@ stockage local historique lorsque celui-ci est disponible. Les clés sont propre
 garages distincts. Un échec d'enregistrement est affiché et la copie ouverte
 reste exportable. Les écritures utilisent Web Locks lorsque le navigateur le
 permet et refusent de remplacer silencieusement les données d'un autre onglet.
+
+La rubrique courante et les filtres utiles sont mémorisés localement par véhicule.
+Une rubrique explicite dans l’URL reste prioritaire ; une adresse sans fragment
+reprend la dernière rubrique valide. Les valeurs invalides utilisent des réglages
+sûrs, et un stockage indisponible n’empêche pas la navigation. Ce contexte reste
+séparé des sauvegardes métier et distinct entre `main` et `dev`.
+
+Le bandeau distingue **Présentation**, **Apparence** et **Outils**. Les présentations
+sont décrites dans l’espace de travail : Horizon privilégie le tableau de bord,
+Atelier rapproche les cartes et Panorama centre l’espace sans imposer d’étapes.
+Les menus sont exclusifs, se ferment par clic extérieur ou Échap, et rétablissent
+le focus clavier. Les commandes sont recherchables et accessibles avec **⌘ / Ctrl K**.
+Les palettes et icônes utilisent le socle local **finapps UI v1.0.0** ; aucun fichier
+n’est chargé depuis une autre application à l’exécution.
 
 Le **logo ouvre le menu des applications finapps**. Il relie les versions `dev`
 de Finapp et de Garapp entre elles et les versions principales entre elles.
