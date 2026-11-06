@@ -1,0 +1,90 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Keep the lock through both checkout and deployment, so queued runs rebuild
+# from current branch heads instead of publishing an older assembled artifact.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.event.pull_request.number) || 'pages' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check site preparation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout the proposed revision
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Prepare the current revision
+        env:
+          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: >-
+          python3 scripts/prepare_pages.py
+          --source .
+          --output "$RUNNER_TEMP/garapp-check"
+          --branch "$TARGET_BRANCH"
+
+  publish:
+    name: Publish main and dev
+    needs: check
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout publishing tools
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          path: tooling
+
+      - name: Checkout the latest main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+          path: sources/main
+
+      - name: Checkout the latest dev
+        uses: actions/checkout@v6
+        with:
+          ref: dev
+          persist-credentials: false
+          path: sources/dev
+
+      - name: Prepare both versions
+        run: |
+          python3 tooling/scripts/prepare_pages.py --source sources/main --output _site --branch main
+          python3 tooling/scripts/prepare_pages.py --source sources/dev --output _site/dev --branch dev
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload both versions as one site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
