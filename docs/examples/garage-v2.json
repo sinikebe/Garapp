@@ -1,0 +1,182 @@
+{
+  "version": 2,
+  "activeId": "demo-vehicle",
+  "description": "Exemple fictif du format complet",
+  "templates": [
+    {
+      "name": "Modèle fictif",
+      "notes": ""
+    }
+  ],
+  "documents": [
+    {
+      "id": "garage-document",
+      "name": "document-fictif.txt",
+      "mimeType": "text/plain",
+      "dataUrl": "data:text/plain;base64,RG9jdW1lbnQgZmljdGlmIGRlIGTDqW1vbnN0cmF0aW9uLgo=",
+      "description": "Petit document fictif, sans information personnelle.",
+      "source": {
+        "reference": "example-document"
+      },
+      "size": 35
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "demo-vehicle",
+      "name": "Véhicule de démonstration",
+      "year": null,
+      "engine": "",
+      "odometer": 8000,
+      "odometerDate": null,
+      "notes": "Toutes les valeurs de ce fichier sont fictives.",
+      "content": "Informations complémentaires du véhicule.",
+      "links": [
+        {
+          "label": "Référence fictive",
+          "url": "https://example.com/vehicle"
+        }
+      ],
+      "sourceProperties": {
+        "originalId": "demo-source"
+      },
+      "components": [
+        {
+          "id": "demo-filter",
+          "name": "Filtre de démonstration",
+          "group": "",
+          "description": "Description du composant.",
+          "notes": "Repères à compléter.",
+          "content": "Corps de la fiche conservé.",
+          "intervalKm": null,
+          "intervalMonths": null,
+          "sourceProperties": {
+            "originalName": "Filtre source"
+          },
+          "documents": [
+            {
+              "id": "component-document",
+              "name": "document-fictif.txt",
+              "mimeType": "text/plain",
+              "dataUrl": "data:text/plain;base64,RG9jdW1lbnQgZmljdGlmIGRlIGTDqW1vbnN0cmF0aW9uLgo=",
+              "description": "Petit document fictif, sans information personnelle.",
+              "source": {
+                "reference": "example-document"
+              },
+              "size": 35
+            }
+          ]
+        }
+      ],
+      "records": [
+        {
+          "id": "demo-service",
+          "title": "Entretien fictif",
+          "type": "entretien",
+          "status": "incomplete",
+          "date": "2026-01-15",
+          "odometer": null,
+          "totalAmount": null,
+          "notes": "Les montants inconnus ne sont pas remplacés par zéro.",
+          "content": "Corps de fiche autonome.",
+          "sourceProperties": {
+            "originalCategory": "Exemple"
+          },
+          "documents": [
+            {
+              "id": "record-document",
+              "name": "document-fictif.txt",
+              "mimeType": "text/plain",
+              "dataUrl": "data:text/plain;base64,RG9jdW1lbnQgZmljdGlmIGRlIGTDqW1vbnN0cmF0aW9uLgo=",
+              "description": "Petit document fictif, sans information personnelle.",
+              "source": {
+                "reference": "example-document"
+              },
+              "size": 35
+            }
+          ],
+          "lines": [
+            {
+              "id": "line-one",
+              "label": "Ligne de démonstration",
+              "kind": "part",
+              "amount": "12.345",
+              "componentId": "demo-filter",
+              "effect": "replace",
+              "description": "Précision source conservée.",
+              "notes": "Note de ligne.",
+              "content": "Corps de ligne.",
+              "quantity": "1",
+              "unitPrice": "12.345",
+              "sourceProperties": {
+                "originalId": "source-line-one"
+              },
+              "documents": [
+                {
+                  "id": "line-document",
+                  "name": "document-fictif.txt",
+                  "mimeType": "text/plain",
+                  "dataUrl": "data:text/plain;base64,RG9jdW1lbnQgZmljdGlmIGRlIGTDqW1vbnN0cmF0aW9uLgo=",
+                  "description": "Petit document fictif, sans information personnelle.",
+                  "source": {
+                    "reference": "example-document"
+                  },
+                  "size": 35
+                }
+              ]
+            },
+            {
+              "id": "line-two",
+              "label": "Ligne de démonstration",
+              "kind": "service",
+              "amount": null,
+              "componentId": "demo-filter",
+              "effect": "inspect",
+              "description": "Une prestation distincte, de même libellé.",
+              "notes": "",
+              "content": "",
+              "documents": []
+            }
+          ],
+          "partsAmount": null,
+          "laborAmount": null,
+          "componentIds": []
+        },
+        {
+          "id": "demo-acquisition",
+          "title": "Acquisition fictive",
+          "type": "acquisition",
+          "date": null,
+          "odometer": 1000,
+          "totalAmount": null,
+          "notes": "Montant non renseigné.",
+          "status": "done",
+          "partsAmount": null,
+          "laborAmount": null,
+          "componentIds": [],
+          "lines": [],
+          "content": "",
+          "documents": []
+        },
+        {
+          "id": "demo-reading",
+          "title": "Ancien relevé fictif",
+          "type": "reading",
+          "date": "2025-12-01",
+          "odometer": 8200,
+          "notes": "Relevé contradictoire conservé sans correction automatique.",
+          "status": "done",
+          "partsAmount": null,
+          "laborAmount": null,
+          "totalAmount": null,
+          "componentIds": [],
+          "lines": [],
+          "content": "",
+          "documents": []
+        }
+      ],
+      "example": false,
+      "documents": []
+    }
+  ]
+}

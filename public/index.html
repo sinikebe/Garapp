@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="description" content="Votre garage personnel : interventions, composants et dépenses, réunis au même endroit.">
+  <meta name="color-scheme" content="light dark">
+  <title>Garapp — votre véhicule, pièce par pièce</title>
+  <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/css/tokens.css">
+  <link rel="stylesheet" href="./assets/css/finapps-ui.css">
+  <link rel="stylesheet" href="./assets/css/app.css">
+  <link rel="stylesheet" href="./assets/css/app-switcher.css">
+  <script type="module" src="./assets/js/app.js"></script>
+  <script type="module" src="./assets/js/app-switcher.js"></script>
+</head>
+<body data-layout="horizon" data-section="garage">
+  <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-car" viewBox="0 0 24 24"><path d="m5 10 2-6h10l2 6M4 10h16a1 1 0 0 1 1 1v7H3v-7a1 1 0 0 1 1-1ZM6 18v3m12-3v3M6 14h2m8 0h2"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11H3ZM9 21v-8h6v8"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14 6a6 6 0 0 0-7.5 7.5L2 18l4 4 4.5-4.5A6 6 0 0 0 18 10l-4 1-2-2Z"/></symbol>
+    <symbol id="i-parts" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5Zm-9 5v10l9 5 9-5V7M12 12v10M7.5 4.5l9 5"/></symbol>
+    <symbol id="i-cost" viewBox="0 0 24 24"><path d="M4 21V11m5 10V4m6 17v-7m5 7V8M2 21h20"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  </defs></svg>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+  <header class="app-bar">
+    <details class="brand suite-switcher" data-suite-switcher="garapp" data-header-menu>
+      <summary class="suite-trigger" aria-label="Changer d’application">
+        <svg class="brand-mark" aria-hidden="true"><use href="#i-car"/></svg><span>Garapp</span>
+        <svg class="suite-grid" viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><path d="M1 1h3v3H1zm6 0h3v3H7zm6 0h3v3h-3zM1 7h3v3H1zm6 0h3v3H7zm6 0h3v3h-3zM1 13h3v3H1zm6 0h3v3H7zm6 0h3v3h-3z"/></svg>
+      </summary>
+      <div class="suite-panel"><p data-suite-title>Vos applications</p><p data-suite-environment>Versions principales</p>
+        <nav class="suite-apps" aria-label="Applications finapps">
+          <a href="https://sinikebe.github.io/finapp/" data-suite-app="finapp"><span class="suite-app-mark" aria-hidden="true">f.</span><strong>Finapp</strong><small data-suite-description>Planifier et comparer</small></a>
+          <a href="https://sinikebe.github.io/Garapp/" data-suite-app="garapp" aria-current="page"><span class="suite-app-mark" aria-hidden="true">g.</span><strong>Garapp</strong><small data-suite-description>Prendre soin de son véhicule</small></a>
+        </nav>
+      </div>
+    </details>
+    <div class="app-bar-actions">
+      <label class="layout-picker" for="layout-select"><span>Présentation</span><select id="layout-select" aria-label="Présentation" aria-describedby="presentation-description"><option value="horizon">Horizon</option><option value="atelier">Atelier</option><option value="parcours">Panorama</option></select></label>
+      <button class="ghost-button command-trigger" id="commands-open" type="button"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-search"/></svg> Actions rapides <kbd>⌘ / Ctrl K</kbd></button>
+      <button class="ghost-button appearance-trigger" id="theme-toggle" type="button" aria-label="Apparence : automatique. Passer au mode clair."><svg class="icon ui-icon" aria-hidden="true"><use href="#i-sun"/></svg><span><span class="appearance-name">Apparence</span><span id="appearance-value" aria-hidden="true">Auto</span></span></button>
+      <details class="tools-menu" data-header-menu><summary class="ghost-button" aria-label="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg><span>Outils</span></summary><div class="tools-content">
+        <div class="tools-group" role="group" aria-label="Garage"><p class="tools-heading">Garage</p><button type="button" data-action="garage-details">Documents et informations du garage</button></div>
+        <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="export">Exporter mon garage</button><button type="button" data-action="import">Importer une sauvegarde</button></div>
+        <div class="tools-group" role="group" aria-label="Utilisation"><p class="tools-heading">Utilisation</p><button type="button" data-action="commands">Actions rapides <kbd>⌘ / Ctrl K</kbd></button><button type="button" data-action="print">Imprimer / PDF</button></div>
+      </div></details>
+    </div>
+  </header>
+  <div class="workspace-shell">
+    <aside class="workspace-sidebar">
+      <div class="sidebar-heading"><span class="sidebar-mark" aria-hidden="true">g.</span><strong>Mon garage</strong><p>Chaque pièce a son histoire.</p></div>
+      <nav class="workspace-nav" aria-label="Navigation du garage">
+        <a href="#garage" aria-current="page"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-home"/></svg><span>Vue d’ensemble</span></a>
+        <a href="#interventions"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-wrench"/></svg><span>Interventions</span></a>
+        <a href="#composants"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-parts"/></svg><span>Composants</span></a>
+        <a href="#depenses"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-cost"/></svg><span>Dépenses</span></a>
+      </nav>
+      <button class="ghost-button sidebar-new" type="button" data-action="new-vehicle"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-plus"/></svg> Ajouter un véhicule</button>
+      <p class="sidebar-note">Vos données restent<br>sur cet appareil.</p>
+      <a class="sidebar-sibling" href="https://sinikebe.github.io/finapp/" data-finapp-link><span aria-hidden="true">f.</span> Ouvrir Finapp <svg class="icon ui-icon" aria-hidden="true"><use href="#i-arrow"/></svg></a>
+    </aside>
+    <main id="main" tabindex="-1">
+      <p id="dev-banner" class="environment-note" hidden>Version de développement · garage distinct de la version principale</p>
+      <div id="storage-warning" class="storage-warning" role="status" hidden><p id="storage-message"></p><button type="button" class="text-button" data-action="export">Exporter mes données</button><button type="button" class="text-button" data-action="reload">Recharger</button></div>
+      <div class="workspace-head">
+        <div><p class="eyebrow">MON GARAGE</p><h1 id="view-title" tabindex="-1">Votre véhicule, en un coup d’œil.</h1><p id="view-description" class="hint">L’essentiel aujourd’hui. L’historique quand vous en avez besoin.</p></div>
+        <label class="vehicle-picker" for="vehicle-select"><span>Véhicule</span><select id="vehicle-select"></select></label>
+      </div>
+      <p id="presentation-description" class="hint presentation-description" role="status">Horizon : tableau de bord aéré et composants en grille sur grand écran.</p>
+      <div id="example-banner" class="example-note"><span><strong>Un garage pour essayer.</strong> Véhicule, interventions et repères fictifs.</span><button class="text-button" type="button" data-action="new-vehicle">Ajouter mon véhicule <svg class="icon ui-icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>
+      <section id="garage-view" aria-label="Vue d’ensemble"><div id="dashboard"></div></section>
+      <section id="interventions-view" aria-label="Interventions" hidden>
+        <div class="section-toolbar"><div class="filters"><label class="search-field"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Rechercher une intervention</span><input id="record-search" type="search" maxlength="256" placeholder="Rechercher dans l’historique…"></label><label><span class="sr-only">Type d’intervention</span><select id="record-type"><option value="all">Tous les types</option><option value="revision">Révisions</option><option value="entretien">Entretien</option><option value="reparation">Réparations</option><option value="controle">Contrôles</option></select></label></div><button class="primary-button" type="button" data-action="new-record"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-plus"/></svg> Ajouter une intervention</button></div>
+        <div id="records-list"></div>
+      </section>
+      <section id="composants-view" aria-label="Composants" hidden>
+        <div class="section-toolbar"><div class="filters"><label class="search-field"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-search"/></svg><span class="sr-only">Rechercher un composant</span><input id="component-search" type="search" maxlength="256" placeholder="Rechercher un composant…"></label><label><span class="sr-only">Filtrer les repères d’entretien</span><select id="component-status"><option value="all">Tous les composants</option><option value="attention">À prévoir</option><option value="ok">Repère non atteint</option><option value="unknown">Sans repère</option></select></label></div><button class="primary-button" type="button" data-action="new-component"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-plus"/></svg> Ajouter un composant</button></div>
+        <p class="reference-note">Les barres représentent des intervalles personnalisables, pas l’état réel des pièces. Un contrôle reste nécessaire pour connaître leur état.</p><div id="components-list" class="component-grid"></div>
+      </section>
+      <section id="depenses-view" aria-label="Dépenses" hidden>
+        <div class="section-toolbar"><label class="year-picker"><span>Périmètre</span><select id="expense-scope"><option value="maintenance">Interventions</option><option value="all">Tous les événements</option></select></label><label class="year-picker" for="expense-year"><span>Période</span><select id="expense-year"></select></label></div><div id="expense-content"></div>
+      </section>
+      <footer class="app-footer"><span>Garapp <span aria-hidden="true">·</span> Votre véhicule, pièce par pièce.</span><span id="save-status" role="status">Sur cet appareil</span><a href="https://github.com/sinikebe/Garapp">GitHub</a></footer>
+    </main>
+  </div>
+
+  <dialog id="vehicle-dialog" aria-labelledby="vehicle-dialog-title">
+    <form id="vehicle-form">
+      <div class="dialog-heading"><div><p class="eyebrow">MON GARAGE</p><h2 id="vehicle-dialog-title">Ajouter un véhicule</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label class="full-width">Nom du véhicule<input name="name" required maxlength="2000" placeholder="Ex. Véhicule familial" autocomplete="off"></label>
+        <label>Année<input name="year" type="number" min="1900" max="2100" placeholder="Non renseignée"></label>
+        <label>Kilométrage actuel<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Inconnu"></label>
+        <label>Motorisation<input name="engine" maxlength="2000" placeholder="Non renseignée" autocomplete="off"></label>
+        <label>Date du relevé actuel<input name="odometerDate" type="date"></label>
+        <label class="full-width">Notes<textarea name="notes" rows="3"></textarea></label>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid">
+          <label class="full-width">Contenu de la fiche<textarea name="content" rows="4"></textarea></label>
+          <div class="full-width" id="vehicle-documents"></div>
+          <label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea><span class="hint">Informations conservées telles quelles, notamment les références et données d’origine.</span></label>
+        </div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le véhicule</button></div>
+    </form>
+  </dialog>
+  <dialog id="record-dialog" class="wide-dialog" aria-labelledby="record-dialog-title">
+    <form id="record-form">
+      <div class="dialog-heading"><div><p class="eyebrow">HISTORIQUE</p><h2 id="record-dialog-title">Ajouter une intervention</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label class="full-width">Intitulé<input name="title" required maxlength="2000" placeholder="Ex. Révision et vidange"></label>
+        <label>Type<select name="type" id="record-form-type"></select></label>
+        <label>État du dossier<select name="status"><option value="done">Enregistré</option><option value="incomplete">À compléter</option><option value="planned">Prévu</option></select></label>
+        <label>Date<input name="date" type="date"></label><label>Kilométrage<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Inconnu"></label>
+        <div class="full-width form-grid" id="summary-costs"><label>Pièces (€)<input name="partsAmount" inputmode="decimal" placeholder="Inconnu"></label><label>Main-d’œuvre / prestation (€)<input name="laborAmount" inputmode="decimal" placeholder="Inconnu"></label></div>
+        <label class="full-width">Total indiqué sur le justificatif (€)<input name="totalAmount" inputmode="decimal" placeholder="Facultatif, sinon calculé à partir des montants connus"><span class="hint">Un montant vide reste inconnu. Zéro signifie qu’aucun montant n’a été facturé.</span></label>
+        <details id="record-lines-details" class="full-width supplemental"><summary>Lignes de l’intervention</summary><p class="hint">Pièces, prestations, forfaits et frais. Les montants sont les totaux TTC de chaque ligne et gardent toutes leurs décimales.</p><div id="line-editors"></div><button class="ghost-button" id="add-line" type="button">Ajouter une ligne</button></details>
+        <fieldset class="full-width"><legend>Autres composants remplacés ou renouvelés</legend><p class="hint">Les lignes peuvent aussi préciser leur composant et l’action réalisée. Un contrôle ne réinitialise pas le suivi.</p><div id="record-components" class="checkbox-grid"></div></fieldset>
+        <label class="full-width">Notes<textarea name="notes" rows="3" placeholder="Garage, références, détails utiles…"></textarea></label>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid">
+          <label class="full-width">Contenu de la fiche<textarea name="content" rows="4"></textarea></label><div class="full-width" id="record-documents"></div>
+          <label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea></label>
+        </div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer l’intervention</button></div>
+    </form>
+  </dialog>
+  <dialog id="component-dialog" aria-labelledby="component-dialog-title">
+    <form id="component-form">
+      <div class="dialog-heading"><div><p class="eyebrow">COMPOSANTS</p><h2 id="component-dialog-title">Ajouter un composant</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label class="full-width">Nom du composant<input name="name" maxlength="2000" required placeholder="Ex. Filtre à air"></label><label class="full-width">Ensemble<input name="group" maxlength="2000" placeholder="Non classé"></label>
+        <label>Intervalle en kilomètres<input name="intervalKm" type="number" min="1" max="1000000" step="1" placeholder="Facultatif"></label><label>Intervalle en mois<input name="intervalMonths" type="number" min="1" max="1200" step="1" placeholder="Facultatif"></label>
+        <label class="full-width">Description<textarea name="description" rows="3"></textarea></label><label class="full-width">Notes<textarea name="notes" rows="3"></textarea></label>
+        <p class="reference-note full-width">Les intervalles sont des repères personnalisés à choisir avec le carnet d’entretien et les conseils du professionnel.</p>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid">
+          <label class="full-width">Contenu de la fiche<textarea name="content" rows="4"></textarea></label><div class="full-width" id="component-documents"></div>
+          <label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea></label>
+        </div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le composant</button></div>
+    </form>
+  </dialog>
+  <dialog id="garage-dialog" aria-labelledby="garage-dialog-title"><form id="garage-form">
+    <div class="dialog-heading"><h2 id="garage-dialog-title">Informations du garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p class="hint">Documents généraux et informations conservées avec l’ensemble du garage.</p><div id="garage-documents"></div>
+    <label>Autres données (JSON)<textarea name="extras" rows="10" spellcheck="false"></textarea></label>
+    <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div>
+  </form></dialog>
+  <dialog id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><div><p id="detail-eyebrow" class="eyebrow"></p><h2 id="detail-title"></h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div id="detail-content"></div></dialog>
+  <dialog id="commands-dialog" aria-labelledby="commands-title"><div class="dialog-heading"><h2 id="commands-title">Actions rapides</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><label class="command-search" for="command-search"><span class="sr-only">Rechercher une action</span><input id="command-search" type="search" autofocus placeholder="Rechercher une action…" autocomplete="off"></label><p id="command-empty" class="hint" hidden>Aucune action correspondante.</p><div class="command-list"><button type="button" data-action="new-record">Ajouter une intervention <span>Historique</span></button><button type="button" data-action="new-component">Ajouter un composant <span>Entretien</span></button><button type="button" data-action="new-vehicle">Ajouter un véhicule <span>Garage</span></button><button type="button" data-action="export">Exporter mon garage <span>Sauvegarde JSON</span></button><button type="button" data-action="import">Importer une sauvegarde <span>Garage JSON</span></button></div></dialog>
+  <dialog id="import-dialog" aria-labelledby="import-title"><div class="dialog-heading"><h2 id="import-title">Importer un garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><p id="import-description"></p><p class="hint">Le garage actuel sera exporté avant le remplacement. Les préférences d’apparence seront conservées.</p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-confirm" class="primary-button" type="button">Importer et remplacer</button></div></dialog>
+  <input id="backup-file" class="sr-only" type="file" accept=".json,application/json" tabindex="-1">
+  <p id="toast" class="toast" role="status" hidden></p>
+  <noscript><p>Activez JavaScript pour utiliser votre garage. Aucune donnée n’est envoyée à un serveur.</p></noscript>
+</body>
+</html>

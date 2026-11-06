@@ -1,0 +1,192 @@
+# Format de sauvegarde Garapp — version 2
+
+Une sauvegarde est un fichier JSON UTF-8 autonome. Son import et son export restent
+locaux au navigateur. Le dépôt et les pages publiées ne doivent contenir aucune
+donnée personnelle importée. Les exemples fournis sont entièrement fictifs.
+
+Le [fichier d’exemple](examples/garage-v2.json) est validé par les tests du projet.
+Il présente des montants précis, des champs inconnus, des événements, des notes,
+des données complémentaires et un petit document intégré.
+
+## Contrat de conservation
+
+- `version` vaut `2`. Les sauvegardes `version: 1` sont mises à niveau à la lecture.
+  Les sauvegardes d’une version future sont refusées sans remplacer le garage.
+- Les identifiants sont des chaînes de 1 à 128 caractères alphanumériques, `_` ou `-`.
+  Un UUID d’origine peut être réutilisé. Ils sont uniques dans chaque collection.
+- Chaque propriété JSON supplémentaire est conservée, même si l’interface ne lui
+  attribue pas de fonction particulière. Elle apparaît dans « Autres informations
+  conservées » et peut être modifiée dans « Autres données (JSON) ».
+- Une propriété inconnue ne doit pas remplacer un champ réservé. Les réservations
+  sont locales à chaque objet : `description` sur une ligne est un texte, par exemple.
+- Les libellés ne sont pas des identifiants : plusieurs lignes ou composants peuvent
+  avoir le même nom. Les occurrences et leurs liens doivent être conservés.
+- Les informations manquantes restent manquantes. `null` est distinct du nombre
+  zéro et du montant `"0"`. Aucune date, catégorie, durée de vie ou somme ne doit être inventée.
+- Les textes `notes`, `description` et `content` sont conservés tels quels et affichés
+  comme du texte. Du Markdown ou du HTML source peut être archivé dans `content` ;
+  il n’est pas exécuté. Les résultats, définitions de formules ou propriétés de la
+  source peuvent être rangés dans une propriété complémentaire `sourceProperties`.
+- Pour les valeurs dont la représentation exacte importe, utiliser des chaînes
+  plutôt que des nombres JSON : décimales, références longues, codes et identifiants.
+
+## Racine
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `version` | entier `2` | Version du format |
+| `activeId` | identifiant ou `null` | Véhicule sélectionné ; doit exister si renseigné |
+| `vehicles` | tableau | Véhicules, au plus 100 |
+| `documents` | tableau facultatif | Documents généraux du garage |
+| Autres propriétés | JSON | Archives, notes globales, provenance, éléments non classés |
+
+`vehicles`, `components` et `records` sont obligatoires, même lorsqu’ils sont vides.
+Les collections facultatives absentes deviennent des tableaux vides.
+
+## Véhicule
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `id`, `name` | chaînes | Identifiant et nom non vide |
+| `year` | entier 1900–2100 ou `null` | Année facultative |
+| `engine` | chaîne, vide possible | Motorisation facultative |
+| `odometer` | entier 0–5 000 000 ou `null` | Kilométrage courant |
+| `odometerDate` | date ou `null` | Date du relevé courant |
+| `example` | booléen facultatif | `true` uniquement pour un exemple fictif |
+| `components` | tableau | Composants suivis, au plus 10 000 |
+| `records` | tableau | Historique, au plus 20 000 fiches |
+| `notes`, `content` | chaînes facultatives | Notes et corps de fiche |
+| `documents` | tableau facultatif | Documents rattachés au véhicule |
+
+Les anciens relevés sont des fiches `type: "reading"`. Un relevé historique
+supérieur au kilométrage courant est conservé : l’import ne corrige pas une source
+contradictoire. Les calculs d’entretien restent inconnus si les données sont incohérentes.
+Un lien de fiche technique peut être conservé dans une propriété supplémentaire
+`links`, par exemple `[{ "label": "Fiche technique", "url": "https://example.com/vehicle" }]`.
+
+## Composant suivi
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `id`, `name` | chaînes | Identifiant et nom non vide |
+| `group` | chaîne, vide possible | Ensemble, ou non classé |
+| `intervalKm` | entier 1–1 000 000 ou `null` | Repère de distance, facultatif |
+| `intervalMonths` | entier 1–1 200 ou `null` | Repère calendaire, facultatif |
+| `description`, `notes`, `content` | chaînes facultatives | Informations conservées séparément |
+| `documents` | tableau facultatif | Documents du composant |
+
+Un composant représente ce qui est suivi dans le véhicule. Ses achats, interventions
+et prix historiques sont portés par les lignes des fiches, pas par un prix courant
+unique. Une entrée source qui ne représente pas une pièce peut rester une ligne de
+prestation, ou un élément complémentaire du garage. Un modèle vide peut être conservé
+sans être présenté comme une pièce réelle, dans une propriété complémentaire `templates`.
+
+## Fiche d’historique
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `id`, `title` | chaînes | Identifiant et intitulé non vide |
+| `type` | chaîne facultative | Catégorie, par défaut `unclassified` |
+| `status` | `done`, `planned`, `incomplete` | Enregistré, prévu ou à compléter ; défaut `done` |
+| `date` | `AAAA-MM-JJ` ou `null` | Date réelle valide, facultative |
+| `odometer` | entier 0–5 000 000 ou `null` | Kilométrage historique, facultatif |
+| `partsAmount`, `laborAmount` | montant ou `null` | Ventilation globale utilisée si aucune ligne détaillée |
+| `totalAmount` | montant ou `null` | Total du justificatif ; fait autorité s’il est renseigné |
+| `componentIds` | tableau d’identifiants | Composants remplacés ou renouvelés, sans doublon |
+| `lines` | tableau facultatif | Lignes détaillées, au plus 10 000 par fiche |
+| `notes`, `content` | chaînes facultatives | Commentaires et corps de fiche |
+| `documents` | tableau facultatif | Justificatifs, factures, photos, etc. |
+
+Catégories reconnues : `revision`, `entretien`, `reparation`, `controle`, `acquisition`,
+`registration`, `plan`, `reading`, `other`, `unclassified`. Une autre chaîne de catégorie
+est conservée et accessible dans les filtres et le formulaire d’édition.
+
+Les types `acquisition`, `registration`, `plan` et `reading` sont exclus du périmètre
+« Interventions » des dépenses. Le périmètre « Tous les événements » les inclut.
+Les fiches `planned` sont exclues des dépenses et ne démarrent aucun suivi d’entretien.
+Les fiches non datées sont accessibles avec la période « Sans date » ou « Tout l’historique ».
+
+## Ligne détaillée
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `id`, `label` | chaînes | Identifiant de ligne et libellé non vide |
+| `kind` | catégorie ci-dessous | Nature financière, défaut `unclassified` |
+| `amount` | montant ou `null` | Total TTC de la ligne, avec sa précision d’origine |
+| `componentId` | identifiant ou `null` | Composant suivi concerné, si identifiable |
+| `effect` | action ci-dessous | Effet sur le suivi, défaut `none` |
+| `description`, `notes`, `content` | chaînes facultatives | Description, commentaires, corps de fiche source |
+| `documents` | tableau facultatif | Documents propres à cette ligne |
+
+`kind` : `part`, `labor`, `service`, `bundle`, `fee`, `other`, `unclassified`.
+
+`effect` : `none`, `replace`, `inspect`, `service`. `replace` exige un `componentId`.
+Un contrôle peut être associé à une pièce sans réinitialiser son dernier remplacement.
+Le champ `componentIds` de la fiche sert uniquement aux autres remplacements ; répéter
+le même lien sur une ligne n’entraîne pas de double compte financier.
+
+Les quantités, prix unitaires, références, informations d’assurance et ventilations
+supplémentaires peuvent être conservés comme champs additionnels. `amount` reste le
+total de la ligne : aucune multiplication implicite par une quantité n’est effectuée.
+Les forfaits ne sont pas ventilés artificiellement entre pièces et main-d’œuvre.
+
+## Montants et totaux
+
+Un montant est une **chaîne décimale en euros**, avec un point, ou `null` : `"12.345"`,
+`"0"`, `"-5.50"`, `null`. Au plus 12 chiffres avant et 18 après le point. Pas de notation
+scientifique ni de symbole monétaire. Les montants négatifs représentent notamment
+les remises et remboursements.
+
+Les additions utilisent des décimales exactes. Les écrans de synthèse arrondissent
+le résultat aux centimes, à la moitié en s’éloignant de zéro. Le détail de chaque ligne
+conserve et affiche le montant source exact.
+
+Ordre de calcul du total d’une fiche :
+
+1. `totalAmount`, s’il est renseigné ;
+2. somme des lignes si toutes ont un montant connu ;
+3. somme de `partsAmount` et `laborAmount` si aucune ligne n’existe et si les deux montants sont connus ;
+4. sinon : total inconnu, accompagné du sous-total des montants connus.
+
+Les lignes et la ventilation globale ne sont jamais additionnées ensemble.
+Un total documentaire peut différer du détail, notamment à cause d’un arrondi de facture.
+
+## Document autonome
+
+Le même objet peut figurer dans `documents` du garage, d’un véhicule, d’un composant,
+d’une fiche ou d’une ligne.
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `id` | chaîne | Identifiant unique dans la collection de documents de son propriétaire |
+| `name` | chaîne | Nom de fichier original non vide |
+| `mimeType` | chaîne | Par exemple `application/pdf` ou `image/jpeg` |
+| `dataUrl` | chaîne | `data:<mimeType>;base64,<contenu complet>` |
+| `size` | entier facultatif | Taille binaire décodée ; vérifiée si présente, calculée sinon |
+| `description` | chaîne facultative | Légende ou description du document |
+| Autres propriétés | JSON | Provenance et métadonnées conservées |
+
+Le document original doit être téléchargé par le producteur de la sauvegarde et
+son contenu encodé en base64. **Un lien de téléchargement temporaire ne remplace
+pas le fichier.** Garapp ne contacte aucun service pour récupérer les documents.
+Les liens utiles peuvent être conservés en supplément pour la traçabilité.
+
+Un document ne peut dépasser 64 Mio. Le fichier JSON importé est limité à 512 Mio,
+base64 inclus. Les fichiers binaires restent intégrés au JSON exporté et sont
+stockés dans IndexedDB. Les clés restent propres au chemin publié, donc `main`
+et `dev` ont des garages distincts. Une erreur de quota laisse la copie ouverte
+exportable et affiche l’échec ; elle n’est pas annoncée comme un enregistrement réussi.
+
+## Contrôle avant livraison d’une sauvegarde
+
+- Comparer les nombres d’entrées, de lignes et de documents avec la source.
+- Vérifier chaque relation par identifiant, y compris les noms répétés.
+- Comparer les montants exacts et distinguer une valeur absente de zéro.
+- Conserver tous les commentaires, corps de fiches et informations non classées.
+- Vérifier le contenu binaire des documents, pas seulement leur nom ou leur URL.
+- Valider le JSON avec `parseGarage`, puis vérifier qu’un second passage conserve
+  le résultat intégral : `parseGarage(JSON.stringify(parseGarage(json)))`.
+
+La sauvegarde précédente est téléchargée avant le remplacement du garage dans
+l’interface. Le fichier produit pour une personne reste privé et ne doit pas être
+ajouté aux exemples ou au dépôt public.

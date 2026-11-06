@@ -1,0 +1,36 @@
+/* Palette and scales adapted from Finapp v71 (MIT); see THIRD_PARTY_NOTICES.md. */
+:root {
+  color-scheme: light dark;
+  --type-3xs: 11px;
+  --type-2xs: 12px;
+  --type-xs: 13px;
+  --type-sm: 14px;
+  --type-md: 16px;
+  --type-lg: 17px;
+  --type-xl: 22px;
+  --type-2xl: clamp(40px, 8vw, 56px);
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 10px;
+  --space-lg: 12px;
+  --space-xl: 16px;
+  --space-2xl: 20px;
+  --space-3xl: 24px;
+  --space-4xl: 32px;
+  --space-5xl: 40px;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+/* Semantic palettes are bundled in finapps-ui.css. */
+body[data-layout] {
+  background: var(--plane);
+  color: var(--text-primary);
+  padding: 0 0 var(--space-4xl);
+  line-height: 1.5;
+  accent-color: var(--accent);
+}

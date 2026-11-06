@@ -33,3 +33,10 @@ jobs:
           --source .
           --output "$RUNNER_TEMP/garapp-check"
           --branch "$TARGET_BRANCH"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Verify garage records and application links
+        run: npm test
