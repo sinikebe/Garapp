@@ -6,6 +6,7 @@ import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, r
 import { initHeaderMenus } from './header-menus.js';
 import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
+import { DrivePanel } from './drive-panel.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -32,6 +33,7 @@ let editingLines = [];
 let toastTimer;
 let saving = false;
 let localConflict = false;
+let applyingRemote = false;
 let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
@@ -63,6 +65,36 @@ const backups = new BackupPanel({
 });
 await backups.restore();
 
+const canDriveSync = () => !unsaved && !saving && !localConflict && !repository.invalid && !backups.files.busy && !backups.picking && !$('import-confirm').dataset.importing && !openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog');
+const canDriveApply = (explicit = false) => canDriveSync() && document.hasFocus() && !openDialogs().some((dialog) => dialog.id === 'drive-preview-dialog' && !explicit);
+const drive = new DrivePanel({
+  key, base, development: suiteLinks(base).preview, getGarage: () => garage,
+  canSync: canDriveSync, canApply: canDriveApply, applyRemote: applyDriveGarage,
+  download, announce, showDialog,
+});
+try { await drive.restore(); }
+catch { drive.problem = 'La synchronisation Drive nécessite un navigateur récent, HTTPS et le stockage local. Les sauvegardes JSON restent disponibles.'; drive.render(); }
+
+/** Persist a verified remote copy before changing the garage visible in the UI. */
+async function applyDriveGarage(incoming, expected, explicit) {
+  if (garage !== expected || !canDriveApply(explicit)) throw Error('Le garage est occupé ou a changé. La copie locale est conservée ; relancer la synchronisation.');
+  const next = parseGarage(JSON.stringify(incoming));
+  if (next.vehicles.some((one) => one.id === garage.activeId)) next.activeId = garage.activeId;
+  saving = true; applyingRemote = true;
+  try {
+    await repository.save(next);
+    garage = next; unsaved = false;
+    if (!localConflict) { $('storage-warning').hidden = true; $('save-status').textContent = 'Enregistré sur cet appareil'; }
+  } catch (error) { throw Error(`La version Drive est conservée, mais son enregistrement sur cet appareil a échoué. Le garage ouvert reste inchangé. ${error.message}`); }
+  finally { saving = false; applyingRemote = false; }
+  render(); void backups.update();
+}
+
+// Block new edits only during the atomic local commit of an incoming copy.
+for (const type of ['click', 'change', 'input', 'submit', 'keydown']) document.addEventListener(type, (event) => {
+  if (applyingRemote) { event.preventDefault(); event.stopImmediatePropagation(); }
+}, true);
+
 async function save(next) {
   if (saving) throw Error('Un enregistrement est déjà en cours.');
   next = parseGarage(JSON.stringify(next));
@@ -80,6 +112,7 @@ async function save(next) {
   render();
   if (unsaved) backups.suspend();
   void backups.update(!unsaved);
+  drive.changed();
 }
 function applyPreferences() {
   document.body.dataset.layout = preferences.layout;
@@ -514,10 +547,10 @@ function filterCommands() {
   $('command-empty').hidden = buttons.some((button) => !button.hidden);
 }
 $('command-search').addEventListener('input', filterCommands);
-window.addEventListener('beforeunload', (event) => { if (unsaved || backups.needsFlush()) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', (event) => { if (unsaved || backups.needsFlush() || drive.busy()) { event.preventDefault(); event.returnValue = ''; } });
 repository.subscribe(async () => {
   if (openDialogs().length || unsaved || saving) { localConflict = true; backups.suspend(); return storageWarning('Le garage a changé dans un autre onglet. Exportez les modifications ouvertes avant de recharger.'); }
-  try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); }
+  try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); drive.changed(); }
   catch { storageWarning('Une modification provenant d’un autre onglet est illisible. La copie ouverte est conservée.'); }
 });
 async function prepareImport(file, handle = null) {
@@ -525,6 +558,7 @@ async function prepareImport(file, handle = null) {
   const generation = ++importGeneration;
   pendingImport = null;
   backups.suspend();
+  drive.pauseForImport();
   const incoming = await readBackupFile(file);
   if (generation !== importGeneration) return;
   pendingImport = { ...incoming, handle };
@@ -567,6 +601,6 @@ $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;
 applyPreferences(); render();
 document.addEventListener('garapp:before-update', (event) => {
-  if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog')) event.preventDefault();
+  if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || drive.busy() || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || ['import-dialog', 'drive-preview-dialog'].includes(dialog.id))) event.preventDefault();
 });
 document.documentElement.dataset.garappReady = 'true';

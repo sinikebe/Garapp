@@ -352,3 +352,18 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 }
 @media (pointer: coarse) { .app-bar .layout-picker select { font-size: var(--type-md); } .tools-menu > summary { min-height: 44px; } }
 @media print { .presentation-description { display: none; } }
+
+/* Optional Drive backups share the existing file-backup panel and typography. */
+.drive-section { margin-top: var(--space-2xl); }
+.drive-section .panel-heading { align-items: baseline; gap: var(--space-lg); flex-wrap: wrap; }
+.drive-config, .drive-new-folder { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-lg); margin-block: var(--space-lg); }
+.drive-config summary, .drive-new-folder summary { cursor: pointer; font-weight: 600; }
+.drive-config input, .drive-new-folder input, .drive-folder-picker select { width: 100%; margin-block: var(--space-sm) var(--space-lg); }
+.drive-config label, .drive-new-folder label, .drive-folder-picker > label { display: block; margin-top: var(--space-lg); font-size: var(--type-sm); }
+.drive-config code { overflow-wrap: anywhere; }
+.drive-versions { list-style: none; padding: 0; margin-block: var(--space-xl); display: grid; gap: var(--space-lg); }
+.drive-versions li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); border-bottom: 1px solid var(--border); padding-bottom: var(--space-lg); }
+.drive-versions li > span { white-space: pre-line; overflow-wrap: anywhere; font-size: var(--type-sm); }
+.drive-versions button { flex: none; }
+#drive-status[data-error="true"] { border-left: 3px solid var(--accent); padding-left: var(--space-lg); color: var(--text-primary); }
+@media (max-width: 520px) { .drive-versions li { flex-direction: column; align-items: stretch; } #drive-preview-dialog .dialog-actions { flex-direction: column; } }
