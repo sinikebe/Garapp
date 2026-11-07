@@ -36,7 +36,8 @@ function spendingChart(history) {
     const x = plot.left + (index + .5) * width, amount = bucket.amount === null ? null : Number(bucket.amount);
     const title = `${bucketLabel(bucket.key)} : ${bucket.amount === null ? 'aucun montant connu' : formatExactAmount(bucket.amount)}${bucket.partial ? ' · montants à compléter' : ''}`;
     const bar = amount === null ? '' : amount === 0 ? `<path class="chart-zero" d="M${x - width * .3} ${zero}h${width * .6}"><title>${esc(title)}</title></path>` : `<rect class="chart-bar${bucket.partial ? ' chart-bar-partial' : ''}" x="${x - width * .3}" y="${Math.min(plot.y(amount), zero)}" width="${width * .6}" height="${Math.abs(plot.y(amount) - zero)}"><title>${esc(title)}</title></rect>`;
-    return bar + (index % labelStep === 0 || index === history.buckets.length - 1 && history.buckets.length % labelStep !== 1 ? `<text class="chart-axis-label${index > 0 && index < history.buckets.length - 1 && Math.floor(index / labelStep) % 2 ? ' chart-secondary-label' : ''}" x="${x}" y="${plot.height - 15}" text-anchor="${index === 0 ? 'start' : index === history.buckets.length - 1 ? 'end' : 'middle'}">${esc(bucketLabel(bucket.key))}</text>` : '');
+    const showLabel = index === history.buckets.length - 1 || index % labelStep === 0 && history.buckets.length - 1 - index >= labelStep;
+    return bar + (showLabel ? `<text class="chart-axis-label${index > 0 && index < history.buckets.length - 1 && Math.floor(index / labelStep) % 2 ? ' chart-secondary-label' : ''}" x="${x}" y="${plot.height - 15}" text-anchor="${index === 0 ? 'start' : index === history.buckets.length - 1 ? 'end' : 'middle'}">${esc(bucketLabel(bucket.key))}</text>` : '');
   }).join('')}</svg>`;
 }
 

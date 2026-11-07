@@ -9,7 +9,7 @@ const exactLitres = (value) => value === null ? '—' : esc(value.replace('.', '
 
 function consumptionChart(buckets) {
   const visible = buckets.slice(-36), values = visible.map((bucket) => bucket.consumption).filter((value) => value !== null);
-  if (!values.length) return '<div class="chart-empty"><p>La consommation reste à calculer.</p><p class="hint">Enregistrer deux pleins complets avec leur kilométrage, et les litres de chaque ajout après le premier plein. Les ajouts partiels sont pris en compte.</p></div>';
+  if (!values.length) return '<div class="chart-empty"><p>Aucune consommation calculable sur les mois affichés.</p><p class="hint">Enregistrer deux pleins complets avec leur kilométrage, et les litres de chaque ajout après le premier plein. Les ajouts partiels sont pris en compte. Les cycles plus anciens restent consultables dans le tableau.</p></div>';
   const frame = { width: 720, height: 235, left: 76, right: 20, top: 22, bottom: 48 };
   const plot = { ...frame, ...chartScale(values, frame, { nonnegative: true }) };
   const x = (index) => visible.length === 1 ? (frame.left + frame.width - frame.right) / 2 : frame.left + index / (visible.length - 1) * (frame.width - frame.left - frame.right);
