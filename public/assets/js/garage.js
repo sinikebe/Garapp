@@ -3,10 +3,11 @@ import { isAmount, sumAmounts, cents } from './amounts.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
-export const TYPES = Object.freeze({ revision: 'Révision', entretien: 'Entretien', reparation: 'Réparation', controle: 'Contrôle', acquisition: 'Acquisition / cession', registration: 'Mise en circulation', plan: 'Programme d’entretien', reading: 'Relevé kilométrique', other: 'Autre événement', unclassified: 'Non classé' });
+export const TYPES = Object.freeze({ revision: 'Révision', entretien: 'Entretien', reparation: 'Réparation', controle: 'Contrôle', acquisition: 'Acquisition / cession', registration: 'Mise en circulation', plan: 'Programme d’entretien', reading: 'Relevé kilométrique', fuel: 'Carburant', other: 'Autre événement', unclassified: 'Non classé' });
 export const LINE_TYPES = Object.freeze({ part: 'Pièce / consommable', labor: 'Main-d’œuvre', service: 'Prestation / contrôle', bundle: 'Forfait', fee: 'Frais', other: 'Autre', unclassified: 'Non classé' });
 export const EFFECTS = Object.freeze({ none: 'Sans effet sur le suivi', replace: 'Remplacement / renouvellement', inspect: 'Contrôle', service: 'Entretien sans remplacement' });
 export const ADMIN_TYPES = new Set(['acquisition', 'registration', 'plan', 'reading']);
+export const isMaintenanceRecord = (record) => !ADMIN_TYPES.has(record.type) && record.type !== 'fuel';
 export const typeLabel = (type) => Object.hasOwn(TYPES, type) ? TYPES[type] : type;
 export const today = () => {
   const date = new Date();
@@ -84,7 +85,7 @@ export function componentLife(vehicle, component, date = today()) {
 }
 
 export function vehicleStats(vehicle, year = today().slice(0, 4), scope = 'maintenance') {
-  const records = vehicle.records.filter((record) => record.status !== 'planned' && (scope === 'all' || !ADMIN_TYPES.has(record.type)) && (String(year) === 'all' || record.date?.startsWith(String(year)) || (year === 'undated' && !record.date)));
+  const records = vehicle.records.filter((record) => record.status !== 'planned' && (scope === 'all' || isMaintenanceRecord(record)) && (String(year) === 'all' || record.date?.startsWith(String(year)) || (year === 'undated' && !record.date)));
   const costs = records.map(recordCost);
   const amount = sumAmounts(costs.map((cost) => cost.total ?? cost.subtotal));
   const partsAmount = sumAmounts(costs.map((cost) => cost.parts));
@@ -109,6 +110,7 @@ const label = (value) => text(value, 2000) && value.trim().length > 0;
 const integer = (value, max = 5000000) => Number.isSafeInteger(value) && value >= 0 && value <= max;
 const nullableInteger = (value, max) => value === null || integer(value, max);
 const validDate = (value) => value === null || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value);
+export const isTimestamp = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 const fail = (message = 'Cette sauvegarde Garapp est invalide ou incompatible.') => { throw Error(message); };
 const check = (condition, message) => { if (!condition) fail(message); };
 
@@ -171,6 +173,8 @@ export function parseGarage(raw) {
     check(validDate(vehicle.odometerDate ?? null));
     check(vehicle.example === undefined || typeof vehicle.example === 'boolean');
     check(Array.isArray(vehicle.components) && vehicle.components.length <= 10000 && Array.isArray(vehicle.records) && vehicle.records.length <= 20000);
+    const trash = vehicle.trashedRecords === undefined ? [] : vehicle.trashedRecords;
+    check(Array.isArray(trash) && vehicle.records.length + trash.length <= 20000, 'Un véhicule peut contenir au plus 20 000 fiches, corbeille comprise.');
     const componentIds = new Set();
     const components = vehicle.components.map((part) => {
       uniqueId(part, componentIds);
@@ -179,7 +183,7 @@ export function parseGarage(raw) {
       return { ...part, group: part.group ?? '', description: part.description ?? '', intervalKm: part.intervalKm ?? null, intervalMonths: part.intervalMonths ?? null, ...notes(part) };
     });
     const recordIds = new Set();
-    const records = vehicle.records.map((record) => {
+    const readRecord = (record) => {
       uniqueId(record, recordIds);
       check(label(record.title) && validDate(record.date ?? null) && nullableInteger(record.odometer ?? null));
       const type = record.type ?? 'unclassified';
@@ -200,9 +204,22 @@ export function parseGarage(raw) {
         check(effect !== 'replace' || componentId !== null, 'Un remplacement doit être lié à un composant.');
         return { ...line, kind, effect, componentId, amount: line.amount ?? null, description: line.description ?? '', ...notes(line) };
       });
-      return { ...record, type, status, date: record.date ?? null, odometer: record.odometer ?? null, partsAmount: record.partsAmount ?? null, laborAmount: record.laborAmount ?? null, totalAmount: record.totalAmount ?? null, componentIds: [...replaced], lines, ...notes(record) };
+      let fuel;
+      if (record.fuel !== undefined) {
+        check(object(record.fuel), 'Les informations de carburant doivent être un objet.');
+        const litres = record.fuel.litres ?? null, fullTank = record.fuel.fullTank ?? null;
+        check(isAmount(litres) && (litres === null || Number(litres) > 0 && Number(litres) <= 10000), 'La quantité de carburant doit être une chaîne décimale positive en litres (au plus 10 000), ou null.');
+        check(fullTank === null || typeof fullTank === 'boolean', 'L’indication de plein complet doit être vraie, fausse ou inconnue.');
+        fuel = { ...record.fuel, litres, fullTank };
+      }
+      return { ...record, type, status, date: record.date ?? null, odometer: record.odometer ?? null, partsAmount: record.partsAmount ?? null, laborAmount: record.laborAmount ?? null, totalAmount: record.totalAmount ?? null, componentIds: [...replaced], lines, ...(fuel === undefined ? {} : { fuel }), ...notes(record) };
+    };
+    const records = vehicle.records.map(readRecord);
+    const trashedRecords = trash.map((entry) => {
+      check(object(entry) && isTimestamp(entry.deletedAt) && (entry.position === undefined || integer(entry.position, 20000)), 'Une fiche de la corbeille comporte une date de suppression ou une position invalide.');
+      return { ...entry, record: readRecord(entry.record) };
     });
-    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...notes(vehicle) };
+    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...notes(vehicle) };
   });
   check(data.documents === undefined || Array.isArray(data.documents));
   check(data.activeId == null || ids.has(data.activeId), 'Le véhicule actif est absent de la sauvegarde.');
@@ -211,13 +228,15 @@ export function parseGarage(raw) {
 
 /** Counts are shown before import and include documents attached to individual lines. */
 export function inventory(garage) {
-  const result = { vehicles: garage.vehicles.length, records: 0, components: 0, lines: 0, documents: 0, bytes: 0 };
+  const result = { vehicles: garage.vehicles.length, records: 0, trashedRecords: 0, components: 0, lines: 0, documents: 0, bytes: 0 };
   const count = (docs) => { for (const doc of docs ?? []) { result.documents++; result.bytes += doc.size ?? 0; } };
   count(garage.documents);
   for (const vehicle of garage.vehicles) {
     count(vehicle.documents); result.components += vehicle.components.length; result.records += vehicle.records.length;
+    const trashed = (vehicle.trashedRecords ?? []).map((entry) => entry.record);
+    result.trashedRecords += trashed.length;
     for (const component of vehicle.components) count(component.documents);
-    for (const record of vehicle.records) { count(record.documents); result.lines += record.lines.length; for (const line of record.lines) count(line.documents); }
+    for (const record of [...vehicle.records, ...trashed]) { count(record.documents); result.lines += record.lines.length; for (const line of record.lines) count(line.documents); }
   }
   return result;
 }

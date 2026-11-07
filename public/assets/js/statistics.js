@@ -1,5 +1,5 @@
 /** Read-only statistics from dated, recorded facts. Missing values stay unknown. */
-import { ADMIN_TYPES, recordCost, today } from './garage.js';
+import { isMaintenanceRecord, recordCost, today } from './garage.js';
 import { sumAmounts } from './amounts.js';
 
 const day = (date) => Date.parse(`${date}T12:00:00Z`) / 86400000;
@@ -57,7 +57,7 @@ export function spendingHistory(vehicle, { period = 'all', scope = 'maintenance'
   const records = [];
   for (const record of vehicle.records) {
     if (record.status === 'planned') { omitted.planned++; continue; }
-    if (scope !== 'all' && ADMIN_TYPES.has(record.type)) continue;
+    if (scope !== 'all' && !isMaintenanceRecord(record)) continue;
     if (!record.date) { omitted.undated++; continue; }
     if (record.date > range.end) { omitted.future++; continue; }
     if (range.start && record.date < range.start) { omitted.outsidePeriod++; continue; }

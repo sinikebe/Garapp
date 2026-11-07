@@ -7,7 +7,7 @@ import { DriveAuthorization, loadGoogleIdentity, validClientId } from './drive-a
 
 const $ = (id) => document.getElementById(id);
 const date = (value) => { const result = new Date(value); return Number.isFinite(result.getTime()) ? result.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Date inconnue'; };
-const summary = (counts) => `${counts[0]} véhicule(s) · ${counts[1]} fiche(s) · ${counts[2]} composant(s) · ${counts[4]} document(s)`;
+const summary = (counts) => `${counts[0]} véhicule(s) · ${counts[1]} fiche(s) active(s) · ${counts[2]} composant(s) · ${counts[4]} document(s)`;
 
 export class DrivePanel {
   constructor({ key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog }) {
@@ -202,7 +202,7 @@ export class DrivePanel {
     const preview = this.engine.preview;
     $('drive-preview-description').textContent = `Version Drive du ${date(preview.node.at)} · ${preview.node.revision.slice(0, 8)}. Le fichier et ses documents ont été vérifiés.`;
     const tbody = $('drive-preview-counts'); tbody.replaceChildren();
-    for (const [field, label] of [['vehicles', 'Véhicules'], ['records', 'Fiches'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']]) {
+    for (const [field, label] of [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']]) {
       const row = document.createElement('tr'); const heading = document.createElement('th'); heading.scope = 'row'; heading.textContent = label; row.append(heading);
       for (const counts of [preview.localCounts, preview.remoteCounts]) { const cell = document.createElement('td'); cell.textContent = counts[field]; row.append(cell); }
       tbody.append(row);

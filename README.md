@@ -119,6 +119,51 @@ entre onglets protègent contre le remplacement silencieux d’une autre copie. 
 stockage navigateur reste local à un appareil et à un chemin de publication : les
 exports sont nécessaires pour conserver une sauvegarde indépendante.
 
+### Corbeille des interventions
+
+L’action **Mettre à la corbeille**, dans le détail d’une fiche, conserve la fiche
+complète avec ses lignes, montants exacts, liens de composants, documents et autres
+informations. Elle disparaît de l’historique actif, des dépenses, des graphiques et
+du suivi d’entretien. Le compteur courant du véhicule reste indépendant.
+
+**Interventions → Corbeille** et **Outils → Corbeille des interventions** permettent
+de consulter puis restaurer une fiche. Les sauvegardes JSON, fichiers liés et
+versions Drive comprennent la corbeille. Aucun délai d’expiration ni nettoyage
+automatique n’est appliqué. La suppression définitive demande une confirmation et
+ne retire rien des copies externes déjà conservées. Une ancienne sauvegarde sans
+corbeille reste importable ; seules les fiches supprimées avec cette fonction
+peuvent être restaurées depuis la corbeille.
+
+### Carburant et statistiques mensuelles
+
+L’événement **Carburant** et l’action **Ajouter du carburant** enregistrent la
+quantité ajoutée en litres, le montant payé, la date, le compteur et l’indication
+de plein complet ou partiel. Une information absente reste inconnue. Les autres
+informations du carburant peuvent être conservées dans un objet JSON complémentaire.
+Les achats de carburant sont séparés du périmètre « Interventions » des dépenses
+et inclus dans « Tous les événements ».
+
+La vue **Statistiques** présente la consommation en L/100 km, les coûts de
+carburant et les distances relevées pour chaque mois, avec un tableau et une courbe
+de consommation. Les filtres de période s’appliquent à ce bilan. La courbe montre
+au plus 36 mois ; le tableau conserve toute la période choisie.
+
+- La consommation utilise deux pleins complets : somme des litres ajoutés après
+  le premier plein, ajouts partiels compris, jusqu’au plein complet suivant,
+  divisée par la différence des compteurs, puis multipliée par 100. Le volume du
+  premier plein sert de point de départ et ne s’ajoute pas au cycle. Les moyennes
+  sont pondérées par les distances et supposent que tous les ajouts ont été saisis.
+- Les achats suivent leur date. Un cycle de consommation est rattaché au mois
+  du plein final. Les distances entre relevés datés, issus de toutes les fiches
+  actives et du véhicule, sont rattachées au mois du relevé final. Les distances
+  ne sont pas réparties artificiellement entre les mois : sans relevés aux
+  limites de mois, ce bilan ne garantit pas une distance calendaire complète.
+- Les compteurs incohérents ou manquants interrompent les calculs concernés.
+  Un ajout carburant sans date empêche de vérifier l’ordre des pleins ; la
+  consommation reste inconnue tant que ces dates ne sont pas complétées. Les
+  coûts inconnus ne deviennent pas zéro. Les fiches prévues, futures ou dans la
+  corbeille sont exclues.
+
 ### Sauvegardes par fichiers
 
 **Outils → Gérer les sauvegardes** regroupe les copies JSON, le suivi du dernier

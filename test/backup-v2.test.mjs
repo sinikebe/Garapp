@@ -12,7 +12,7 @@ test('the documented v2 example preserves every field, nested source, occurrence
   const data = fixture();
   assert.deepEqual(roundTrip(data), JSON.parse(fixtureText));
   const counts = inventory(data);
-  assert.deepEqual({ ...counts, bytes: undefined }, { vehicles: 1, records: 3, components: 1, lines: 2, documents: 4, bytes: undefined });
+  assert.deepEqual({ ...counts, bytes: undefined }, { vehicles: 1, records: 3, trashedRecords: 0, components: 1, lines: 2, documents: 4, bytes: undefined });
   assert.ok(counts.bytes > 0);
   const lines = data.vehicles[0].records[0].lines;
   assert.equal(lines[0].label, lines[1].label);

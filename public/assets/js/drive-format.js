@@ -5,6 +5,7 @@ import { backupBlob, fingerprint } from './backups.js';
 export const DRIVE_FOLDER = 'application/vnd.google-apps.folder';
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const HASH = /^[a-f0-9]{64}$/;
+const COUNT_FIELDS = ['vehicles', 'records', 'components', 'lines', 'documents', 'bytes'];
 const REVISION = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const MAX_PARENTS = 60;
 const invalid = () => Error('L’historique Drive est incomplet ou a été modifié. Les copies existantes sont conservées.');
@@ -47,7 +48,7 @@ export async function makeSnapshot(garage, parents, namespace, folderId, develop
   const count = inventory(garage);
   const appProperties = {
     garapp: 'snapshot-v1', namespace, revision, hash, wire: await fingerprint(blob), pc: String(parents.length),
-    counts: JSON.stringify(['vehicles', 'records', 'components', 'lines', 'documents', 'bytes'].map((key) => count[key])),
+    counts: JSON.stringify(COUNT_FIELDS.map((key) => count[key])),
   };
   for (let i = 0; i < parents.length; i += 3) appProperties[`p${i / 3}`] = JSON.stringify(parents.slice(i, i + 3));
   return { blob, hash, revision, parents, metadata: {
@@ -104,6 +105,7 @@ export function revisionGraph(nodes) {
 export async function readSnapshot(blob, node) {
   if (blob.size !== node.size || await fingerprint(blob) !== node.wire) throw invalid();
   const garage = parseGarage(await blob.text());
-  if (await garageHash(garage) !== node.hash || JSON.stringify(Object.values(inventory(garage))) !== JSON.stringify(node.counts)) throw invalid();
+  const count = inventory(garage);
+  if (await garageHash(garage) !== node.hash || JSON.stringify(COUNT_FIELDS.map((key) => count[key])) !== JSON.stringify(node.counts)) throw invalid();
   return garage;
 }

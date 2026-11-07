@@ -6,6 +6,7 @@ import { backupBlob, fingerprint } from '../public/assets/js/backups.js';
 import { DRIVE_FOLDER, assertFolder, driveNamespace, garageHash, makeSnapshot, readSnapshot, revisionGraph, snapshotInfo } from '../public/assets/js/drive-format.js';
 import { DriveSync } from '../public/assets/js/drive-sync.js';
 import { DriveError } from '../public/assets/js/drive-api.js';
+import { moveRecordToTrash, restoreTrashedRecord } from '../public/assets/js/record-trash.js';
 
 const namespace = await driveNamespace('https://example.test/Garapp/dev/');
 const fixture = parseGarage(await readFile(new URL('../docs/examples/garage-v2.json', import.meta.url), 'utf8'));
@@ -82,6 +83,27 @@ test('origins and publication paths isolate Drive workspaces', async () => {
   assert.notEqual(namespace, await driveNamespace('https://example.test/Garapp/'));
   assert.notEqual(namespace, await driveNamespace('http://localhost:4173/'));
   assert.notEqual(namespace, await driveNamespace('https://another.test/Garapp/dev/'));
+});
+
+test('Drive synchronizes trash and restoration with all embedded source content intact', async () => {
+  const { api, a, b } = await pair();
+  const vehicle = a.model.garage.vehicles[0];
+  Object.assign(vehicle.records[0], { type: 'fuel', fuel: { litres: '12.345', fullTank: true, source: { label: 'Station fictive' } } });
+  const record = structuredClone(vehicle.records[0]);
+  a.model.garage = moveRecordToTrash(a.model.garage, vehicle.id, record.id, '2026-11-08T10:20:30.000Z');
+  assert.equal(await a.sync.sync(), true);
+  assert.equal(await b.sync.sync(), true);
+  assert.deepEqual(b.model.garage.vehicles[0].trashedRecords, a.model.garage.vehicles[0].trashedRecords);
+  assert.equal(b.model.garage.vehicles[0].records.some((one) => one.id === record.id), false);
+  b.model.garage = restoreTrashedRecord(b.model.garage, vehicle.id, record.id);
+  assert.equal(await b.sync.sync(), true);
+  assert.equal(await a.sync.sync(), true);
+  assert.deepEqual(a.model.garage.vehicles[0].records[0], record);
+  assert.deepEqual(a.model.garage.vehicles[0].trashedRecords, []);
+  const copies = [...api.files.values()].filter(({ blob }) => blob);
+  assert.ok(copies.length >= 3);
+  const savedTrash = await Promise.all(copies.map(async ({ blob }) => parseGarage(await blob.text())));
+  assert.ok(savedTrash.some((copy) => copy.vehicles[0].trashedRecords?.[0]?.record.id === record.id));
 });
 
 test('revision parent properties stay within Google private-property limits', async () => {

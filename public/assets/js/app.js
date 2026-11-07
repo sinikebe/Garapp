@@ -8,6 +8,7 @@ import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
 import { renderStatistics } from './statistics-view.js';
+import { moveRecordToTrash, restoreTrashedRecord, discardTrashedRecord } from './record-trash.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -35,6 +36,8 @@ let toastTimer;
 let saving = false;
 let localConflict = false;
 let applyingRemote = false;
+let changingRecord = false;
+let pendingDiscard = null;
 let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
@@ -216,6 +219,8 @@ function render() {
   $('vehicle-select').innerHTML = garage.vehicles.length ? garage.vehicles.map((one) => `<option value="${one.id}">${esc(one.name)}${one.example ? ' · exemple' : ''}</option>`).join('') : '<option>Aucun véhicule</option>';
   $('vehicle-select').value = garage.activeId;
   $('example-banner').hidden = !current?.example;
+  $('trash-open').textContent = `Corbeille (${current?.trashedRecords?.length ?? 0})`;
+  if ($('trash-dialog').open) renderTrash();
   if (!current) {
     for (const id of Object.keys(views)) $(`${id}-view`).hidden = true;
     $('garage-view').hidden = false;
@@ -246,9 +251,10 @@ function render() {
 const CORE = {
   garage: ['version', 'activeId', 'vehicles', 'documents'],
   document: ['id', 'name', 'mimeType', 'dataUrl', 'size', 'description'],
-  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records'],
+  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords'],
   component: ['id', 'name', 'group', 'description', 'intervalKm', 'intervalMonths', 'notes', 'content', 'documents'],
-  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'lines', 'notes', 'content', 'documents'],
+  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'lines', 'notes', 'content', 'documents', 'fuel'],
+  fuel: ['litres', 'fullTank'],
   line: ['id', 'label', 'kind', 'amount', 'componentId', 'effect', 'description', 'notes', 'content', 'documents'],
 };
 const extrasOf = (entity, kind) => Object.fromEntries(Object.entries(entity ?? {}).filter(([name]) => !CORE[kind].includes(name)));
@@ -294,17 +300,66 @@ $('commands-dialog').addEventListener('close', () => {
   const target = commandReturnFocus?.isConnected && commandReturnFocus.getClientRects().length ? commandReturnFocus : document.querySelector('.tools-menu > summary');
   target?.focus({ preventScroll: true });
 });
-function detailRecord(id) {
+function detailRecord(id, trashed = false) {
   const current = vehicle();
-  const record = current?.records.find((one) => one.id === id);
+  const entry = trashed ? current?.trashedRecords?.find((one) => one.record.id === id) : null;
+  const record = trashed ? entry?.record : current?.records.find((one) => one.id === id);
   if (!record) return;
   downloadableDocuments.clear();
   const cost = recordCost(record);
+  const fuelDetail = record.type === 'fuel' || record.fuel ? `<dl class="detail-facts"><div><dt>Carburant ajouté</dt><dd>${record.fuel?.litres == null ? 'Non renseigné' : esc(record.fuel.litres.replace('.', ',')) + ' L'}</dd></div><div><dt>Plein complet</dt><dd>${record.fuel?.fullTank == null ? 'Non renseigné' : record.fuel.fullTank ? 'Oui' : 'Non · ajout partiel'}</dd></div></dl>${extraMarkup(record.fuel ?? {}, 'fuel')}` : '';
   $('detail-title').textContent = record.title;
   $('detail-eyebrow').textContent = `${typeLabel(record.type)}${record.status === 'done' ? '' : ' · ' + (record.status === 'planned' ? 'Prévu' : 'À compléter')}`;
-  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">Montant indiqué sur le justificatif : ${formatExactAmount(record.totalAmount)}. Le détail peut être incomplet ou arrondi.</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="hint">${LINE_TYPES[line.kind]}${line.componentId ? ' · ' + esc(current.components.find((part) => part.id === line.componentId)?.name) + ' · ' + EFFECTS[line.effect] : ''}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions"><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button></div>`;
+  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">Montant indiqué sur le justificatif : ${formatExactAmount(record.totalAmount)}. Le détail peut être incomplet ou arrondi.</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="hint">${LINE_TYPES[line.kind]}${line.componentId ? ' · ' + esc(current.components.find((part) => part.id === line.componentId)?.name) + ' · ' + EFFECTS[line.effect] : ''}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
   showDialog('detail-dialog');
 }
+
+function renderTrash() {
+  const current = vehicle();
+  const entries = [...current?.trashedRecords ?? []].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+  $('trash-description').textContent = `${current?.name ?? 'Aucun véhicule'} · ${entries.length} fiche(s) dans la corbeille`;
+  $('trash-list').innerHTML = entries.length ? entries.map(({ record, deletedAt }) => `<article class="trash-record"><h3><button type="button" class="record-title" data-trashed-record="${record.id}">${esc(record.title)}</button></h3><p class="hint">${esc(typeLabel(record.type))} · ${esc(dateText(record.date))} · ${mileage(record.odometer)}</p><p class="hint">Mis à la corbeille le ${esc(new Date(deletedAt).toLocaleString('fr-FR'))}</p><div class="trash-record-actions"><button type="button" class="primary-button" data-restore-record="${record.id}">Restaurer</button><button type="button" class="text-button danger-text" data-discard-record="${record.id}">Supprimer définitivement</button></div></article>`).join('') : '<div class="trash-empty"><h3>La corbeille est vide.</h3><p class="hint">Les fiches supprimées apparaîtront ici avec leurs lignes et documents.</p></div>';
+}
+function openTrash() { renderTrash(); showDialog('trash-dialog'); }
+async function changeRecord(id, restore = false) {
+  if (changingRecord || saving) return;
+  changingRecord = true;
+  const inDetail = $('detail-dialog').open;
+  try {
+    await save((restore ? restoreTrashedRecord : moveRecordToTrash)(garage, garage.activeId, id));
+    if (inDetail) {
+      if (restore) detailRecord(id);
+      else { $('detail-dialog').close(); downloadableDocuments.clear(); (section === 'interventions' ? $('trash-open') : $('view-title')).focus(); }
+    }
+    if (restore && !inDetail && $('trash-dialog').open) { $('trash-title').tabIndex = -1; $('trash-title').focus(); }
+    announce(unsaved ? 'La copie ouverte a été modifiée. Exportez-la avant de quitter : l’enregistrement local a échoué.' : restore ? 'Fiche restaurée avec ses lignes et documents.' : 'Fiche placée dans la corbeille. Elle peut être restaurée depuis Interventions → Corbeille.');
+  } catch (error) { announce(error.message); }
+  finally { changingRecord = false; }
+}
+function confirmDiscard(id) {
+  const record = vehicle()?.trashedRecords?.find((entry) => entry.record.id === id)?.record;
+  if (!record || saving || changingRecord) return;
+  pendingDiscard = { vehicleId: garage.activeId, recordId: id };
+  $('discard-description').textContent = `« ${record.title} » et ses documents seront retirés de ce garage. Cette action ne peut pas être annulée dans Garapp. Les copies JSON et les anciennes versions Drive déjà conservées ne sont pas modifiées.`;
+  $('discard-error').hidden = true;
+  showDialog('discard-dialog');
+  $('discard-cancel').focus();
+}
+$('discard-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!pendingDiscard || changingRecord || saving) return;
+  const target = pendingDiscard;
+  changingRecord = true; $('discard-confirm').disabled = true;
+  try {
+    await save(discardTrashedRecord(garage, target.vehicleId, target.recordId));
+    $('discard-dialog').close(); pendingDiscard = null;
+    downloadableDocuments.clear(); $('detail-content').replaceChildren();
+    openTrash();
+    announce(unsaved ? 'Suppression dans la copie ouverte uniquement. L’enregistrement local a échoué ; exportez la copie avant de quitter.' : 'Fiche supprimée définitivement de ce garage.');
+  } catch (error) { $('discard-error').textContent = error.message; $('discard-error').hidden = false; }
+  finally { changingRecord = false; $('discard-confirm').disabled = false; }
+});
+$('discard-dialog').addEventListener('close', () => { pendingDiscard = null; });
 function detailComponent(id) {
   const current = vehicle(); const part = current?.components.find((one) => one.id === id);
   if (!part) return;
@@ -397,8 +452,27 @@ function openRecord(componentId = null, id = null) {
   $('summary-costs').hidden = false;
   $('record-lines-details').open = false;
   for (const line of record?.lines ?? []) appendLine(line);
+  form.elements.fuelLitres.value = record?.fuel?.litres ?? '';
+  form.elements.fuelFullTank.value = record?.fuel?.fullTank == null ? '' : String(record.fuel.fullTank);
+  form.elements.fuelExtras.value = JSON.stringify(extrasOf(record?.fuel, 'fuel'), null, 2);
+  updateFuelFields();
   form.querySelector('[type="submit"]').textContent = 'Enregistrer la fiche';
   showDialog('record-dialog');
+}
+function updateFuelFields() {
+  const form = $('record-form'), fuel = form.elements.type.value === 'fuel';
+  $('record-fuel').hidden = !fuel;
+  $('summary-costs').hidden = editingLines.length > 0 || fuel && form.elements.partsAmount.value === '' && form.elements.laborAmount.value === '';
+  $('record-components-fieldset').hidden = fuel && !form.querySelector('[name="componentIds"]:checked');
+}
+$('record-form-type').addEventListener('change', updateFuelFields);
+function readFuel(form, original) {
+  if (form.elements.type.value !== 'fuel' && original.fuel === undefined) return {};
+  let litres;
+  try { litres = amountInput(form.elements.fuelLitres.value); }
+  catch { throw Error('Saisissez une quantité décimale en litres, ou laissez-la inconnue.'); }
+  if (litres !== null && (Number(litres) <= 0 || Number(litres) > 10000)) throw Error('La quantité de carburant doit être positive et ne pas dépasser 10 000 litres.');
+  return { fuel: { ...extrasInput(form.elements.fuelExtras, 'fuel'), litres, fullTank: form.elements.fuelFullTank.value === '' ? null : form.elements.fuelFullTank.value === 'true' } };
 }
 function readLines() {
   return [...$('line-editors').querySelectorAll('[data-line-id]')].map((element) => {
@@ -462,7 +536,7 @@ $('record-form').addEventListener('submit', (event) => {
     const next = structuredClone(garage); const current = next.vehicles.find((one) => one.id === next.activeId);
     const index = current.records.findIndex((one) => one.id === editingRecord);
     const original = current.records[index] ?? { id: uid() };
-    const updated = { ...editableBase(original, 'record', extrasInput(form.elements.extras, 'record')), title: form.elements.title.value, type: form.elements.type.value, status: form.elements.status.value, date: form.elements.date.value || null, odometer: nullableNumber(form.elements.odometer.value), partsAmount: amountInput(form.elements.partsAmount.value), laborAmount: amountInput(form.elements.laborAmount.value), totalAmount: amountInput(form.elements.totalAmount.value), componentIds: new FormData(form).getAll('componentIds'), lines: readLines(), ...readCommon(form, 'record') };
+    const updated = { ...editableBase(original, 'record', extrasInput(form.elements.extras, 'record')), title: form.elements.title.value, type: form.elements.type.value, status: form.elements.status.value, date: form.elements.date.value || null, odometer: nullableNumber(form.elements.odometer.value), partsAmount: amountInput(form.elements.partsAmount.value), laborAmount: amountInput(form.elements.laborAmount.value), totalAmount: amountInput(form.elements.totalAmount.value), componentIds: new FormData(form).getAll('componentIds'), lines: readLines(), ...readCommon(form, 'record'), ...readFuel(form, original) };
     if (index < 0) current.records.push(updated); else current.records[index] = updated;
     return next;
   });
@@ -511,6 +585,14 @@ document.addEventListener('input', (event) => {
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
+  trash: openTrash,
+  'new-fuel': () => {
+    if (!vehicle()) return openVehicle();
+    openRecord();
+    const form = $('record-form');
+    form.elements.title.value = 'Plein de carburant'; form.elements.type.value = 'fuel'; form.elements.odometer.value = '';
+    $('record-dialog-title').textContent = 'Ajouter du carburant'; updateFuelFields(); form.elements.fuelLitres.focus();
+  },
   'new-reading': () => {
     if (!vehicle()) return openVehicle();
     openRecord();
@@ -528,6 +610,7 @@ document.addEventListener('click', (event) => {
   const action = target.closest('[data-action]'); if (action) { closeMenus(); if (action.closest('#commands-dialog')) $('commands-dialog').close(); return actions[action.dataset.action]?.(); }
   for (const [attribute, handler] of [
     ['data-edit-record', (id) => openRecord(null, id)], ['data-edit-component', openComponent], ['data-record', detailRecord], ['data-component', detailComponent], ['data-replace', (id) => openRecord(id)], ['data-download', downloadDocument],
+    ['data-trashed-record', (id) => detailRecord(id, true)], ['data-trash-record', (id) => { void changeRecord(id); }], ['data-restore-record', (id) => { void changeRecord(id, true); }], ['data-discard-record', confirmDiscard],
   ]) { const element = target.closest(`[${attribute}]`); if (element) return handler(element.getAttribute(attribute)); }
   const removeLine = target.closest('[data-remove-line]');
   if (removeLine) { editingLines = editingLines.filter((line) => line.id !== removeLine.dataset.removeLine); documentDrafts.delete('line-' + removeLine.dataset.removeLine); removeLine.closest('[data-line-id]').remove(); $('summary-costs').hidden = editingLines.length > 0; return; }
@@ -582,7 +665,7 @@ async function prepareImport(file, handle = null) {
   pendingImport = { ...incoming, handle };
   const before = inventory(garage), after = inventory(incoming.garage);
   $('import-description').textContent = `${file.name} · ${number(Math.ceil(file.size / 1024))} Kio. Le contenu a été vérifié, y compris les documents intégrés et les relations entre les fiches.`;
-  $('import-counts').innerHTML = [['vehicles', 'Véhicules'], ['records', 'Fiches'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']].map(([field, label]) => `<tr><th scope="row">${label}</th><td>${number(before[field])}</td><td>${number(after[field])}</td></tr>`).join('');
+  $('import-counts').innerHTML = [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']].map(([field, label]) => `<tr><th scope="row">${label}</th><td>${number(before[field])}</td><td>${number(after[field])}</td></tr>`).join('');
   $('import-vehicles').textContent = `Véhicules du fichier : ${incoming.garage.vehicles.map((one) => one.name).join(' · ') || 'aucun'}. Les champs complémentaires sont conservés.`;
   $('import-link-note').textContent = handle ? 'Après confirmation, ce fichier sera lié au garage. L’écriture automatique restera désactivée.' : 'Toute liaison au fichier précédent sera détachée pour préserver son contenu.';
   $('import-error').hidden = true;

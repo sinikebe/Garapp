@@ -39,7 +39,7 @@ export class BackupPanel {
     $('backup-status').textContent = error ? 'Fichier de sauvegarde à vérifier' : busy ? 'Écriture du fichier…' : this.updating ? 'Vérification de la sauvegarde…' : handle ? sameFile && verified ? 'Fichier de sauvegarde à jour' : 'Fichier de sauvegarde à actualiser' : state.download ? sameDownload ? 'Export demandé pour cette version' : 'Modifications depuis le dernier export' : 'Sauvegarder le garage';
     $('backup-current').textContent = (() => {
       const count = inventory(this.getGarage());
-      return `${count.vehicles} véhicule(s) · ${count.records} fiche(s) · ${count.components} composant(s) · ${count.lines} ligne(s) · ${count.documents} document(s)`;
+      return `${count.vehicles} véhicule(s) · ${count.records} fiche(s) active(s) · ${count.trashedRecords} dans la corbeille · ${count.components} composant(s) · ${count.lines} ligne(s) · ${count.documents} document(s)`;
     })();
     $('backup-download-status').textContent = state.download ? `Dernier téléchargement demandé le ${dateTime(state.download.at)} : ${state.download.name}. ${sameDownload ? 'Il correspond à cette version du garage.' : 'Le garage a changé ou la correspondance reste à vérifier.'}` : 'Aucun téléchargement demandé depuis ce navigateur.';
     $('backup-file-support').hidden = this.supported;
