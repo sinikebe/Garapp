@@ -162,8 +162,12 @@ au contenu privé stocké dans Drive. Une copie externe reste utile.
 
 L’activation nécessite un client OAuth Web Google configuré par le déploiement.
 Les identifiants publics sont déclarés dans `public/assets/js/drive-config.js` ; ils
-sont vides par défaut. La version dev accepte aussi un réglage local par appareil
-dans le panneau. Le mode opératoire et les limites sont décrits dans
+sont vides par défaut. Ce réglage est effectué une seule fois pour Garapp : les
+utilisateurs disposent ensuite d’un seul bouton **Se connecter à Google Drive**,
+puis des étapes demandées par Google. Le panneau prépare la bibliothèque à son
+ouverture sans ouvrir de connexion automatiquement. Tant que le client commun
+manque, la version dev accepte aussi un réglage local d’essai dans le panneau.
+Le mode opératoire et les limites sont décrits dans
 [docs/google-drive.md](docs/google-drive.md).
 
 ## Installation et accès hors connexion

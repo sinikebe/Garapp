@@ -13,14 +13,18 @@ export class DrivePanel {
   constructor({ key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog }) {
     Object.assign(this, { key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog });
     this.configKey = key.replace('workspace', 'drive-client');
-    this.clientId = DRIVE_CLIENT_IDS[development ? 'dev' : 'main'];
-    if (development) { try { this.clientId = localStorage.getItem(this.configKey) || this.clientId; } catch { /* Optional local override. */ } }
+    this.appClientId = DRIVE_CLIENT_IDS[development ? 'dev' : 'main'];
+    this.clientId = this.appClientId;
+    this.showDeveloperConfig = development && !validClientId(this.appClientId);
+    if (this.showDeveloperConfig) { try { this.clientId = localStorage.getItem(this.configKey) || this.clientId; } catch { /* Optional local override until the app is configured. */ } }
     this.auth = null; this.loading = false; this.initialized = false; this.timer = null; this.poll = null; this.folders = []; this.problem = '';
-    $('drive-config').hidden = !development;
+    $('drive-config').hidden = !this.showDeveloperConfig;
     $('drive-client-id').value = this.clientId;
     $('drive-origin').textContent = location.origin;
-    $('drive-connect').addEventListener('click', () => { this.auth?.connect(); this.render(); });
-    $('drive-prepare').addEventListener('click', () => { void this.prepare(); });
+    $('drive-connect').addEventListener('click', () => {
+      if (this.auth) { this.problem = ''; this.auth.connect(); this.render(); }
+      else void this.prepare();
+    });
     $('drive-config-save').addEventListener('click', () => { void this.configure(); });
     $('drive-disconnect').addEventListener('click', () => this.disconnect());
     $('drive-list').addEventListener('click', () => { void this.listFolders(); });
@@ -37,7 +41,7 @@ export class DrivePanel {
     $('drive-export-local').addEventListener('click', () => this.download(backupBlob(this.getGarage()), backupFilename({ development })));
     $('drive-preview-dialog').addEventListener('close', () => { if (!this.engine?.busy && this.engine) this.engine.preview = null; this.changed(false); });
     $('drive-preview-dialog').addEventListener('cancel', (event) => { if (this.engine?.busy) event.preventDefault(); });
-    // Merely opening backups never loads Google's SDK or requests authorization.
+    // The backup panel prepares the SDK; only the connection button opens OAuth.
     window.addEventListener('focus', () => this.wake());
     window.addEventListener('online', () => this.wake());
     document.addEventListener('visibilitychange', () => this.wake());
@@ -56,14 +60,11 @@ export class DrivePanel {
 
   render() {
     const engine = this.engine, connected = this.connected(), busy = !!engine?.busy;
-    $('drive-config').hidden = !this.development;
+    $('drive-config').hidden = !this.showDeveloperConfig;
     $('drive-setup-note').hidden = !!this.clientId;
-    $('drive-prepare').hidden = !!this.auth || connected;
-    $('drive-prepare').disabled = !this.initialized || !validClientId(this.clientId) || this.loading || busy;
-    $('drive-prepare').textContent = this.loading ? 'Préparation de Google…' : 'Préparer la connexion Google';
-    $('drive-connect').hidden = !this.auth || connected;
-    $('drive-connect').disabled = !this.auth || !!this.auth?.pending || busy;
-    $('drive-connect').textContent = this.auth?.pending ? 'Connexion Google en cours…' : 'Se connecter à Google Drive';
+    $('drive-connect').hidden = connected;
+    $('drive-connect').disabled = !this.initialized || !validClientId(this.clientId) || this.loading || !!this.auth?.pending || busy || !this.auth && !this.problem;
+    $('drive-connect').textContent = this.auth?.pending ? 'Connexion Google en cours…' : this.loading ? 'Chargement de la connexion Google…' : !this.auth && validClientId(this.clientId) && this.problem ? 'Réessayer le chargement Google' : 'Se connecter à Google Drive';
     $('drive-disconnect').hidden = !connected && !this.auth?.pending;
     $('drive-disconnect').disabled = busy;
     $('drive-config-save').disabled = connected || busy || this.loading || !!this.auth?.pending;
@@ -114,7 +115,7 @@ export class DrivePanel {
   }
 
   async prepare() {
-    if (this.loading || !validClientId(this.clientId)) return;
+    if (this.auth || this.loading || !this.initialized || !validClientId(this.clientId)) return;
     this.loading = true; this.problem = ''; this.render();
     try {
       const oauth = await loadGoogleIdentity();
@@ -126,17 +127,18 @@ export class DrivePanel {
   }
 
   async configure() {
-    if (!this.development || this.connected() || this.engine?.busy || this.auth?.pending) return;
+    if (!this.showDeveloperConfig || this.loading || this.connected() || this.engine?.busy || this.auth?.pending) return;
     const value = $('drive-client-id').value.trim();
     if (value && !validClientId(value)) { this.problem = 'Saisir un identifiant de client OAuth Web se terminant par .apps.googleusercontent.com.'; this.render(); return; }
     this.auth?.disconnect(); this.auth = null;
     try {
       if (value) localStorage.setItem(this.configKey, value); else localStorage.removeItem(this.configKey);
-      this.clientId = value || DRIVE_CLIENT_IDS.dev;
+      this.clientId = value || this.appClientId;
       this.problem = '';
       this.engine.notice = 'Configuration enregistrée pour cette version de développement, sur cet appareil. Aucun secret OAuth n’est nécessaire.';
     } catch { this.problem = 'La configuration ne peut pas être mémorisée dans ce navigateur.'; }
     this.render();
+    await this.prepare();
   }
 
   async onConnected() {

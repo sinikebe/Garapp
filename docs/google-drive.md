@@ -19,13 +19,21 @@ connecteur Google Drive employé par un outil de développement.
 5. Copier uniquement l’identifiant public se terminant par
    `.apps.googleusercontent.com`. En dev, le panneau **Sauvegardes → Configuration
    Google pour les essais en développement** permet de le mémoriser sur cet
-   appareil. Chaque appareil d’essai doit recevoir ce réglage. Pour un déploiement
-   configuré par défaut, renseigner l’entrée `dev` ou `main` de
+   appareil. Ce réglage local est un dépannage pour les essais sans client
+   d’application commun. Pour la connexion normale, configurer une seule fois
+   le client de Garapp en renseignant l’entrée `dev` ou `main` de
    `public/assets/js/drive-config.js`, puis régénérer le bundle hors connexion avec
    `npm run build:pwa`. Un identifiant client n’est pas un secret ; un secret client,
    un jeton, un mot de passe ou un compte de service n’a aucune place dans ce dépôt.
-6. Dans Garapp, préparer la connexion Google puis cliquer sur **Se connecter à
-   Google Drive**. Ce second clic déclenche la popup depuis un geste explicite.
+6. Ouvrir les sauvegardes dans Garapp. La connexion se prépare automatiquement,
+   puis un seul bouton **Se connecter à Google Drive** ouvre la fenêtre Google
+   depuis un geste explicite. Google peut demander le choix du compte, une
+   authentification et le consentement. Aucun jeton n’est demandé en arrière-plan.
+
+Le client OAuth identifie l’application, pas une personne. Une fois l’identifiant
+commun publié, les utilisateurs n’ont aucun projet Google Cloud ni identifiant
+technique à saisir sur leurs appareils. Le réglage local de développement est
+alors masqué et ses anciennes valeurs ne remplacent pas le client de l’application.
 
 Aucune clé API, aucun backend, aucun compte de service et aucun refresh token
 ne sont nécessaires. Un identifiant OAuth vide laisse l’option inactive ; les
@@ -93,8 +101,10 @@ disponibles. Les petits fichiers utilisent un envoi multipart.
 
 ## Confidentialité et limites
 
-La bibliothèque Google est chargée uniquement après une demande de préparation
-de connexion. Les jetons sont envoyés dans l’en-tête Authorization aux seuls
+La bibliothèque Google est chargée à l’ouverture du panneau de sauvegardes si
+un client OAuth est configuré, ou après sa configuration en développement. Le
+chargement seul n’ouvre aucune fenêtre et n’autorise aucun accès Drive. Les jetons
+sont envoyés dans l’en-tête Authorization aux seuls
 endpoints HTTPS Drive autorisés, sans cache navigateur. Ils ne sont jamais ajoutés
 aux JSON, aux préférences persistantes ni au cache du service worker. Les appels
 Google, les sauvegardes et les documents sont hors du cache statique de la PWA.

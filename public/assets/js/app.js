@@ -504,7 +504,7 @@ document.addEventListener('input', (event) => {
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
-  commands: openCommands, backups: () => backups.open(), export: () => { try { exportGarage(); } catch { /* The backup panel reports export errors. */ } },
+  commands: openCommands, backups: () => { backups.open(); void drive.prepare(); }, export: () => { try { exportGarage(); } catch { /* The backup panel reports export errors. */ } },
   import: () => $('backup-file').click(), 'backup-create': () => backups.create(), 'backup-open': () => backups.chooseExisting(),
   'backup-write': () => backups.write(), 'backup-unlink': () => backups.unlink(), print: () => window.print(), reload: () => location.reload(),
 };
