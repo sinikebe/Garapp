@@ -168,6 +168,9 @@ dialog::backdrop { background: #071b1555; backdrop-filter: blur(3px); }
 .backup-auto { display: flex; align-items: flex-start; gap: var(--space-md); font-size: var(--type-sm); line-height: 1.5; margin-bottom: var(--space-md); }
 .backup-auto input { flex: none; width: 18px; min-height: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--accent); }
 .backup-guidance { margin-top: var(--space-2xl); }
+.pwa-instructions { padding-left: var(--space-xl); margin-bottom: 0; color: var(--text-secondary); font-size: var(--type-sm); line-height: 1.6; }
+.pwa-instructions li + li { margin-top: var(--space-md); }
+.pwa-installed { margin-block: var(--space-lg) 0; font-size: var(--type-sm); color: var(--accent); }
 .import-comparison { margin-block: var(--space-xl); }
 .import-comparison table { width: 100%; border-collapse: collapse; font-size: var(--type-sm); }
 .import-comparison caption { color: var(--text-secondary); text-align: left; font-size: var(--type-xs); margin-bottom: var(--space-sm); }

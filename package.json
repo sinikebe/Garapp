@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Votre véhicule, pièce par pièce. Un garage personnel dans le navigateur.",
   "scripts": {
+    "build:pwa": "node tools/build-pwa.mjs",
     "dev": "node tools/serve.mjs",
     "start": "node tools/serve.mjs",
     "test": "node --test test/*.test.mjs"

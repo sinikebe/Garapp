@@ -19,3 +19,12 @@ and deployed pages must be suitable for a public repository and a general audien
 Finapp is maintained separately. Its `dev` and `main` branches must not be changed
 from this project. If an integration change is necessary, prepare it on a new
 feature branch for the Finapp maintainer to review and merge.
+
+## Offline bundle
+
+`public/sw.js` is generated from `tools/service-worker.template.js` and all public
+application assets. After changing `public/` or the template, run
+`npm run build:pwa` before tests and commit the generated worker with the source
+changes. Tests reject stale asset fingerprints. Keep worker scopes, application
+identities and cache cleanup isolated between publication paths. Never add garage
+records, imported documents, exports or other applications to the offline cache.

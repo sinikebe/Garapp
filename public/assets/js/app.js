@@ -566,3 +566,7 @@ const suite = suiteLinks(base);
 $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;
 applyPreferences(); render();
+document.addEventListener('garapp:before-update', (event) => {
+  if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog')) event.preventDefault();
+});
+document.documentElement.dataset.garappReady = 'true';
