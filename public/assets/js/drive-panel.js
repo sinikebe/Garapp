@@ -1,0 +1,220 @@
+import { BackupSettings, backupBlob, backupFilename } from './backups.js';
+import { DRIVE_CLIENT_IDS } from './drive-config.js';
+import { driveNamespace, revisionGraph } from './drive-format.js';
+import { DriveAPI } from './drive-api.js';
+import { DriveSync } from './drive-sync.js';
+import { DriveAuthorization, loadGoogleIdentity, validClientId } from './drive-auth.js';
+
+const $ = (id) => document.getElementById(id);
+const date = (value) => { const result = new Date(value); return Number.isFinite(result.getTime()) ? result.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Date inconnue'; };
+const summary = (counts) => `${counts[0]} véhicule(s) · ${counts[1]} fiche(s) · ${counts[2]} composant(s) · ${counts[4]} document(s)`;
+
+export class DrivePanel {
+  constructor({ key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog }) {
+    Object.assign(this, { key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog });
+    this.configKey = key.replace('workspace', 'drive-client');
+    this.appClientId = DRIVE_CLIENT_IDS[development ? 'dev' : 'main'];
+    this.clientId = this.appClientId;
+    this.showDeveloperConfig = development && !validClientId(this.appClientId);
+    if (this.showDeveloperConfig) { try { this.clientId = localStorage.getItem(this.configKey) || this.clientId; } catch { /* Optional local override until the app is configured. */ } }
+    this.auth = null; this.loading = false; this.initialized = false; this.timer = null; this.poll = null; this.folders = []; this.problem = '';
+    $('drive-config').hidden = !this.showDeveloperConfig;
+    $('drive-client-id').value = this.clientId;
+    $('drive-origin').textContent = location.origin;
+    $('drive-connect').addEventListener('click', () => {
+      if (this.auth) { this.problem = ''; this.auth.connect(); this.render(); }
+      else void this.prepare();
+    });
+    $('drive-config-save').addEventListener('click', () => { void this.configure(); });
+    $('drive-disconnect').addEventListener('click', () => this.disconnect());
+    $('drive-list').addEventListener('click', () => { void this.listFolders(); });
+    $('drive-use').addEventListener('click', () => { void this.chooseFolder(); });
+    $('drive-create').addEventListener('click', () => { void this.create(); });
+    $('drive-sync').addEventListener('click', () => { void this.engine?.sync(); });
+    $('drive-auto').addEventListener('change', () => { void this.toggleAuto(); });
+    $('drive-seed').addEventListener('click', () => { void this.engine?.seed(); });
+    $('drive-keep-local').addEventListener('click', () => { void this.resolve('local'); });
+    $('drive-use-remote').addEventListener('click', () => { void this.resolve('remote'); });
+    $('drive-export-remote').addEventListener('click', () => {
+      if (this.engine?.preview) this.download(backupBlob(this.engine.preview.incoming), backupFilename({ development }));
+    });
+    $('drive-export-local').addEventListener('click', () => this.download(backupBlob(this.getGarage()), backupFilename({ development })));
+    $('drive-preview-dialog').addEventListener('close', () => { if (!this.engine?.busy && this.engine) this.engine.preview = null; this.changed(false); });
+    $('drive-preview-dialog').addEventListener('cancel', (event) => { if (this.engine?.busy) event.preventDefault(); });
+    // The backup panel prepares the SDK; only the connection button opens OAuth.
+    window.addEventListener('focus', () => this.wake());
+    window.addEventListener('online', () => this.wake());
+    document.addEventListener('visibilitychange', () => this.wake());
+    this.render();
+  }
+
+  async restore() {
+    this.engine = new DriveSync({ namespace: await driveNamespace(this.base), settings: new BackupSettings(this.key.replace('workspace', 'drive')), development: this.development,
+      getGarage: this.getGarage, canSync: this.canSync, canApply: this.canApply, applyRemote: this.applyRemote, onChange: () => this.render(),
+    });
+    await this.engine.restore(); this.initialized = true; this.render();
+    this.poll = setInterval(() => this.wake(), 15000);
+  }
+
+  connected() { return !!this.auth?.token() && !!this.engine?.api; }
+
+  render() {
+    const engine = this.engine, connected = this.connected(), busy = !!engine?.busy;
+    $('drive-config').hidden = !this.showDeveloperConfig;
+    $('drive-setup-note').hidden = !!this.clientId;
+    $('drive-connect').hidden = connected;
+    $('drive-connect').disabled = !this.initialized || !validClientId(this.clientId) || this.loading || !!this.auth?.pending || busy || !this.auth && !this.problem;
+    $('drive-connect').textContent = this.auth?.pending ? 'Connexion Google en cours…' : this.loading ? 'Chargement de la connexion Google…' : !this.auth && validClientId(this.clientId) && this.problem ? 'Réessayer le chargement Google' : 'Se connecter à Google Drive';
+    $('drive-disconnect').hidden = !connected && !this.auth?.pending;
+    $('drive-disconnect').disabled = busy;
+    $('drive-config-save').disabled = connected || busy || this.loading || !!this.auth?.pending;
+    $('drive-client-id').disabled = connected || busy || this.loading || !!this.auth?.pending;
+    $('drive-connected').hidden = !connected;
+    $('drive-binding').hidden = !engine?.state.binding;
+    $('drive-folder-name').textContent = engine?.state.binding?.name ?? '';
+    const divergent = engine && new Set(engine.graph.heads.map((head) => head.hash)).size > 1;
+    $('drive-status').textContent = this.problem || engine?.error || (busy ? engine.status.startsWith('Envoi') ? engine.status : 'Vérification Drive en cours…' : connected ? divergent ? 'Modifications concurrentes : toutes les versions sont conservées. Comparer les versions pour choisir la suite.' : engine.localChanged ? 'Le garage ouvert contient des modifications à vérifier avec Drive.' : engine.status : engine?.state.binding ? 'Drive déconnecté. Le lien au dossier est conservé ; se reconnecter pour synchroniser.' : 'Sauvegarde Drive facultative. Le garage reste utilisable sans connexion.');
+    $('drive-status').dataset.error = String(!!(this.problem || engine?.error));
+    $('drive-notice').textContent = engine?.notice ?? '';
+    $('drive-last-check').textContent = engine?.state.checkedAt ? `Dernière correspondance confirmée : ${date(engine.state.checkedAt)}.` : '';
+    $('drive-auto').checked = engine?.state.auto === true;
+    $('drive-auto').disabled = !connected || !engine?.state.binding || busy;
+    for (const id of ['drive-list', 'drive-use', 'drive-create', 'drive-sync', 'drive-seed']) $(id).disabled = !connected || busy || id === 'drive-use' && !$('drive-folders').value || ['drive-sync', 'drive-seed'].includes(id) && !engine?.state.binding;
+    $('drive-seed').hidden = !engine?.state.binding || !!engine.graph.nodes.length || !!engine.state.baseline;
+    $('drive-folders').disabled = busy;
+    for (const id of ['drive-keep-local', 'drive-use-remote', 'drive-export-remote']) $(id).disabled = busy || !engine?.preview;
+    $('drive-preview-dialog').querySelectorAll('[data-close]').forEach((button) => { button.disabled = busy; });
+    $('drive-preview-error').textContent = engine?.error ?? '';
+    $('drive-preview-error').hidden = !engine?.error;
+    const footer = $('drive-footer-status');
+    footer.hidden = !engine?.state.binding;
+    footer.textContent = !connected ? 'Drive déconnecté' : busy ? 'Transfert Drive…' : engine.error ? 'Drive à vérifier' : divergent ? 'Versions Drive à comparer' : engine.localChanged ? 'Drive : modifications à vérifier' : engine.state.auto ? 'Drive : synchronisation active' : 'Drive : synchronisation en pause';
+    this.renderVersions();
+  }
+
+  renderVersions() {
+    const list = $('drive-versions');
+    if (!this.engine?.state.binding || !this.connected()) { list.replaceChildren(); this.versionsKey = null; return; }
+    const heads = new Set(this.engine.graph.heads.map((node) => node.revision));
+    const nodes = [...this.engine.graph.nodes].sort((a, b) => (b.at ?? '').localeCompare(a.at ?? '') || b.revision.localeCompare(a.revision));
+    // Always include every concurrent head, even when it is older than the last
+    // twenty versions. The rest of the history remains available in Drive.
+    const visible = nodes.filter((node, index) => index < 20 || heads.has(node.revision));
+    const versionsKey = JSON.stringify(visible.map((node) => [node.id, node.wire, node.at, node.counts, heads.has(node.revision)]));
+    if (this.versionsKey === versionsKey) { list.querySelectorAll('button').forEach((button) => { button.disabled = this.engine.busy; }); return; }
+    this.versionsKey = versionsKey; list.replaceChildren();
+    for (const node of visible) {
+      const row = document.createElement('li');
+      const text = document.createElement('span'); text.textContent = `${date(node.at)}${heads.has(node.revision) ? ' · version courante' : ''}\n${summary(node.counts)} · ${Math.ceil(node.size / 1024)} Kio · ${node.revision.slice(0, 8)}`;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'ghost-button'; button.textContent = 'Comparer'; button.disabled = this.engine.busy;
+      button.setAttribute('aria-label', `Comparer la version du ${date(node.at)}, ${node.revision.slice(0, 8)}`);
+      button.addEventListener('click', () => { void this.compare(node.revision); });
+      row.append(text, button); list.append(row);
+    }
+    $('drive-history-note').textContent = nodes.length ? `${nodes.length} version(s) conservée(s). ${nodes.length > visible.length ? 'Les vingt plus récentes et toutes les versions concurrentes sont affichées. L’historique complet reste dans Drive.' : 'Aucune version n’est supprimée automatiquement.'}` : 'Aucune version chargée dans ce dossier.';
+  }
+
+  async prepare() {
+    if (this.auth || this.loading || !this.initialized || !validClientId(this.clientId)) return;
+    this.loading = true; this.problem = ''; this.render();
+    try {
+      const oauth = await loadGoogleIdentity();
+      this.auth = new DriveAuthorization({ clientId: this.clientId, oauth,
+        onToken: () => { void this.onConnected(); }, onError: (message) => { this.problem = message; this.render(); },
+      });
+    } catch (error) { this.problem = error.message; }
+    finally { this.loading = false; this.render(); }
+  }
+
+  async configure() {
+    if (!this.showDeveloperConfig || this.loading || this.connected() || this.engine?.busy || this.auth?.pending) return;
+    const value = $('drive-client-id').value.trim();
+    if (value && !validClientId(value)) { this.problem = 'Saisir un identifiant de client OAuth Web se terminant par .apps.googleusercontent.com.'; this.render(); return; }
+    this.auth?.disconnect(); this.auth = null;
+    try {
+      if (value) localStorage.setItem(this.configKey, value); else localStorage.removeItem(this.configKey);
+      this.clientId = value || this.appClientId;
+      this.problem = '';
+      this.engine.notice = 'Configuration enregistrée pour cette version de développement, sur cet appareil. Aucun secret OAuth n’est nécessaire.';
+    } catch { this.problem = 'La configuration ne peut pas être mémorisée dans ce navigateur.'; }
+    this.render();
+    await this.prepare();
+  }
+
+  async onConnected() {
+    this.problem = '';
+    this.engine.api?.close();
+    this.engine.graph = revisionGraph([]);
+    this.engine.api = new DriveAPI({ token: () => this.auth?.token(), onExpired: () => { this.auth?.clearToken(); this.problem = 'La connexion Google a expiré. Se reconnecter pour poursuivre.'; this.render(); },
+      onProgress: (fraction) => { this.engine.status = `Envoi de la sauvegarde : ${Math.round(fraction * 100)} %…`; this.render(); },
+    });
+    this.engine.status = 'Google Drive connecté.'; this.render();
+    await this.listFolders();
+    if (this.engine.state.binding) {
+      if (this.engine.state.auto && this.canSync()) await this.engine.sync(); else await this.engine.refresh();
+    }
+    this.render();
+  }
+
+  disconnect() { clearTimeout(this.timer); this.auth?.disconnect(); this.engine?.disconnect(); this.problem = ''; this.folders = []; $('drive-folders').replaceChildren(); this.render(); }
+
+  async listFolders() {
+    if (!this.connected()) return;
+    const selected = this.engine.state.binding?.id;
+    await this.engine.run(async () => {
+      this.folders = await this.engine.folders();
+      const select = $('drive-folders'); select.replaceChildren();
+      const empty = document.createElement('option'); empty.value = ''; empty.textContent = 'Choisir un dossier Garapp privé'; select.append(empty);
+      for (const folder of this.folders) { const option = document.createElement('option'); option.value = folder.id; option.textContent = folder.name; select.append(option); }
+      if (this.folders.some((folder) => folder.id === selected)) select.value = selected;
+    });
+    $('drive-folders').onchange = () => this.render(); this.render();
+  }
+
+  async chooseFolder() {
+    const id = $('drive-folders').value;
+    if (!id || !this.connected() || this.engine.busy) return;
+    clearTimeout(this.timer);
+    await this.engine.bind(id);
+  }
+
+  async create() {
+    if (!this.connected() || this.engine.busy) return;
+    if (await this.engine.create($('drive-new-name').value)) await this.listFolders();
+  }
+
+  async toggleAuto() {
+    await this.engine.setAuto($('drive-auto').checked);
+    if (this.engine.state.auto && this.connected()) await this.engine.sync();
+  }
+
+  wake() {
+    if (document.visibilityState !== 'visible' || !navigator.onLine || !this.connected() || !this.engine.state.auto || this.engine.busy || this.engine.preview || !this.canSync()) { this.render(); return; }
+    void this.engine.sync();
+  }
+
+  changed(edited = true) { if (edited && this.engine) this.engine.localChanged = true; clearTimeout(this.timer); this.timer = setTimeout(() => this.wake(), 1500); this.render(); }
+  pauseForImport() { clearTimeout(this.timer); this.engine?.pauseForImport(); }
+  busy() { return !!this.engine?.busy || !!this.auth?.pending; }
+
+  async compare(revision) {
+    if (!await this.engine.compare(revision) || !this.engine.preview) return;
+    const preview = this.engine.preview;
+    $('drive-preview-description').textContent = `Version Drive du ${date(preview.node.at)} · ${preview.node.revision.slice(0, 8)}. Le fichier et ses documents ont été vérifiés.`;
+    const tbody = $('drive-preview-counts'); tbody.replaceChildren();
+    for (const [field, label] of [['vehicles', 'Véhicules'], ['records', 'Fiches'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']]) {
+      const row = document.createElement('tr'); const heading = document.createElement('th'); heading.scope = 'row'; heading.textContent = label; row.append(heading);
+      for (const counts of [preview.localCounts, preview.remoteCounts]) { const cell = document.createElement('td'); cell.textContent = counts[field]; row.append(cell); }
+      tbody.append(row);
+    }
+    $('drive-preview-vehicles').textContent = `Véhicules Drive : ${preview.incoming.vehicles.map((vehicle) => vehicle.name).join(' · ') || 'aucun'}. Les quantités seules ne décrivent pas les changements : télécharger les deux copies permet d’examiner tous les champs.`;
+    this.showDialog('drive-preview-dialog'); this.render();
+  }
+
+  async resolve(choice) {
+    if (await this.engine.resolve(choice)) {
+      $('drive-preview-dialog').close(); this.showDialog('backups-dialog'); this.announce(this.engine.status);
+    }
+    this.render();
+  }
+}

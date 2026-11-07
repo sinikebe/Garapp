@@ -1,7 +1,8 @@
 # Format de sauvegarde Garapp — version 2
 
 Une sauvegarde est un fichier JSON UTF-8 autonome. Son import et son export restent
-locaux au navigateur. Le dépôt et les pages publiées ne doivent contenir aucune
+locaux au navigateur. L’option Google Drive transfère ces mêmes JSON complets après
+connexion et activation explicites. Le dépôt et les pages publiées ne doivent contenir aucune
 donnée personnelle importée. Les exemples fournis sont entièrement fictifs.
 
 Le [fichier d’exemple](examples/garage-v2.json) est validé par les tests du projet.
@@ -168,7 +169,8 @@ d’une fiche ou d’une ligne.
 
 Le document original doit être téléchargé par le producteur de la sauvegarde et
 son contenu encodé en base64. **Un lien de téléchargement temporaire ne remplace
-pas le fichier.** Garapp ne contacte aucun service pour récupérer les documents.
+pas le fichier.** Garapp ne télécharge pas les documents depuis leurs liens externes.
+La synchronisation Drive transporte les documents déjà intégrés au JSON.
 Les liens utiles peuvent être conservés en supplément pour la traçabilité.
 
 Un document ne peut dépasser 64 Mio. Le fichier JSON importé est limité à 512 Mio,

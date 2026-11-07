@@ -6,6 +6,8 @@ import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, r
 import { initHeaderMenus } from './header-menus.js';
 import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
+import { DrivePanel } from './drive-panel.js';
+import { renderStatistics } from './statistics-view.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -32,6 +34,7 @@ let editingLines = [];
 let toastTimer;
 let saving = false;
 let localConflict = false;
+let applyingRemote = false;
 let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
@@ -63,6 +66,36 @@ const backups = new BackupPanel({
 });
 await backups.restore();
 
+const canDriveSync = () => !unsaved && !saving && !localConflict && !repository.invalid && !backups.files.busy && !backups.picking && !$('import-confirm').dataset.importing && !openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog');
+const canDriveApply = (explicit = false) => canDriveSync() && document.hasFocus() && !openDialogs().some((dialog) => dialog.id === 'drive-preview-dialog' && !explicit);
+const drive = new DrivePanel({
+  key, base, development: suiteLinks(base).preview, getGarage: () => garage,
+  canSync: canDriveSync, canApply: canDriveApply, applyRemote: applyDriveGarage,
+  download, announce, showDialog,
+});
+try { await drive.restore(); }
+catch { drive.problem = 'La synchronisation Drive nécessite un navigateur récent, HTTPS et le stockage local. Les sauvegardes JSON restent disponibles.'; drive.render(); }
+
+/** Persist a verified remote copy before changing the garage visible in the UI. */
+async function applyDriveGarage(incoming, expected, explicit) {
+  if (garage !== expected || !canDriveApply(explicit)) throw Error('Le garage est occupé ou a changé. La copie locale est conservée ; relancer la synchronisation.');
+  const next = parseGarage(JSON.stringify(incoming));
+  if (next.vehicles.some((one) => one.id === garage.activeId)) next.activeId = garage.activeId;
+  saving = true; applyingRemote = true;
+  try {
+    await repository.save(next);
+    garage = next; unsaved = false;
+    if (!localConflict) { $('storage-warning').hidden = true; $('save-status').textContent = 'Enregistré sur cet appareil'; }
+  } catch (error) { throw Error(`La version Drive est conservée, mais son enregistrement sur cet appareil a échoué. Le garage ouvert reste inchangé. ${error.message}`); }
+  finally { saving = false; applyingRemote = false; }
+  render(); void backups.update();
+}
+
+// Block new edits only during the atomic local commit of an incoming copy.
+for (const type of ['click', 'change', 'input', 'submit', 'keydown']) document.addEventListener(type, (event) => {
+  if (applyingRemote) { event.preventDefault(); event.stopImmediatePropagation(); }
+}, true);
+
 async function save(next) {
   if (saving) throw Error('Un enregistrement est déjà en cours.');
   next = parseGarage(JSON.stringify(next));
@@ -80,6 +113,7 @@ async function save(next) {
   render();
   if (unsaved) backups.suspend();
   void backups.update(!unsaved);
+  drive.changed();
 }
 function applyPreferences() {
   document.body.dataset.layout = preferences.layout;
@@ -158,6 +192,7 @@ const views = {
   interventions: ['Une histoire qui se conserve.', 'Interventions, documents et événements, reliés au véhicule.'],
   composants: ['Chaque pièce a son histoire.', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
   depenses: ['Savoir où va votre budget.', 'Les dépenses connues et les montants à compléter.'],
+  statistiques: ['Le véhicule au fil du temps.', 'Kilométrage, rythme de roulage et dépenses, à partir des informations enregistrées.'],
 };
 let section = resolveSection(location.hash, navigation.section);
 
@@ -167,6 +202,7 @@ function rememberNavigation() {
     recordSearch: $('record-search').value, recordType: $('record-type').value,
     componentSearch: $('component-search').value, componentStatus: $('component-status').value,
     expenseYear: $('expense-year').value, expenseScope: $('expense-scope').value,
+    statisticsPeriod: $('statistics-period').value, statisticsScope: $('statistics-scope').value,
   }, today().slice(0, 4));
   try { writeNavigation(localStorage, navigationStorageKey, navigation); } catch { /* Optional UI context. */ }
 }
@@ -191,6 +227,8 @@ function render() {
   $('component-search').value = filters.componentSearch;
   $('component-status').value = filters.componentStatus;
   $('expense-scope').value = filters.expenseScope;
+  $('statistics-period').value = filters.statisticsPeriod;
+  $('statistics-scope').value = filters.statisticsScope;
   const previousType = filters.recordType;
   const types = [...new Set([...Object.keys(TYPES), ...current.records.map((record) => record.type)])];
   $('record-type').innerHTML = '<option value="all">Tous les types</option>' + types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
@@ -200,6 +238,8 @@ function render() {
   $('expense-year').innerHTML = years.map((year) => `<option value="${year}">${year}</option>`).join('') + '<option value="undated">Sans date</option><option value="all">Tout l’historique</option>';
   $('expense-year').value = ['all', 'undated', ...years].includes(previousYear) ? previousYear : today().slice(0, 4);
   renderDashboard(current); renderRecords(); renderComponents(); renderExpenses();
+  if (section === 'statistiques') renderStatistics($('statistics-content'), current, { period: filters.statisticsPeriod, scope: filters.statisticsScope });
+  else $('statistics-content').replaceChildren();
   rememberNavigation();
 }
 
@@ -471,7 +511,14 @@ document.addEventListener('input', (event) => {
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
-  commands: openCommands, backups: () => backups.open(), export: () => { try { exportGarage(); } catch { /* The backup panel reports export errors. */ } },
+  'new-reading': () => {
+    if (!vehicle()) return openVehicle();
+    openRecord();
+    const form = $('record-form');
+    form.elements.title.value = 'Relevé kilométrique'; form.elements.type.value = 'reading'; form.elements.odometer.value = '';
+    $('record-dialog-title').textContent = 'Ajouter un relevé kilométrique'; form.elements.odometer.focus();
+  },
+  commands: openCommands, backups: () => { backups.open(); void drive.prepare(); }, export: () => { try { exportGarage(); } catch { /* The backup panel reports export errors. */ } },
   import: () => $('backup-file').click(), 'backup-create': () => backups.create(), 'backup-open': () => backups.chooseExisting(),
   'backup-write': () => backups.write(), 'backup-unlink': () => backups.unlink(), print: () => window.print(), reload: () => location.reload(),
 };
@@ -501,6 +548,10 @@ document.addEventListener('keydown', (event) => {
 for (const id of ['record-search', 'record-type']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', () => { rememberNavigation(); renderRecords(); });
 for (const id of ['component-search', 'component-status']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', () => { rememberNavigation(); renderComponents(); });
 for (const id of ['expense-year', 'expense-scope']) $(id).addEventListener('change', () => { rememberNavigation(); renderExpenses(); });
+for (const id of ['statistics-period', 'statistics-scope']) $(id).addEventListener('change', () => {
+  rememberNavigation();
+  if (vehicle()) renderStatistics($('statistics-content'), vehicle(), { period: $('statistics-period').value, scope: $('statistics-scope').value });
+});
 window.addEventListener('hashchange', () => {
   if (location.hash === '#main') return;
   rememberNavigation();
@@ -514,10 +565,10 @@ function filterCommands() {
   $('command-empty').hidden = buttons.some((button) => !button.hidden);
 }
 $('command-search').addEventListener('input', filterCommands);
-window.addEventListener('beforeunload', (event) => { if (unsaved || backups.needsFlush()) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', (event) => { if (unsaved || backups.needsFlush() || drive.busy()) { event.preventDefault(); event.returnValue = ''; } });
 repository.subscribe(async () => {
   if (openDialogs().length || unsaved || saving) { localConflict = true; backups.suspend(); return storageWarning('Le garage a changé dans un autre onglet. Exportez les modifications ouvertes avant de recharger.'); }
-  try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); }
+  try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); drive.changed(); }
   catch { storageWarning('Une modification provenant d’un autre onglet est illisible. La copie ouverte est conservée.'); }
 });
 async function prepareImport(file, handle = null) {
@@ -525,6 +576,7 @@ async function prepareImport(file, handle = null) {
   const generation = ++importGeneration;
   pendingImport = null;
   backups.suspend();
+  drive.pauseForImport();
   const incoming = await readBackupFile(file);
   if (generation !== importGeneration) return;
   pendingImport = { ...incoming, handle };
@@ -567,6 +619,6 @@ $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;
 applyPreferences(); render();
 document.addEventListener('garapp:before-update', (event) => {
-  if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog')) event.preventDefault();
+  if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || drive.busy() || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || ['import-dialog', 'drive-preview-dialog'].includes(dialog.id))) event.preventDefault();
 });
 document.documentElement.dataset.garappReady = 'true';

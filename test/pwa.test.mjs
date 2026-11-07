@@ -172,7 +172,7 @@ test('the main worker does not intercept dev, Finapp, unknown files or garage ex
   const app = runtime('https://example.test/Garapp/');
   await app.lifecycle('install');
   for (const path of ['/Garapp/dev/', '/finapp/', '/Garapp/unknown/']) assert.equal(app.fetch(path, { navigate: true }), undefined);
-  for (const path of ['/Garapp/garage-prive.json', '/Garapp/sw.js', 'https://other.test/Garapp/']) assert.equal(app.fetch(path), undefined);
+  for (const path of ['/Garapp/garage-prive.json', '/Garapp/sw.js', 'https://other.test/Garapp/', 'https://accounts.google.com/gsi/client', 'https://www.googleapis.com/drive/v3/files?alt=media', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable']) assert.equal(app.fetch(path), undefined);
   assert.equal(app.fetch('index.html', { method: 'POST' }), undefined);
   assert.equal(app.fetch('assets/js/app.js?unexpected=1'), undefined);
   assert.equal(await app.message('ACTIVATE_UPDATE', 'https://example.test/finapp/'), undefined);

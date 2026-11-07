@@ -25,6 +25,28 @@ adaptée au suivi d'un véhicule :
 - **Dépenses** : total par période, pièces, main-d'œuvre et répartition par type
   d'intervention. Une intervention liée à plusieurs composants est comptée une
   seule fois. Le carburant et l'assurance ne sont pas inclus dans ces totaux.
+- **Statistiques** : évolution datée du compteur, écart observé, rythme annualisé
+  estimé et dépenses connues dans le temps. Les périodes et le périmètre des
+  dépenses sont mémorisés par véhicule. Les graphiques fonctionnent hors connexion.
+
+Les statistiques utilisent les relevés datés de la fiche véhicule et des fiches
+enregistrées. Les points suivent leurs dates réelles ; sélectionner un relevé ou
+toucher la courbe affiche ses sources, qui restent consultables. Un bouton permet
+d’ajouter un événement de type relevé kilométrique. Aucun relevé existant n’est
+modifié par les graphiques et aucun nouveau champ n’est ajouté aux sauvegardes.
+Les relevés sans date ou sans compteur, les fiches prévues et les dates futures
+sont exclus de la courbe et signalés. Des valeurs différentes le même jour ou une
+baisse entre deux dates conservent leurs points et empêchent le calcul d’un écart
+ou d’un rythme trompeur. Le rythme annualisé nécessite au moins 30 jours entre
+les relevés extrêmes et décrit cet intervalle, sans prévoir le kilométrage futur.
+
+Les dépenses sont regroupées par mois, ou par année au-delà de 24 mois. Les
+factures restent comptées une seule fois, les totaux indiqués sur les justificatifs
+restent prioritaires et les calculs conservent leurs décimales. Les montants
+inconnus, les sous-totaux partiels et les zéros connus sont distingués ; les
+remboursements ne sont pas convertis en dépenses positives. Les tables accessibles
+sous les graphiques donnent les sources et montants exacts. Une période vide ne
+constitue pas une preuve d’absence de dépenses.
 
 Les véhicules, interventions, événements, composants et lignes détaillées peuvent
 être ajoutés et modifiés dans l’application. Les documents locaux peuvent être
@@ -128,12 +150,47 @@ lié reste à actualiser. L’enregistrement local et la copie externe sont dist
   détache l’ancien fichier ; ouvrir un fichier existant le lie après import réussi,
   avec l’écriture automatique désactivée.
 
-Pour travailler sur un autre appareil, transférer puis importer le dernier fichier
-avant de poursuivre. Aucune fusion ni synchronisation entre appareils n’est effectuée.
+Pour travailler sur un autre appareil avec les fichiers seuls, transférer puis importer
+le dernier fichier avant de poursuivre. Ces copies ne sont pas fusionnées automatiquement.
 Conserver plusieurs copies datées, dont une sur un autre support, permet de récupérer
 un état antérieur et de résister à la perte du navigateur ou de l’appareil.
 Le format portable reste en version 2 et inclut toujours les documents et les champs
-complémentaires. Aucun service distant, compte ou secret d’application n’est ajouté.
+complémentaires. Ces sauvegardes restent disponibles sans service distant ni compte.
+
+## Synchronisation Google Drive facultative
+
+**Outils → Gérer les sauvegardes → Synchroniser avec Google Drive** propose une
+connexion explicite au compte Google, puis la création ou la sélection d’un dossier
+Garapp privé. Chaque version est un JSON autonome au format 2, documents inclus.
+L’application crée de nouveaux fichiers et ne modifie ni ne supprime les précédents.
+La version dev, main et chaque origine de développement ont des espaces distincts.
+
+La synchronisation automatique, activée explicitement pour le dossier, vérifie les
+versions toutes les 15 secondes pendant que l’application est visible et connectée,
+au retour dans l’application et après une modification enregistrée. Elle s’arrête
+avec la fermeture de la page ou l’expiration du jeton Google ; une reconnexion par
+bouton est nécessaire. Il s’agit de contrôles périodiques, sans serveur de notification.
+Les accès OAuth restent uniquement en mémoire. Le droit `drive.file` limite l’accès
+aux fichiers autorisés à l’application. Aucun secret client n’est utilisé.
+
+Deux modifications concurrentes produisent des branches conservées. Une comparaison
+permet de choisir le garage complet à poursuivre, après archivage de la copie locale.
+Aucune fusion de champs n’est tentée. Une erreur de quota, de réseau, d’intégrité ou
+d’enregistrement local laisse les copies précédentes disponibles et ne confirme pas
+une synchronisation réussie. L’ouverture d’un fichier à importer suspend l’automatisme.
+Les révisions sont complètes, sans déduplication des pièces jointes ni nettoyage
+automatique ; leur taille compte dans le quota Drive. Garapp n’ajoute pas de chiffrement
+au contenu privé stocké dans Drive. Une copie externe reste utile.
+
+L’activation nécessite un client OAuth Web Google configuré par le déploiement.
+Les identifiants publics sont déclarés dans `public/assets/js/drive-config.js` ; ils
+sont vides par défaut. Ce réglage est effectué une seule fois pour Garapp : les
+utilisateurs disposent ensuite d’un seul bouton **Se connecter à Google Drive**,
+puis des étapes demandées par Google. Le panneau prépare la bibliothèque à son
+ouverture sans ouvrir de connexion automatiquement. Tant que le client commun
+manque, la version dev accepte aussi un réglage local d’essai dans le panneau.
+Le mode opératoire et les limites sont décrits dans
+[docs/google-drive.md](docs/google-drive.md).
 
 ## Installation et accès hors connexion
 
@@ -147,10 +204,11 @@ icônes 192/512 px, une variante maskable et l’icône Apple 180 px sont livré
 La première ouverture connectée prépare les fichiers publics de l’application.
 Le panneau confirme lorsque Garapp peut être rouvert sans connexion. Le garage et
 les documents déjà enregistrés restent dans IndexedDB, hors du cache de l’application.
-Les données ne sont ni envoyées à un serveur ni intégrées au service worker.
+Les données ne sont pas intégrées au service worker. Elles restent locales sauf
+envoi explicite vers Google Drive ou activation de sa synchronisation automatique.
 Une préparation échouée peut être relancée depuis le panneau. Une copie JSON externe
 reste nécessaire pour résister à la suppression des données du navigateur ou à la
-perte de l’appareil ; une installation sur un autre appareil ne synchronise pas le garage.
+perte de l’appareil ; une installation seule sur un autre appareil ne synchronise pas le garage.
 
 Chaque génération hors connexion porte les empreintes SHA-256 de ses fichiers.
 Une réponse périmée, incomplète ou provenant d’une autre version fait échouer la
