@@ -80,7 +80,7 @@ explicite entre environnements.
   Le lien reste disponible pour une comparaison avant réactivation.
 - Les contrôles SHA-256 vérifient les fichiers transférés et détectent les
   modifications externes. Les relations entre révisions sont vérifiées avant
-  toute reprise. Une version ou un parent supprimé, déplacé, partagé ou illisible
+  toute reprise. Une version connue ou un parent supprimé, déplacé, partagé ou illisible
   bloque la synchronisation ; le garage local reste exportable.
 
 Chaque JSON contient les pièces jointes en base64, les montants exacts et les
