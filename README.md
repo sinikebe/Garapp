@@ -29,8 +29,8 @@ adaptée au suivi d'un véhicule :
 Les véhicules, interventions, événements, composants et lignes détaillées peuvent
 être ajoutés et modifiés dans l’application. Les documents locaux peuvent être
 ajoutés, renommés, décrits et téléchargés depuis les fiches. La recherche parcourt
-les notes et les lignes d’intervention. Le garage s’exporte et s’importe en JSON. L'import est vérifié avant remplacement et télécharge d'abord
-une copie du garage ouvert. L'impression/PDF et les actions rapides avec
+les notes et les lignes d’intervention. Le garage s’exporte et s’importe en JSON. L’import est vérifié avant remplacement et demande d’abord le téléchargement
+d’une copie du garage ouvert. L’impression/PDF et les actions rapides avec
 **Ctrl/Cmd K** sont disponibles.
 
 Le premier lancement propose un **garage d'exemple fictif**, clairement identifié.
@@ -96,6 +96,79 @@ la copie ouverte restent exportables. Les transactions IndexedDB et les notifica
 entre onglets protègent contre le remplacement silencieux d’une autre copie. Le
 stockage navigateur reste local à un appareil et à un chemin de publication : les
 exports sont nécessaires pour conserver une sauvegarde indépendante.
+
+### Sauvegardes par fichiers
+
+**Outils → Gérer les sauvegardes** regroupe les copies JSON, le suivi du dernier
+export et la liaison facultative à un fichier. Un raccourci dans le pied de page
+indique si des modifications ont eu lieu depuis le dernier export ou si un fichier
+lié reste à actualiser. L’enregistrement local et la copie externe sont distingués.
+
+- Chaque copie téléchargée reçoit un nom unique horodaté en UTC. Les noms
+  distinguent les versions de développement et les copies précédant un import.
+  Le navigateur ne confirme pas la conservation d’un téléchargement : l’interface
+  indique une demande d’export et invite à vérifier le fichier.
+- Dans les navigateurs proposant les sélecteurs de fichiers en lecture/écriture,
+  un fichier JSON peut être créé et lié au garage. Un fichier déjà rempli est
+  refusé à la création ; il doit être ouvert et vérifié avant import. La liaison
+  reste mémorisée dans IndexedDB si le navigateur le permet, séparément du JSON.
+- Une mise à jour explicite demande l’autorisation nécessaire, vérifie l’empreinte
+  SHA-256 du fichier avant écriture et après obtention du flux, puis relit le
+  résultat après fermeture. Une différence externe détectée bloque l’écrasement.
+  Web Locks sérialise les écritures provenant de Garapp sur une même origine ;
+  cela ne constitue pas un verrou distribué entre appareils ou logiciels.
+- L’écriture automatique est facultative et doit être activée à chaque ouverture
+  de page. Elle intervient après une modification enregistrée localement et une
+  courte pause. Elle est suspendue en cas d’erreur, de conflit local ou externe,
+  d’import ou de changement de fichier. Elle ne fonctionne pas navigateur fermé.
+  Une écriture en cours ou en attente déclenche la protection de sortie du navigateur.
+- Avant import, un tableau compare le garage ouvert et le fichier : véhicules,
+  fiches, composants, lignes et documents. Les noms des véhicules sont affichés.
+  Le contenu d’un fichier lié est revérifié avant confirmation. L’import ordinaire
+  détache l’ancien fichier ; ouvrir un fichier existant le lie après import réussi,
+  avec l’écriture automatique désactivée.
+
+Pour travailler sur un autre appareil, transférer puis importer le dernier fichier
+avant de poursuivre. Aucune fusion ni synchronisation entre appareils n’est effectuée.
+Conserver plusieurs copies datées, dont une sur un autre support, permet de récupérer
+un état antérieur et de résister à la perte du navigateur ou de l’appareil.
+Le format portable reste en version 2 et inclut toujours les documents et les champs
+complémentaires. Aucun service distant, compte ou secret d’application n’est ajouté.
+
+## Installation et accès hors connexion
+
+**Outils → Installation, hors connexion et mises à jour**, ou **Installer Garapp**
+dans le pied de page, ouvre les options d’installation. Lorsqu’un navigateur propose
+l’installation directe, le panneau affiche son bouton. Les instructions restent
+disponibles pour Android, Safari sur iPhone/iPad et Chrome/Edge sur ordinateur.
+L’application peut s’ouvrir dans une fenêtre autonome avec une icône dédiée ; les
+icônes 192/512 px, une variante maskable et l’icône Apple 180 px sont livrées localement.
+
+La première ouverture connectée prépare les fichiers publics de l’application.
+Le panneau confirme lorsque Garapp peut être rouvert sans connexion. Le garage et
+les documents déjà enregistrés restent dans IndexedDB, hors du cache de l’application.
+Les données ne sont ni envoyées à un serveur ni intégrées au service worker.
+Une préparation échouée peut être relancée depuis le panneau. Une copie JSON externe
+reste nécessaire pour résister à la suppression des données du navigateur ou à la
+perte de l’appareil ; une installation sur un autre appareil ne synchronise pas le garage.
+
+Chaque génération hors connexion porte les empreintes SHA-256 de ses fichiers.
+Une réponse périmée, incomplète ou provenant d’une autre version fait échouer la
+préparation sans remplacer la génération existante. Les ressources sont téléchargées
+avec une URL propre à la génération pour éviter les anciennes réponses d’un cache HTTP.
+Le service worker ne met en cache que les ressources publiques prévues ; les exports,
+les données métier et les autres applications ne sont pas interceptés.
+
+Une nouvelle version est proposée dans un bandeau. Son activation et le rechargement
+nécessitent une action explicite. Les formulaires ouverts, imports, conflits locaux et
+écritures en cours empêchent ce rechargement ; l’état est vérifié à nouveau lorsque
+la nouvelle version prend le contrôle. Une activation depuis un autre onglet ne force
+pas le rechargement des autres pages.
+
+Les manifestes utilisent `start_url: "./"` et `scope: "./"`. L’identité est déduite de
+cette adresse de départ, conformément au format des manifestes. Le chemin de publication
+différent distingue donc les installations principale et de développement, et le nom
+**Garapp dev** identifie cette dernière. Les caches sont également limités à leur chemin.
 
 ## Versions publiées
 
@@ -166,7 +239,7 @@ refusés. Le nom `public/dev` est réservé à la version de développement.
 Utiliser des chemins relatifs pour les ressources, par exemple `./assets/app.css`,
 afin de fonctionner à la fois sous `/Garapp/` et `/Garapp/dev/`. Si un outil de
 compilation est ajouté, il devra produire ce dossier avec le bon chemin de base.
-Les éventuels service workers devront limiter leur portée à leur version.
+Le service worker limite sa portée et le nettoyage de ses caches à sa version publiée.
 Les deux versions partagent une origine GitHub Pages : les clés de stockage
 local devront aussi être distinctes pour éviter de mélanger leurs données.
 
@@ -182,6 +255,22 @@ npm test
 
 Ouvrir <http://localhost:4173>. `npm run dev` utilise le même serveur local.
 Le site publié utilise exclusivement des chemins de ressources relatifs.
+
+Après toute modification de `public/` ou du modèle du service worker, régénérer
+le fichier hors connexion avant de lancer les tests et de committer :
+
+```sh
+npm run build:pwa
+npm test
+```
+
+`tools/build-pwa.mjs` produit `public/sw.js` à partir du modèle et des fichiers
+publics. Ce fichier généré est suivi par Git pour que la publication statique le
+copie sans dépendance de compilation. Les tests refusent un fichier généré périmé.
+Le serveur local calcule cette version en mémoire à chaque requête du service worker,
+afin que les changements locaux puissent être détectés sans modification manuelle
+d’un numéro de cache. Les icônes PNG sont dérivées du favicon SVG du projet et sont
+livrées déjà rendues ; aucune bibliothèque d’image n’est nécessaire à l’exécution.
 
 Python 3.10 ou plus récent est utilisé pour assembler les fichiers de publication :
 

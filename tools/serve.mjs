@@ -8,6 +8,7 @@
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
+import { renderServiceWorker } from './build-pwa.mjs';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -69,12 +70,17 @@ const server = createServer(async (request, response) => {
       response.writeHead(403).end('Forbidden');
       return;
     }
+    if (target === join(ROOT, 'sw.js')) {
+      const worker = await renderServiceWorker(ROOT);
+      response.writeHead(200, { 'content-type': TYPES['.js'], 'cache-control': 'no-store' });
+      response.end(request.method === 'HEAD' ? undefined : worker);
+      return;
+    }
     response.writeHead(200, {
       'content-type': TYPES[extname(target)] || 'application/octet-stream',
       'content-length': info.size,
       // Development only: never let the browser hold a stale shell.
       'cache-control': 'no-cache',
-      'service-worker-allowed': '/',
     });
     if (request.method === 'HEAD') {
       response.end();

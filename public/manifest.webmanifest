@@ -1,0 +1,16 @@
+{
+  "name": "Garapp",
+  "short_name": "Garapp",
+  "description": "Interventions, composants, documents et dépenses du garage, sur cet appareil.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f4",
+  "theme_color": "#176747",
+  "icons": [
+    { "src": "./assets/icons/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icons/app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

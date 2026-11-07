@@ -3,17 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; manifest-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="description" content="Votre garage personnel : interventions, composants et dépenses, réunis au même endroit.">
   <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#176747">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Garapp">
   <title>Garapp — votre véhicule, pièce par pièce</title>
   <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml">
+  <link id="app-manifest" rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" sizes="180x180">
   <link rel="stylesheet" href="./assets/css/tokens.css">
   <link rel="stylesheet" href="./assets/css/finapps-ui.css">
   <link rel="stylesheet" href="./assets/css/app.css">
   <link rel="stylesheet" href="./assets/css/app-switcher.css">
   <script type="module" src="./assets/js/app.js"></script>
   <script type="module" src="./assets/js/app-switcher.js"></script>
+  <script type="module" src="./assets/js/pwa.js"></script>
 </head>
 <body data-layout="horizon" data-section="garage">
   <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -51,7 +58,8 @@
       <button class="ghost-button appearance-trigger" id="theme-toggle" type="button" aria-label="Apparence : automatique. Passer au mode clair."><svg class="icon ui-icon" aria-hidden="true"><use href="#i-sun"/></svg><span><span class="appearance-name">Apparence</span><span id="appearance-value" aria-hidden="true">Auto</span></span></button>
       <details class="tools-menu" data-header-menu><summary class="ghost-button" aria-label="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg><span>Outils</span></summary><div class="tools-content">
         <div class="tools-group" role="group" aria-label="Garage"><p class="tools-heading">Garage</p><button type="button" data-action="garage-details">Documents et informations du garage</button></div>
-        <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="export">Exporter mon garage</button><button type="button" data-action="import">Importer une sauvegarde</button></div>
+        <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="backups">Gérer les sauvegardes</button><button type="button" data-action="export">Télécharger une copie JSON</button><button type="button" data-action="import">Importer une sauvegarde</button></div>
+        <div class="tools-group" role="group" aria-label="Application"><p class="tools-heading">Application</p><button type="button" data-pwa-open>Installation, hors connexion et mises à jour</button></div>
         <div class="tools-group" role="group" aria-label="Utilisation"><p class="tools-heading">Utilisation</p><button type="button" data-action="commands">Actions rapides <kbd>⌘ / Ctrl K</kbd></button><button type="button" data-action="print">Imprimer / PDF</button></div>
       </div></details>
     </div>
@@ -72,6 +80,7 @@
     <main id="main" tabindex="-1">
       <p id="dev-banner" class="environment-note" hidden>Version de développement · garage distinct de la version principale</p>
       <div id="storage-warning" class="storage-warning" role="status" hidden><p id="storage-message"></p><button type="button" class="text-button" data-action="export">Exporter mes données</button><button type="button" class="text-button" data-action="reload">Recharger</button></div>
+      <div id="pwa-update-banner" class="storage-warning pwa-update-banner" role="status" hidden><p id="pwa-update-message">Une nouvelle version de Garapp est prête.</p><button id="pwa-update" type="button" class="text-button">Mettre à jour</button></div>
       <div class="workspace-head">
         <div><p class="eyebrow">MON GARAGE</p><h1 id="view-title" tabindex="-1">Votre véhicule, en un coup d’œil.</h1><p id="view-description" class="hint">L’essentiel aujourd’hui. L’historique quand vous en avez besoin.</p></div>
         <label class="vehicle-picker" for="vehicle-select"><span>Véhicule</span><select id="vehicle-select"></select></label>
@@ -90,7 +99,7 @@
       <section id="depenses-view" aria-label="Dépenses" hidden>
         <div class="section-toolbar"><label class="year-picker"><span>Périmètre</span><select id="expense-scope"><option value="maintenance">Interventions</option><option value="all">Tous les événements</option></select></label><label class="year-picker" for="expense-year"><span>Période</span><select id="expense-year"></select></label></div><div id="expense-content"></div>
       </section>
-      <footer class="app-footer"><span>Garapp <span aria-hidden="true">·</span> Votre véhicule, pièce par pièce.</span><span id="save-status" role="status">Sur cet appareil</span><a href="https://github.com/sinikebe/Garapp">GitHub</a></footer>
+      <footer class="app-footer"><span>Garapp <span aria-hidden="true">·</span> Votre véhicule, pièce par pièce.</span><span id="save-status" role="status">Sur cet appareil</span><span id="pwa-connectivity" role="status" hidden></span><button id="backup-status" type="button" class="text-button" data-action="backups">Sauvegarder le garage</button><button id="pwa-open" type="button" class="text-button" data-pwa-open>Installer Garapp</button><a href="https://github.com/sinikebe/Garapp">GitHub</a></footer>
     </main>
   </div>
 
@@ -157,8 +166,38 @@
     <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer</button></div>
   </form></dialog>
   <dialog id="detail-dialog" aria-labelledby="detail-title"><div class="dialog-heading"><div><p id="detail-eyebrow" class="eyebrow"></p><h2 id="detail-title"></h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><div id="detail-content"></div></dialog>
-  <dialog id="commands-dialog" aria-labelledby="commands-title"><div class="dialog-heading"><h2 id="commands-title">Actions rapides</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><label class="command-search" for="command-search"><span class="sr-only">Rechercher une action</span><input id="command-search" type="search" autofocus placeholder="Rechercher une action…" autocomplete="off"></label><p id="command-empty" class="hint" hidden>Aucune action correspondante.</p><div class="command-list"><button type="button" data-action="new-record">Ajouter une intervention <span>Historique</span></button><button type="button" data-action="new-component">Ajouter un composant <span>Entretien</span></button><button type="button" data-action="new-vehicle">Ajouter un véhicule <span>Garage</span></button><button type="button" data-action="export">Exporter mon garage <span>Sauvegarde JSON</span></button><button type="button" data-action="import">Importer une sauvegarde <span>Garage JSON</span></button></div></dialog>
-  <dialog id="import-dialog" aria-labelledby="import-title"><div class="dialog-heading"><h2 id="import-title">Importer un garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><p id="import-description"></p><p class="hint">Le garage actuel sera exporté avant le remplacement. Les préférences d’apparence seront conservées.</p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-confirm" class="primary-button" type="button">Importer et remplacer</button></div></dialog>
+  <dialog id="commands-dialog" aria-labelledby="commands-title"><div class="dialog-heading"><h2 id="commands-title">Actions rapides</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><label class="command-search" for="command-search"><span class="sr-only">Rechercher une action</span><input id="command-search" type="search" autofocus placeholder="Rechercher une action…" autocomplete="off"></label><p id="command-empty" class="hint" hidden>Aucune action correspondante.</p><div class="command-list"><button type="button" data-action="new-record">Ajouter une intervention <span>Historique</span></button><button type="button" data-action="new-component">Ajouter un composant <span>Entretien</span></button><button type="button" data-action="new-vehicle">Ajouter un véhicule <span>Garage</span></button><button type="button" data-action="backups">Gérer les sauvegardes <span>Fichiers et suivi</span></button><button type="button" data-action="export">Télécharger une copie JSON <span>Garage et documents</span></button><button type="button" data-action="import">Importer une sauvegarde <span>Garage JSON</span></button></div></dialog>
+  <dialog id="pwa-dialog" aria-labelledby="pwa-title">
+    <div class="dialog-heading"><div><p class="eyebrow">PC, TÉLÉPHONE ET TABLETTE</p><h2 id="pwa-title">Garapp sur cet appareil</h2></div><button id="pwa-close" type="button" class="icon-button" aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p class="hint">Installer Garapp ajoute une icône pour l’ouvrir comme une application. Le garage reste propre à cet appareil et à ce navigateur.</p>
+    <p id="pwa-installed" class="pwa-installed" hidden>Garapp est installé ou ouvert comme une application.</p>
+    <div class="backup-actions"><button id="pwa-install" type="button" class="primary-button" hidden>Installer Garapp</button><button type="button" class="ghost-button" data-action="backups">Gérer les sauvegardes</button></div>
+    <p id="pwa-feedback" class="hint backup-feedback" role="status"></p>
+    <section id="pwa-manual" class="backup-section" aria-labelledby="pwa-manual-title"><h3 id="pwa-manual-title">Depuis le navigateur</h3><ul class="pwa-instructions"><li><strong>Android :</strong> ouvrir le menu du navigateur, puis choisir l’installation de l’application ou l’ajout à l’écran d’accueil.</li><li><strong>iPhone et iPad :</strong> dans Safari, choisir Partager → Sur l’écran d’accueil, puis « Ouvrir comme app web » si proposé.</li><li><strong>PC, Mac et Linux :</strong> dans Chrome ou Edge, choisir l’installation de la page comme application dans le menu du navigateur.</li></ul></section>
+    <section class="backup-section" aria-labelledby="pwa-offline-title"><h3 id="pwa-offline-title">Accès hors connexion</h3><p id="pwa-offline" class="hint" role="status">Préparation de l’accès hors connexion…</p><div class="backup-actions"><button id="pwa-prepare" type="button" class="ghost-button">Préparer l’accès hors connexion</button><button id="pwa-check" type="button" class="ghost-button">Rechercher une mise à jour</button></div><p class="hint">Une première ouverture connectée et la confirmation de disponibilité sont nécessaires. Les mises à jour sont proposées sans rechargement forcé.</p></section>
+    <p class="hint backup-guidance">Une copie JSON permet de retrouver le garage après un changement d’appareil, de navigateur ou une suppression des données. L’installation et le mode hors connexion ne remplacent pas cette sauvegarde.</p>
+  </dialog>
+  <dialog id="backups-dialog" aria-labelledby="backups-title">
+    <div class="dialog-heading"><div><p class="eyebrow">GARAGE ET DOCUMENTS</p><h2 id="backups-title">Sauvegardes</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p id="backup-current" class="hint"></p>
+    <p id="backup-action-message" class="hint backup-feedback" role="status"></p>
+    <section class="backup-section" aria-labelledby="backup-download-title">
+      <h3 id="backup-download-title">Conserver une copie</h3><p class="hint">Un fichier JSON complet, avec les documents et les informations complémentaires. Chaque téléchargement porte un nom distinct et horodaté.</p>
+      <div class="backup-actions"><button type="button" class="primary-button" data-action="export">Télécharger une copie JSON</button><button type="button" class="ghost-button" data-action="import">Importer une sauvegarde</button></div>
+      <p id="backup-download-status" class="hint backup-detail"></p><p class="hint">Le navigateur ne confirme pas la conservation du téléchargement : vérifier sa présence dans les fichiers.</p>
+    </section>
+    <section class="backup-section" aria-labelledby="backup-file-title">
+      <h3 id="backup-file-title">Travailler avec un fichier lié</h3><p class="hint">Choisir un fichier pour le mettre à jour sans multiplier les téléchargements. Des copies datées restent utiles pour revenir à une ancienne version.</p>
+      <p id="backup-file-support" class="hint" hidden>La liaison directe à un fichier n’est pas disponible dans ce navigateur. Le téléchargement et l’import JSON restent accessibles.</p>
+      <div id="backup-file-controls">
+        <div class="backup-actions"><button type="button" class="ghost-button" data-action="backup-create">Créer et lier un nouveau fichier</button><button type="button" class="ghost-button" data-action="backup-open">Ouvrir un fichier existant</button></div>
+        <div id="backup-linked" class="backup-linked" hidden><p id="backup-file-name" class="backup-file-name"></p><p id="backup-file-status" class="hint" role="status"></p><div class="backup-actions"><button type="button" class="primary-button" data-action="backup-write">Mettre à jour le fichier</button><button type="button" class="text-button" data-action="backup-unlink">Détacher le fichier</button></div><label class="backup-auto"><input id="backup-auto" type="checkbox"><span>Mettre à jour ce fichier après chaque modification, pendant cette session</span></label><p class="hint">L’écriture automatique s’arrête à la fermeture de la page ou en cas d’erreur. Elle doit être réactivée à la prochaine ouverture.</p></div>
+      </div>
+      <p id="backup-file-notice" class="hint" role="status" hidden></p>
+    </section>
+    <p class="hint backup-guidance">Pour changer d’appareil, transférer le dernier fichier JSON puis l’importer avant de poursuivre. Les modifications de deux copies ne sont pas fusionnées. Conserver aussi une copie sur un autre appareil ou support protège contre la perte du navigateur.</p>
+  </dialog>
+  <dialog id="import-dialog" aria-labelledby="import-title"><div class="dialog-heading"><h2 id="import-title">Importer un garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><p id="import-description" class="backup-detail"></p><div class="import-comparison"><table><caption>Contenu avant remplacement</caption><thead><tr><th scope="col">Éléments</th><th scope="col">Garage actuel</th><th scope="col">Fichier</th></tr></thead><tbody id="import-counts"></tbody></table></div><p id="import-vehicles" class="hint backup-detail"></p><p id="import-link-note" class="hint"></p><p class="hint">Le fichier remplacera tout le garage ouvert ; aucune fusion n’est effectuée. Une copie du garage actuel sera proposée au téléchargement avant le remplacement. Les préférences d’apparence seront conservées.</p><p id="import-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-confirm" class="primary-button" type="button">Importer et remplacer</button></div></dialog>
   <input id="backup-file" class="sr-only" type="file" accept=".json,application/json" tabindex="-1">
   <p id="toast" class="toast" role="status" hidden></p>
   <noscript><p>Activez JavaScript pour utiliser votre garage. Aucune donnée n’est envoyée à un serveur.</p></noscript>
