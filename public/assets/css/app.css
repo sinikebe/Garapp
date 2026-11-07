@@ -369,6 +369,7 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 @media (max-width: 520px) { .drive-versions li { flex-direction: column; align-items: stretch; } #drive-preview-dialog .dialog-actions { flex-direction: column; } }
 
 /* Charts derive solely from the selected garage and remain available offline. */
+#statistiques-view { min-width: 0; }
 .stats-overview { margin-top: 0; }
 .stats-overview .stat-value { font-size: clamp(20px, 2.4vw, 30px); overflow-wrap: anywhere; }
 .stats-overview small { font-size: var(--type-sm); font-weight: 400; white-space: nowrap; }
