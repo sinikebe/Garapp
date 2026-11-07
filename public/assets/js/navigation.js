@@ -1,9 +1,9 @@
 /** Local UI context only. No route, filter or business value is sent to another app. */
-export const SECTIONS = Object.freeze(['garage', 'interventions', 'composants', 'depenses']);
+export const SECTIONS = Object.freeze(['garage', 'interventions', 'composants', 'depenses', 'statistiques']);
 export const navigationKey = (base) => `garapp.navigation.v1:${new URL('./', base).pathname}`;
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const validId = (value) => /^[\w-]{1,128}$/.test(value);
-export const defaultFilters = (year) => ({ recordSearch: '', recordType: 'all', componentSearch: '', componentStatus: 'all', expenseYear: String(year), expenseScope: 'maintenance' });
+export const defaultFilters = (year) => ({ recordSearch: '', recordType: 'all', componentSearch: '', componentStatus: 'all', expenseYear: String(year), expenseScope: 'maintenance', statisticsPeriod: 'all', statisticsScope: 'maintenance' });
 
 export function normalizeFilters(value, year) {
   const defaults = defaultFilters(year);
@@ -16,6 +16,8 @@ export function normalizeFilters(value, year) {
     componentStatus: ['all', 'attention', 'ok', 'unknown'].includes(value.componentStatus) ? value.componentStatus : 'all',
     expenseYear: ['all', 'undated'].includes(value.expenseYear) || /^(?:19|20|21)\d{2}$/.test(value.expenseYear) ? String(value.expenseYear) : defaults.expenseYear,
     expenseScope: value.expenseScope === 'all' ? 'all' : 'maintenance',
+    statisticsPeriod: ['all', '12m', '36m'].includes(value.statisticsPeriod) ? value.statisticsPeriod : 'all',
+    statisticsScope: value.statisticsScope === 'all' ? 'all' : 'maintenance',
   };
 }
 

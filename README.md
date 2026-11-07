@@ -25,6 +25,28 @@ adaptée au suivi d'un véhicule :
 - **Dépenses** : total par période, pièces, main-d'œuvre et répartition par type
   d'intervention. Une intervention liée à plusieurs composants est comptée une
   seule fois. Le carburant et l'assurance ne sont pas inclus dans ces totaux.
+- **Statistiques** : évolution datée du compteur, écart observé, rythme annualisé
+  estimé et dépenses connues dans le temps. Les périodes et le périmètre des
+  dépenses sont mémorisés par véhicule. Les graphiques fonctionnent hors connexion.
+
+Les statistiques utilisent les relevés datés de la fiche véhicule et des fiches
+enregistrées. Les points suivent leurs dates réelles ; sélectionner un relevé ou
+toucher la courbe affiche ses sources, qui restent consultables. Un bouton permet
+d’ajouter un événement de type relevé kilométrique. Aucun relevé existant n’est
+modifié par les graphiques et aucun nouveau champ n’est ajouté aux sauvegardes.
+Les relevés sans date ou sans compteur, les fiches prévues et les dates futures
+sont exclus de la courbe et signalés. Des valeurs différentes le même jour ou une
+baisse entre deux dates conservent leurs points et empêchent le calcul d’un écart
+ou d’un rythme trompeur. Le rythme annualisé nécessite au moins 30 jours entre
+les relevés extrêmes et décrit cet intervalle, sans prévoir le kilométrage futur.
+
+Les dépenses sont regroupées par mois, ou par année au-delà de 24 mois. Les
+factures restent comptées une seule fois, les totaux indiqués sur les justificatifs
+restent prioritaires et les calculs conservent leurs décimales. Les montants
+inconnus, les sous-totaux partiels et les zéros connus sont distingués ; les
+remboursements ne sont pas convertis en dépenses positives. Les tables accessibles
+sous les graphiques donnent les sources et montants exacts. Une période vide ne
+constitue pas une preuve d’absence de dépenses.
 
 Les véhicules, interventions, événements, composants et lignes détaillées peuvent
 être ajoutés et modifiés dans l’application. Les documents locaux peuvent être

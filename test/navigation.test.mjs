@@ -10,6 +10,8 @@ import { createHash } from 'node:crypto';
 const year = '2026';
 test('explicit routes win, a return without a fragment resumes, and invalid routes are safe', () => {
   assert.equal(resolveSection('#composants', 'interventions'), 'composants');
+  assert.equal(resolveSection('#statistiques', 'garage'), 'statistiques');
+  assert.equal(resolveSection('', 'statistiques'), 'statistiques');
   assert.equal(resolveSection('', 'interventions'), 'interventions');
   for (const hash of ['#unknown', '#__proto__', '#interventions?share=example']) assert.equal(resolveSection(hash, 'depenses'), 'garage');
   for (const saved of ['unknown', '__proto__', null]) assert.equal(resolveSection('', saved), 'garage');
@@ -19,13 +21,16 @@ test('each vehicle retains its own useful list filters without modifying garage 
   const garage = exampleGarage('2026-11-06');
   const before = structuredClone(garage);
   const input = { section: 'interventions', filters: {
-    first: { recordSearch: 'filtre fictif', recordType: 'entretien', expenseYear: 'all' },
+    first: { recordSearch: 'filtre fictif', recordType: 'entretien', expenseYear: 'all', statisticsPeriod: '12m', statisticsScope: 'all' },
     second: { componentSearch: 'batterie fictive', componentStatus: 'attention', expenseScope: 'all' },
   } };
   const state = normalizeNavigation(input, year);
   assert.equal(state.filters.first.recordSearch, 'filtre fictif');
   assert.equal(state.filters.second.componentStatus, 'attention');
   assert.equal(state.filters.second.recordSearch, '');
+  assert.equal(state.filters.first.statisticsPeriod, '12m');
+  assert.equal(state.filters.first.statisticsScope, 'all');
+  assert.equal(state.filters.second.statisticsPeriod, 'all');
   assert.deepEqual(garage, before);
   assert.equal(state.vehicles, undefined);
 });
@@ -44,6 +49,8 @@ test('malformed filters are bounded and fall back independently', () => {
   assert.deepEqual(normalizeFilters({ recordSearch: {}, recordType: [], componentStatus: 'invalid', expenseYear: {}, expenseScope: 'invalid' }, year), defaultFilters(year));
   assert.equal(normalizeFilters({ recordSearch: 'x'.repeat(1000) }, year).recordSearch.length, 256);
   assert.equal(normalizeFilters({ expenseYear: 'undated' }, year).expenseYear, 'undated');
+  assert.equal(normalizeFilters({ statisticsPeriod: 'invalid', statisticsScope: 'invalid' }, year).statisticsPeriod, 'all');
+  assert.equal(normalizeFilters({ statisticsScope: 'invalid' }, year).statisticsScope, 'maintenance');
   const state = normalizeNavigation(JSON.parse('{"section":"composants","filters":{"__proto__":{"recordSearch":"fictif"}}}'), year);
   assert.equal(Object.getPrototypeOf(state.filters), null);
   assert.equal(state.filters.__proto__.recordSearch, 'fictif');
