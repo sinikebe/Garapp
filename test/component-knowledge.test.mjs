@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseGarage, associatedComponentIds, componentLife, componentHistory } from '../public/assets/js/garage.js';
-import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES, detectComponents, componentSpatial, matchingComponents } from '../public/assets/js/component-catalog.js';
+import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES, detectComponents, componentSpatial, matchingComponents, inferSpatial } from '../public/assets/js/component-catalog.js';
 import { knownComponents, proposedDiscoveries, applyDiscoveries } from '../public/assets/js/component-knowledge.js';
 import { moveRecordToTrash, restoreTrashedRecord } from '../public/assets/js/record-trash.js';
 import { backupBlob, readBackupFile } from '../public/assets/js/backups.js';
@@ -23,6 +23,8 @@ test('explicit components are recognized with only the stated position and side'
   assert.deepEqual(detectComponents('Révision des freins arrière')[0].spatial,{kind:'braking',zone:'rear',side:'unknown'});
   assert.equal(detectComponents('Avant de contrôler les tambours')[0].spatial.zone,'unknown');
   assert.equal(detectComponents('Remplacement des plaquettes avant')[0].effect,'replace');
+  assert.equal(detectComponents('Contrôle amortisseur arrière droit')[0].spatial.side,'right');
+  assert.deepEqual(inferSpatial('Capteur fictif arrière droit'),{kind:'unknown',zone:'rear',side:'right'});
 });
 
 test('generic revisions, negative statements and hypothetical equipment do not install components',()=>{

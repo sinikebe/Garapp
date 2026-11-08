@@ -40,7 +40,7 @@ export function inferSpatial(name) {
   if (detected) return detected.spatial;
   const text = normalizeName(name);
   if (!isPositiveComponentLabel(name)) return { kind: 'unknown', zone: 'unknown', side: 'unknown' };
-  return { kind: 'unknown', zone: /\barriere\b/.test(text) ? 'rear' : /\bavant\b(?!\s+(?:de|le|la|les)\b)/.test(text) ? 'front' : 'unknown', side: /\bgauche\b/.test(text) ? 'left' : /\bdroite\b/.test(text) ? 'right' : 'unknown' };
+  return { kind: 'unknown', zone: /\barriere\b/.test(text) ? 'rear' : /\bavant\b(?!\s+(?:de|le|la|les)\b)/.test(text) ? 'front' : 'unknown', side: /\bgauche\b/.test(text) ? 'left' : /\bdroite?\b/.test(text) ? 'right' : 'unknown' };
 }
 export const isPositiveComponentLabel = (text) => normalizeName(text).length > 0 && !uncertain.test(normalizeName(text));
 
@@ -55,7 +55,7 @@ export function detectComponents(text) {
       if (!match) continue;
       const after = remainder.slice(match.index + match[0].length);
       const zone = /\b(?:arriere|ar|arg|ard)\b/.test(after) ? 'rear' : /\b(?:avant(?!\s+(?:de|le|la|les|un|une)\b)|av|avg|avd)\b/.test(after) ? 'front' : /\bhabitacle\b/.test(after) ? 'cabin' : /\bcompartiment\s+moteur\b/.test(after) ? 'engineBay' : /\b(?:dessous|soubassement)\b/.test(after) ? 'underbody' : 'unknown';
-      const side = /\b(?:gauche|avg|arg)\b/.test(after) ? 'left' : /\b(?:droite|avd|ard)\b/.test(after) ? 'right' : /\bcentre\b/.test(after) ? 'center' : 'unknown';
+      const side = /\b(?:gauche|avg|arg)\b/.test(after) ? 'left' : /\b(?:droite?|avd|ard)\b/.test(after) ? 'right' : /\bcentre\b/.test(after) ? 'center' : 'unknown';
       const key = `${kind}-${zone}-${side}`;
       const effect = /\b(?:remplacement|remplace|changer|changement|renouvellement)\b/.test(clause) ? 'replace' : /\b(?:controle|verification|inspection)\b/.test(clause) ? 'inspect' : 'none';
       const suffix = [zone === 'front' ? 'avant' : zone === 'rear' ? 'arrière' : '', side === 'left' ? 'gauche' : side === 'right' ? 'droite' : ''].filter(Boolean).join(' ');
