@@ -4,6 +4,9 @@
 .component-view-switch button[aria-pressed="true"] { color:var(--accent); border-color:var(--accent); background:var(--accent-wash); }
 .component-scene-panel { overflow:hidden; }
 .scene-badge { flex:none; padding:var(--space-sm) var(--space-lg); border-radius:999px; border:1px solid var(--border-strong); font-size:var(--type-xs); color:var(--text-secondary); }
+.scene-heading-actions { display:flex; flex-wrap:wrap; gap:var(--space-sm); align-items:center; }
+.scene-heading-actions .ghost-button { min-height:36px; font-size:var(--type-xs); padding:var(--space-xs) var(--space-md); }
+.scene-configuration { margin-top:var(--space-md); font-size:var(--type-xs); }
 .scene-note { max-width:95ch; }
 .scene-controls { display:flex; flex-wrap:wrap; gap:var(--space-xl); align-items:center; margin-block:var(--space-2xl); }
 .scene-presets { display:flex; flex-wrap:wrap; gap:var(--space-sm); }

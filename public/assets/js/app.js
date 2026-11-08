@@ -1,5 +1,6 @@
 import { visualKind, validateVisualDocument, vehicleVisualMarkup, mountVehicleModel } from './vehicle-visual.js';
 import { initHelpTips } from './help-tips.js';
+import { componentLayout, ENGINE_POSITIONS, placementLabel } from './component-layout.js';
 import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, vehicleStats, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
@@ -192,19 +193,21 @@ function renderComponents() {
   $('components-list').hidden = mode === 'exploded';
   if (section !== 'composants') { $('component-scene-content').replaceChildren(); return; }
   const query = searchText($('component-search').value), filter = $('component-status').value;
-  const rows = knownComponents(current).filter((part) => {
+  const known = knownComponents(current);
+  const configuration = componentLayout(current.componentLayout,known);
+  const rows = known.filter((part) => {
     const life = componentLife(current, part);
     return searchText(`${part.name} ${part.group} ${part.description} ${part.notes}`).includes(query) && (filter === 'all' || (filter === 'attention' ? ['soon', 'due'].includes(life.status) : life.status === filter));
   });
   if (mode === 'exploded') {
     if (!sceneStates.has(current.id)) sceneStates.set(current.id, newSceneState());
-    disposeComponentView = renderComponentView($('component-scene-content'), rows, current, sceneStates.get(current.id));
+    disposeComponentView = renderComponentView($('component-scene-content'), rows, current, sceneStates.get(current.id),configuration);
     return;
   }
   $('component-scene-content').replaceChildren();
   $('components-list').innerHTML = rows.length ? rows.map((part) => {
     const life = componentLife(current, part);
-    return `<article class="panel component-card"><div class="component-top"><div><p class="component-category">${esc(part.group || 'Non classé')}</p><button type="button" class="component-name" data-component="${part.id}">${esc(part.name)}</button></div>${icon('parts')}</div>${pill(life)}<p class="hint">${esc(spatialLabel(part.spatial))}</p>${!part.stored ? '<p class="component-inferred">Repéré dans l’historique</p>' : ''}<div class="reference-track"${life.percent === null ? '' : ` role="meter" aria-label="Repère restant pour ${esc(part.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${life.percent}"`}><span style="width:${life.percent ?? 0}%"></span></div><p class="component-reading">${esc(remaining(life))}</p><div class="component-last">Dernier remplacement${life.last ? `<button type="button" data-record="${life.last.id}">${esc(dateText(life.last.date))} · ${mileage(life.last.odometer)}<br>${esc(life.last.title)} ↗</button>` : '<p>Non renseigné</p>'}</div></article>`;
+    return `<article class="panel component-card"><div class="component-top"><div><p class="component-category">${esc(part.group || 'Non classé')}</p><button type="button" class="component-name" data-component="${part.id}">${esc(part.name)}</button></div>${icon('parts')}</div>${pill(life)}<p class="hint">${esc(placementLabel(part,configuration))}</p>${!part.stored ? '<p class="component-inferred">Repéré dans l’historique</p>' : ''}<div class="reference-track"${life.percent === null ? '' : ` role="meter" aria-label="Repère restant pour ${esc(part.name)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${life.percent}"`}><span style="width:${life.percent ?? 0}%"></span></div><p class="component-reading">${esc(remaining(life))}</p><div class="component-last">Dernier remplacement${life.last ? `<button type="button" data-record="${life.last.id}">${esc(dateText(life.last.date))} · ${mileage(life.last.odometer)}<br>${esc(life.last.title)} ↗</button>` : '<p>Non renseigné</p>'}</div></article>`;
   }).join('') : empty('Aucun composant dans cette sélection', 'Ajoutez une pièce ou ajustez les filtres.', 'new-component', 'Ajouter un composant');
 }
 function renderExpenses() {
@@ -280,7 +283,8 @@ function render() {
 const CORE = {
   garage: ['version', 'activeId', 'vehicles', 'documents'],
   document: ['id', 'name', 'mimeType', 'dataUrl', 'size', 'description'],
-  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId'],
+  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout'],
+  layout: ['wheelCount', 'doorCount', 'enginePosition'],
   component: ['id', 'name', 'group', 'description', 'intervalKm', 'intervalMonths', 'notes', 'content', 'documents', 'spatial'],
   record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel'],
   spatial: ['kind', 'zone', 'side', 'presenceOrigin'],
@@ -397,7 +401,7 @@ function detailComponent(id) {
   const life = componentLife(current, part);
   $('detail-title').textContent = part.name;
   $('detail-eyebrow').textContent = part.group || 'Non classé';
-  $('detail-content').innerHTML = `<p class="hint">${esc(COMPONENT_KINDS[componentSpatial(part).kind])} · ${esc(spatialLabel(componentSpatial(part)))}</p>${pill(life)}<p class="hint">${esc(remaining(life))}</p><dl class="detail-facts"><div><dt>Intervalle choisi</dt><dd>${[part.intervalKm ? `${number(part.intervalKm)} km` : '', part.intervalMonths ? `${part.intervalMonths} mois` : ''].filter(Boolean).join(' ou ') || 'Non renseigné'}</dd></div><div><dt>Dernier remplacement</dt><dd>${life.last ? esc(dateText(life.last.date)) : 'Non renseigné'}</dd></div></dl>${textMarkup(part)}${documentsMarkup(part.documents)}${extraMarkup(current.components.find((one)=>one.id===id) ?? {}, 'component')}${extraMarkup(part.spatial ?? {}, 'spatial')}<h3>Interventions et contrôles associés</h3>${recordsMarkup([...new Map([...(part.sources ?? []), ...componentHistory(current, id)].map((record) => [record.id, record])).values()], current)}<div class="dialog-actions"><button class="ghost-button" type="button" data-edit-component="${part.id}">${current.components.some((one)=>one.id===id) ? 'Modifier le composant' : 'Enregistrer et préciser'}</button>${current.components.some((one)=>one.id===id) ? `<button class="primary-button" type="button" data-replace="${part.id}">Enregistrer un remplacement</button>` : ''}</div>`;
+  $('detail-content').innerHTML = `<p class="hint">${esc(COMPONENT_KINDS[componentSpatial(part).kind])} · ${esc(placementLabel(part,componentLayout(current.componentLayout,knownComponents(current))))}</p>${pill(life)}<p class="hint">${esc(remaining(life))}</p><dl class="detail-facts"><div><dt>Intervalle choisi</dt><dd>${[part.intervalKm ? `${number(part.intervalKm)} km` : '', part.intervalMonths ? `${part.intervalMonths} mois` : ''].filter(Boolean).join(' ou ') || 'Non renseigné'}</dd></div><div><dt>Dernier remplacement</dt><dd>${life.last ? esc(dateText(life.last.date)) : 'Non renseigné'}</dd></div></dl>${textMarkup(part)}${documentsMarkup(part.documents)}${extraMarkup(current.components.find((one)=>one.id===id) ?? {}, 'component')}${extraMarkup(part.spatial ?? {}, 'spatial')}<h3>Interventions et contrôles associés</h3>${recordsMarkup([...new Map([...(part.sources ?? []), ...componentHistory(current, id)].map((record) => [record.id, record])).values()], current)}<div class="dialog-actions"><button class="ghost-button" type="button" data-edit-component="${part.id}">${current.components.some((one)=>one.id===id) ? 'Modifier le composant' : 'Enregistrer et préciser'}</button>${current.components.some((one)=>one.id===id) ? `<button class="primary-button" type="button" data-replace="${part.id}">Enregistrer un remplacement</button>` : ''}</div>`;
   showDialog('detail-dialog');
 }
 function detailVehicle() {
@@ -452,10 +456,17 @@ function openVehicle(edit = false) {
   visualUploadGeneration++; $('vehicle-visual-error').hidden = true;
   prepareForm('vehicle', current ?? {}, { year: '', name: '', engine: '', odometer: '', odometerDate: '', notes: '', content: '' });
   refreshVehicleVisualOptions(current?.coverDocumentId ?? '');
+  const form = $('vehicle-form'), layout = componentLayout(current?.componentLayout,current ? knownComponents(current) : []);
+  for (const [field,min,max,value] of [['layoutWheelCount',2,12,layout.wheelCount],['layoutDoorCount',1,8,layout.doorCount]]) form.elements[field].innerHTML = Array.from({length:max-min+1},(_,index)=>`<option value="${index+min}"${value===index+min?' selected':''}>${index+min}</option>`).join('');
+  form.elements.layoutEnginePosition.innerHTML = Object.entries(ENGINE_POSITIONS).map(([value,label])=>`<option value="${value}"${layout.enginePosition===value?' selected':''}>${label}</option>`).join('');
+  form.elements.layoutExtras.value = JSON.stringify(extrasOf(current?.componentLayout,'layout'),null,2);
+  delete form.dataset.layoutEdited; $('vehicle-layout-options').open = false;
   $('vehicle-form').querySelector('.vehicle-visual-editor').open = Boolean(current?.coverDocumentId);
   $('vehicle-dialog-title').textContent = current ? 'Modifier le véhicule' : 'Ajouter un véhicule';
   showDialog('vehicle-dialog');
 }
+$('vehicle-form').addEventListener('input',(event)=>{if(event.target.name?.startsWith('layout'))$('vehicle-form').dataset.layoutEdited='true';});
+$('vehicle-form').addEventListener('change',(event)=>{if(event.target.name?.startsWith('layout'))$('vehicle-form').dataset.layoutEdited='true';});
 function refreshVehicleVisualOptions(selected = $('vehicle-visual-select').value) {
   const documents = documentDrafts.get('vehicle')?.documents ?? [];
   $('vehicle-visual-select').innerHTML = '<option value="">Aucun visuel</option>' + documents.filter(visualKind).map((doc) => `<option value="${doc.id}">${esc(doc.name)} · ${visualKind(doc) === 'image' ? 'Photo' : 'Modèle 3D'}</option>`).join('');
@@ -601,8 +612,10 @@ function openComponent(id = null) {
   editingComponent = stored?.id ?? null;
   editingEvidenceSources = inferred?.sources.map((record) => record.id) ?? [];
   const form = prepareForm('component', part ?? {}, { name: '', group: '', intervalKm: '', intervalMonths: '', description: '', notes: '', content: '' });
-  const spatial = inferred?.spatial ?? componentSpatial(part ?? {});
-  for (const [field, entries, value] of [['spatialKind', COMPONENT_KINDS, spatial.kind], ['spatialZone', COMPONENT_ZONES, spatial.zone], ['spatialSide', COMPONENT_SIDES, spatial.side]]) form.elements[field].innerHTML = Object.entries(entries).map(([key, label]) => `<option value="${key}"${key === value ? ' selected' : ''}>${label}</option>`).join('');
+  for (const [field, key, entries] of [['spatialKind','kind',COMPONENT_KINDS], ['spatialZone','zone',COMPONENT_ZONES], ['spatialSide','side',COMPONENT_SIDES]]) {
+    const value = part?.spatial?.[key] ?? 'auto';
+    form.elements[field].innerHTML = `<option value="auto"${value==='auto'?' selected':''}>Selon le nom</option>` + Object.entries(entries).map(([key, label]) => `<option value="${key}"${key === value ? ' selected' : ''}>${label}</option>`).join('');
+  }
   form.elements.spatialExtras.value = JSON.stringify(extrasOf(part?.spatial, 'spatial'), null, 2);
   $('component-dialog-title').textContent = stored ? 'Modifier le composant' : inferred ? 'Enregistrer le composant repéré' : 'Ajouter un composant';
   showDialog('component-dialog');
@@ -643,7 +656,8 @@ $('vehicle-form').addEventListener('submit', (event) => {
     const next = structuredClone(garage);
     const index = next.vehicles.findIndex((one) => one.id === editingVehicle);
     const original = next.vehicles[index] ?? { id: uid(), example: false, components: [], records: [] };
-    const updated = { ...editableBase(original, 'vehicle', extrasInput(form.elements.extras, 'vehicle')), name: form.elements.name.value, year: nullableNumber(form.elements.year.value), engine: form.elements.engine.value, odometer: nullableNumber(form.elements.odometer.value), odometerDate: form.elements.odometerDate.value || null, ...readCommon(form, 'vehicle'), coverDocumentId: form.elements.coverDocumentId.value || null };
+    const layout = original.componentLayout === undefined && !form.dataset.layoutEdited ? {} : { componentLayout:{ ...extrasInput(form.elements.layoutExtras,'layout'),wheelCount:Number(form.elements.layoutWheelCount.value),doorCount:Number(form.elements.layoutDoorCount.value),enginePosition:form.elements.layoutEnginePosition.value } };
+    const updated = { ...editableBase(original, 'vehicle', extrasInput(form.elements.extras, 'vehicle')), name: form.elements.name.value, year: nullableNumber(form.elements.year.value), engine: form.elements.engine.value, odometer: nullableNumber(form.elements.odometer.value), odometerDate: form.elements.odometerDate.value || null, ...readCommon(form, 'vehicle'), coverDocumentId: form.elements.coverDocumentId.value || null, ...layout };
     if (index < 0) next.vehicles.push(updated); else next.vehicles[index] = updated;
     next.activeId = updated.id; return next;
   });
@@ -667,7 +681,9 @@ $('component-form').addEventListener('submit', (event) => {
     const next = structuredClone(garage); const current = next.vehicles.find((one) => one.id === next.activeId);
     const index = current.components.findIndex((one) => one.id === editingComponent);
     const original = current.components[index] ?? { id: uid() };
-    const updated = { ...editableBase(original, 'component', extrasInput(form.elements.extras, 'component')), name: form.elements.name.value, group: form.elements.group.value, description: form.elements.description.value, intervalKm: nullableNumber(form.elements.intervalKm.value), intervalMonths: nullableNumber(form.elements.intervalMonths.value), ...readCommon(form, 'component'), spatial: { ...extrasInput(form.elements.spatialExtras, 'spatial'), kind: form.elements.spatialKind.value, zone: form.elements.spatialZone.value, side: form.elements.spatialSide.value, presenceOrigin: original.spatial?.presenceOrigin ?? (index >= 0 ? 'manual' : editingEvidenceSources.length ? 'record' : 'manual') } };
+    const inferred = inferSpatial(form.elements.name.value);
+    const spatialField = (field,key) => form.elements[field].value === 'auto' ? inferred[key] : form.elements[field].value;
+    const updated = { ...editableBase(original, 'component', extrasInput(form.elements.extras, 'component')), name: form.elements.name.value, group: form.elements.group.value, description: form.elements.description.value, intervalKm: nullableNumber(form.elements.intervalKm.value), intervalMonths: nullableNumber(form.elements.intervalMonths.value), ...readCommon(form, 'component'), spatial: { ...extrasInput(form.elements.spatialExtras, 'spatial'), kind: spatialField('spatialKind','kind'), zone: spatialField('spatialZone','zone'), side: spatialField('spatialSide','side'), presenceOrigin: original.spatial?.presenceOrigin ?? (index >= 0 ? 'manual' : editingEvidenceSources.length ? 'record' : 'manual') } };
     if (index < 0) current.components.push(updated); else current.components[index] = updated;
     for (const record of current.records) if (editingEvidenceSources.includes(record.id) && !associatedComponentIds(record).includes(updated.id)) record.observedComponentIds = [...record.observedComponentIds ?? [], updated.id];
     return next;
@@ -705,6 +721,7 @@ document.addEventListener('input', (event) => {
 });
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
+  'vehicle-layout': () => { openVehicle(true); $('vehicle-layout-options').open = true; $('vehicle-form').dataset.layoutEdited='true'; $('vehicle-form').elements.layoutWheelCount.focus(); },
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
   trash: openTrash,
   'new-fuel': () => {

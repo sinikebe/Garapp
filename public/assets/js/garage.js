@@ -2,6 +2,7 @@
 import { isAmount, sumAmounts, cents } from './amounts.js';
 import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES } from './component-catalog.js';
 import { validateVisualDocument } from './vehicle-visual.js';
+import { validateComponentLayout } from './component-layout.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
@@ -174,6 +175,7 @@ export function parseGarage(raw) {
     check(label(vehicle.name) && text(vehicle.engine ?? '', 2000) && nullableInteger(vehicle.year ?? null, 2100) && (vehicle.year == null || vehicle.year >= 1900) && nullableInteger(vehicle.odometer ?? null));
     check(validDate(vehicle.odometerDate ?? null));
     check(vehicle.example === undefined || typeof vehicle.example === 'boolean');
+    if (vehicle.componentLayout !== undefined) validateComponentLayout(vehicle.componentLayout);
     check(Array.isArray(vehicle.components) && vehicle.components.length <= 10000 && Array.isArray(vehicle.records) && vehicle.records.length <= 20000);
     const trash = vehicle.trashedRecords === undefined ? [] : vehicle.trashedRecords;
     check(Array.isArray(trash) && vehicle.records.length + trash.length <= 20000, 'Un véhicule peut contenir au plus 20 000 fiches, corbeille comprise.');

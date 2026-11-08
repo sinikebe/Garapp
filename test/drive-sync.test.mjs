@@ -88,6 +88,7 @@ test('origins and publication paths isolate Drive workspaces', async () => {
 test('Drive preserves component placement and observation links without changing source metadata', async () => {
   const garage = data(), vehicle = garage.vehicles[0], part = vehicle.components[0];
   part.spatial = { kind: 'drum', zone: 'rear', side: 'unknown', presenceOrigin: 'record', source: { example: 'Position fictive' } };
+  vehicle.componentLayout = {wheelCount:6,doorCount:4,enginePosition:'rear',source:{example:true}};
   vehicle.records[0].observedComponentIds = [part.id];
   const snapshot = await makeSnapshot(garage, [], namespace, 'folder-fiction');
   const api = new FakeDrive(), file = await api.upload(snapshot.metadata, snapshot.blob);
