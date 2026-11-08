@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { parseGarage } from '../public/assets/js/garage.js';
 import { backupBlob, readBackupFile } from '../public/assets/js/backups.js';
-import { visualKind, validateVisualDocument, vehicleVisualMarkup, vehicleCover, validateGlb } from '../public/assets/js/vehicle-visual.js';
+import { visualKind, validateVisualDocument, vehicleVisualMarkup, vehicleCover, validateGlb, canPreviewModel } from '../public/assets/js/vehicle-visual.js';
 
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1sAAAAASUVORK5CYII=';
 const photo = () => ({id:'photo',name:'Photo fictive.png',mimeType:'image/png',dataUrl:`data:image/png;base64,${png}`,source:{example:true}});
@@ -83,4 +83,15 @@ test('the local model reader keeps the strict script policy without requiring We
   assert.match(html,/connect-src 'self' data: blob:/);
   const reader = await readFile(new URL('../public/assets/vendor/model-viewer/model-viewer.min.js',import.meta.url),'utf8');
   assert.doesNotMatch(reader,/WebAssembly\.(?:instantiate|compile)/);
+});
+
+test('model availability requires WebGL2 and releases the temporary probe context',()=>{
+  assert.equal(canPreviewModel(()=>({getContext:()=>null})),false);
+  assert.equal(canPreviewModel(()=>{throw Error('Indisponible');}),false);
+  let released = false;
+  assert.equal(canPreviewModel(()=>({getContext:(kind)=>{
+    assert.equal(kind,'webgl2');
+    return {getExtension:()=>({loseContext:()=>{released=true;}})};
+  }})),true);
+  assert.equal(released,true);
 });

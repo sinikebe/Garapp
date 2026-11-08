@@ -69,6 +69,14 @@ export function vehicleVisualMarkup(vehicle) {
 }
 
 let viewerModule;
+export function canPreviewModel(createCanvas = () => window.document.createElement('canvas')) {
+  try {
+    const context = createCanvas().getContext('webgl2');
+    if (!context) return false;
+    context.getExtension('WEBGL_lose_context')?.loseContext();
+    return true;
+  } catch { return false; }
+}
 export function mountVehicleModel(container, vehicle) {
   const host = container.querySelector('[data-vehicle-model]'), document = vehicleCover(vehicle);
   if (!host || !document) return () => {};
@@ -76,6 +84,7 @@ export function mountVehicleModel(container, vehicle) {
   const controller = new AbortController();
   const status = container.querySelector('[data-model-status]'), reset = container.querySelector('[data-model-reset]');
   const fail = () => { if (disposed) return; host.hidden = true; reset.hidden = true; status.hidden = false; status.textContent = 'Modèle 3D indisponible sur cet appareil.'; };
+  if (!canPreviewModel()) { fail(); return () => { disposed = true; controller.abort(); }; }
   void (async () => {
     try {
       validateVisualDocument(document);
