@@ -55,7 +55,8 @@ Les collections facultatives absentes deviennent des tableaux vides.
 | `odometerDate` | date ou `null` | Date du relevé courant |
 | `example` | booléen facultatif | `true` uniquement pour un exemple fictif |
 | `components` | tableau | Composants suivis, au plus 10 000 |
-| `records` | tableau | Historique, au plus 20 000 fiches |
+| `records` | tableau | Historique actif |
+| `trashedRecords` | tableau facultatif | Fiches dans la corbeille ; absence équivalente à une corbeille vide |
 | `notes`, `content` | chaînes facultatives | Notes et corps de fiche |
 | `documents` | tableau facultatif | Documents rattachés au véhicule |
 
@@ -64,6 +65,24 @@ supérieur au kilométrage courant est conservé : l’import ne corrige pas une
 contradictoire. Les calculs d’entretien restent inconnus si les données sont incohérentes.
 Un lien de fiche technique peut être conservé dans une propriété supplémentaire
 `links`, par exemple `[{ "label": "Fiche technique", "url": "https://example.com/vehicle" }]`.
+
+### Corbeille
+
+Chaque entrée de `trashedRecords` contient `record` (une fiche complète au même
+format que `records`), `deletedAt` (horodatage UTC `AAAA-MM-JJThh:mm:ss.sssZ`) et
+éventuellement `position` (entier 0–20 000, ancienne position dans `records`). Les
+champs supplémentaires de l’entrée et de la fiche sont conservés. La limite de
+20 000 fiches par véhicule comprend les fiches actives et celles de la corbeille.
+Les identifiants des fiches doivent être uniques entre les deux collections et
+tous leurs liens de composants restent validés.
+
+La corbeille est une extension facultative du format 2. Elle accompagne les
+exports JSON, les fichiers liés et les versions Drive ; les lignes et documents
+de ses fiches sont inclus dans l’inventaire de la sauvegarde. Les comparaisons
+d’import distinguent les fiches actives de celles de la corbeille. Ces dernières
+ne participent ni aux dépenses, ni aux graphiques, ni au suivi des composants.
+La restauration conserve la fiche complète, son identifiant et ses relations.
+Aucune date d’expiration n’entraîne sa suppression.
 
 ## Composant suivi
 
@@ -97,6 +116,38 @@ sans être présenté comme une pièce réelle, dans une propriété complément
 | `lines` | tableau facultatif | Lignes détaillées, au plus 10 000 par fiche |
 | `notes`, `content` | chaînes facultatives | Commentaires et corps de fiche |
 | `documents` | tableau facultatif | Justificatifs, factures, photos, etc. |
+| `fuel` | objet facultatif | Quantité et indication de plein complet pour un événement carburant |
+
+### Événement carburant
+
+Une fiche `type: "fuel"` utilise la date, le compteur, le total du justificatif,
+les documents et les autres champs habituels. Son objet facultatif `fuel` contient :
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `litres` | chaîne décimale positive ou `null` | Quantité ajoutée, au plus 10 000 L ; toutes les décimales sont conservées |
+| `fullTank` | booléen ou `null` | `true` : réservoir rempli ; `false` : ajout partiel ; `null` : inconnu |
+| Autres propriétés | JSON | Informations de station, provenance ou autres données complémentaires |
+
+Un objet absent ou des champs absents ne supposent aucune quantité ni plein
+complet. Une fiche carburant ancienne reste lisible sans cet objet. Les données
+carburant sont également validées et conservées dans les fiches de la corbeille.
+`totalAmount` reste le montant payé faisant autorité ; les litres ne sont pas
+additionnés aux montants. Le carburant entre dans le périmètre de dépenses
+« Tous les événements », séparément des interventions.
+
+La consommation est calculée entre deux pleins complets : les litres ajoutés
+après le premier plein, ajouts partiels inclus, jusqu’au plein final sont divisés
+par les kilomètres entre les deux pleins, puis multipliés par 100. Une quantité
+manquante invalide le cycle concerné ; le plein complet suivant peut servir de
+nouveau départ. Un événement carburant sans date empêche de situer les ajouts et
+laisse la consommation inconnue. Aucun résultat ne doit être déduit d’une simple
+quantité partielle ou d’une capacité de réservoir supposée.
+
+Les achats mensuels suivent leur date. Les cycles sont rattachés au mois du plein
+final et les distances observées au mois du relevé final. Il ne s’agit pas d’une
+répartition estimée par jour ; un intervalle peut commencer dans un autre mois.
+Des relevés aux limites de mois sont nécessaires pour un bilan calendaire complet.
 
 Catégories reconnues : `revision`, `entretien`, `reparation`, `controle`, `acquisition`,
 `registration`, `plan`, `reading`, `other`, `unclassified`. Une autre chaîne de catégorie
