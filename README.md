@@ -151,7 +151,8 @@ feux et organes mécaniques à leurs repères schématiques. Le bouton **Disposi
 du véhicule** règle les emplacements de roues (2 à 12), les portières latérales
 (1 à 8, hors hayon) et le moteur avant, central ou arrière. L’éclatement suit des
 axes définis, sans dérive selon l’ordre des fiches. Les positions explicites des
-composants restent prioritaires.
+composants restent prioritaires. Seul le nom de la sélection est affiché par défaut ;
+**Afficher les noms** donne accès aux autres libellés.
 
 Un groupe peut afficher plusieurs volumes liés à une seule fiche. Le nombre
 d’emplacements n’est pas un inventaire confirmé : aucun composant supplémentaire

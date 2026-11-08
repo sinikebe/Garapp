@@ -158,12 +158,14 @@ export class ComponentScene {
     }
     ctx.fillStyle=ink;ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('AVANT',frame.front[0],frame.front[1]+20);ctx.fillText('ARRIÈRE',frame.rear[0],frame.rear[1]+20);
     if(frame.markers.some((marker)=>!marker.anchor)){ctx.globalAlpha=.7;ctx.fillText('À PLACER',frame.tray[0],frame.tray[1]+16);ctx.globalAlpha=1;}
-    const labelled = new Set();
+    const labelled = new Set(), quantities = new Map();
+    for(const marker of frame.markers)quantities.set(marker.id,(quantities.get(marker.id)??0)+1);
     for(const marker of frame.markers){
-      if(this.parts.length>12&&marker.id!==this.selected)continue;
+      if(!this.state.labels&&marker.id!==this.selected)continue;
       if(labelled.has(marker.id))continue;labelled.add(marker.id);
       ctx.font=marker.id===this.selected?'600 13px system-ui':'12px system-ui';ctx.fillStyle=ink;
-      const label=marker.name.length>26?marker.name.slice(0,24)+'…':marker.name;ctx.fillText(label,marker.center[0],marker.center[1]-25);
+      const name=marker.name.length>26?marker.name.slice(0,24)+'…':marker.name;
+      const label=name+(quantities.get(marker.id)>1?` ×${quantities.get(marker.id)}`:'');ctx.fillText(label,marker.center[0],marker.center[1]-25);
     }
   }
   dispose(){this.abort.abort();this.observer.disconnect();if(this.raf)cancelAnimationFrame(this.raf);}
