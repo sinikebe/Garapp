@@ -54,6 +54,7 @@ Les collections facultatives absentes deviennent des tableaux vides.
 | `odometer` | entier 0–5 000 000 ou `null` | Kilométrage courant |
 | `odometerDate` | date ou `null` | Date du relevé courant |
 | `example` | booléen facultatif | `true` uniquement pour un exemple fictif |
+| `coverDocumentId` | identifiant facultatif ou `null` | Photo ou modèle affiché sur l’accueil ; référence un document intégré de ce véhicule. Absent ou `null` : aucun visuel |
 | `components` | tableau | Composants suivis, au plus 10 000 |
 | `records` | tableau | Historique actif |
 | `trashedRecords` | tableau facultatif | Fiches dans la corbeille ; absence équivalente à une corbeille vide |

@@ -1,0 +1,12 @@
+.has-help { min-height: 28px; }
+.help-trigger { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface-1); color: var(--accent); font-family: inherit; font-size: 15px; font-weight: 650; line-height: 1; vertical-align: middle; }
+.help-trigger:hover, .help-trigger[aria-expanded="true"] { background: var(--accent-wash); border-color: var(--accent); }
+.help-popup { position: fixed; inset: auto; width: min(360px,calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: 0; padding: 18px; overflow: auto; border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 10px 36px #0002; background: var(--surface-1); color: var(--text-primary); font-size: var(--type-sm); font-weight: 400; line-height: 1.6; z-index: 200; }
+.help-popup::backdrop { background: transparent; }
+.help-title { display: block; padding-right: 32px; margin-bottom: 8px; font-size: var(--type-sm); }
+.help-content { display: block; white-space: normal; }
+.help-content > :last-child { margin-bottom: 0; }
+.help-content .hint { margin-top: 12px; font-size: inherit; color: inherit; }
+.help-close { position: absolute; top: 8px; right: 8px; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-secondary); font-size: 24px; line-height: 1; }
+.help-close:hover { background: var(--surface-2); }
+@media (pointer: coarse) { .help-trigger { width: 36px; height: 36px; } }

@@ -1,6 +1,7 @@
 /** Local garage format, preserving source material and independently editable records. */
 import { isAmount, sumAmounts, cents } from './amounts.js';
 import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES } from './component-catalog.js';
+import { validateVisualDocument } from './vehicle-visual.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
@@ -225,7 +226,14 @@ export function parseGarage(raw) {
       check(object(entry) && isTimestamp(entry.deletedAt) && (entry.position === undefined || integer(entry.position, 20000)), 'Une fiche de la corbeille comporte une date de suppression ou une position invalide.');
       return { ...entry, record: readRecord(entry.record) };
     });
-    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...notes(vehicle) };
+    const common = notes(vehicle);
+    if (vehicle.coverDocumentId != null) {
+      check(validId(vehicle.coverDocumentId), 'Le visuel du véhicule doit désigner un document intégré.');
+      const cover = common.documents.find((document) => document.id === vehicle.coverDocumentId);
+      check(cover, 'Le fichier du visuel du véhicule est absent de ses documents.');
+      validateVisualDocument(cover);
+    }
+    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...common };
   });
   check(data.documents === undefined || Array.isArray(data.documents));
   check(data.activeId == null || ids.has(data.activeId), 'Le véhicule actif est absent de la sauvegarde.');

@@ -89,6 +89,30 @@ leurs propres données et préférences.
 La vue 3D éclatée des composants connus est accessible dans **Composants**. Elle utilise une silhouette générique et des volumes réutilisables, sans modèle de voiture à télécharger. Les palettes et le serveur de développement repris de Finapp sont
 attribués dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+Les explications longues de l’interface sont regroupées derrière des boutons
+d’information. Elles restent accessibles au clic, au toucher et au clavier,
+y compris dans les fenêtres de saisie. Les erreurs et états d’opération restent
+visibles directement.
+
+## Visuel facultatif du véhicule
+
+L’accueil ne contient aucun dessin ou emplacement réservé par défaut. Dans la
+fiche véhicule, **Photo ou modèle 3D (facultatif)** permet de sélectionner une photo
+JPEG, PNG ou WebP, ou un modèle GLB autonome. Seul le visuel choisi apparaît sur
+l’accueil ; **Aucun visuel** le masque sans supprimer son fichier des documents.
+Les photos gardent leur fichier original, sans recadrage ni recompression.
+
+Le modèle GLB dispose de commandes de rotation, de zoom et de recentrage. Ses
+textures et données doivent être intégrées ; les compressions Draco, Meshopt et
+KTX2 nécessitant des décodeurs supplémentaires ne sont pas prises en charge.
+Les autres fichiers peuvent toujours être conservés comme documents. Le lecteur
+3D est fourni localement et reste disponible hors connexion. Un appareil sans
+prise en charge 3D conserve l’accès au fichier depuis la fiche véhicule.
+
+Le visuel référence un document du véhicule via `coverDocumentId`, sans duplication
+du fichier. Il suit les mêmes sauvegardes JSON et la même synchronisation Drive
+que les autres documents (64 Mio par fichier, 512 Mio par sauvegarde).
+
 ## Données complètes et sauvegardes
 
 Le [format JSON version 2](docs/backup-format.md) décrit les champs, les règles de
