@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="./assets/css/app.css">
   <link rel="stylesheet" href="./assets/css/components-3d.css">
   <link rel="stylesheet" href="./assets/css/help-tips.css">
+  <link rel="stylesheet" href="./assets/css/insurance.css">
   <link rel="stylesheet" href="./assets/css/app-switcher.css">
   <script type="module" src="./assets/js/app.js"></script>
   <script type="module" src="./assets/js/app-switcher.js"></script>
@@ -38,6 +39,7 @@
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Zm-4 9 3 3 5-6"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
   </defs></svg>
   <a class="skip-link" href="#main">Aller au contenu</a>
@@ -73,6 +75,7 @@
         <a href="#garage" aria-current="page"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-home"/></svg><span>Vue d’ensemble</span></a>
         <a href="#interventions"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-wrench"/></svg><span>Interventions</span></a>
         <a href="#composants"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-parts"/></svg><span>Composants</span></a>
+        <a href="#assurance"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-shield"/></svg><span>Assurance</span></a>
         <a href="#depenses"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-cost"/></svg><span>Dépenses</span></a>
         <a href="#statistiques"><svg class="icon ui-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 3v17h17M7 14l4-5 4 2 5-7"/></svg><span>Statistiques</span></a>
       </nav>
@@ -101,6 +104,10 @@
         <div class="component-view-switch"><label for="component-view-mode">Présentation des composants</label><select id="component-view-mode"><option value="exploded">Vue 3D éclatée</option><option value="list">Liste</option></select></div><div id="component-scene-content"></div>
         <p class="reference-note">Les barres représentent des intervalles personnalisables, pas l’état réel des pièces. Un contrôle reste nécessaire pour connaître leur état.</p><div id="components-list" class="component-grid"></div>
       </section>
+      <section id="assurance-view" aria-label="Assurance" hidden>
+        <div class="section-toolbar"><label class="year-picker" for="insurance-year"><span>Année de l’échéancier</span><select id="insurance-year"></select></label><button class="primary-button" type="button" data-action="new-insurance"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-plus"/></svg> Ajouter une assurance</button></div>
+        <p id="insurance-error" class="form-error" role="alert" hidden></p><div id="insurance-content"></div>
+      </section>
       <section id="depenses-view" aria-label="Dépenses" hidden>
         <div class="section-toolbar"><label class="year-picker"><span>Périmètre</span><select id="expense-scope"><option value="maintenance">Interventions</option><option value="all">Tous les événements</option></select></label><label class="year-picker" for="expense-year"><span>Période</span><select id="expense-year"></select></label></div><div id="expense-content"></div>
       </section>
@@ -112,6 +119,37 @@
     </main>
   </div>
 
+  <dialog id="insurance-dialog" aria-labelledby="insurance-dialog-title">
+    <form id="insurance-form">
+      <div class="dialog-heading"><div><p class="eyebrow">ASSURANCE</p><h2 id="insurance-dialog-title">Ajouter une assurance</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label>Assureur / nom du contrat<input name="provider" maxlength="2000" placeholder="Ex. Assurance automobile" autocomplete="off"></label>
+        <label>Référence du contrat<input name="reference" maxlength="2000" autocomplete="off"></label>
+        <label>Première échéance<input name="firstDate" type="date" min="1900-01-01" max="2199-12-31" required></label>
+        <label>Jour de prélèvement mensuel<input name="debitDay" type="number" min="1" max="31" step="1" required></label>
+        <label>Cotisation mensuelle initiale (€)<input name="initialAmount" inputmode="decimal" required placeholder="Ex. 49,90"></label>
+        <label>Dernière échéance au plus tard<input name="endDate" type="date" min="1900-01-01" max="2199-12-31"><span class="hint">Laisser vide pour un contrat en cours. Cette date arrête les nouvelles échéances ; l’historique enregistré est conservé.</span></label>
+        <p class="hint full-width">Les mois échus depuis la première échéance sont ajoutés à l’historique. Lors d’une modification du contrat, le calendrier initial est conservé ; utiliser « Changer la cotisation » pour un nouveau tarif.</p>
+        <label class="full-width">Notes<textarea name="notes" rows="3"></textarea></label>
+        <details class="full-width supplemental"><summary>Documents et informations complémentaires</summary><div class="form-grid"><label class="full-width">Contenu du contrat<textarea name="content" rows="4"></textarea></label><div class="full-width" id="insurance-documents"></div><label class="full-width">Autres données (JSON)<textarea name="extras" rows="4" spellcheck="false"></textarea></label></div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer l’assurance</button></div>
+    </form>
+  </dialog>
+  <dialog id="insurance-payment-dialog" aria-labelledby="insurance-payment-dialog-title">
+    <form id="insurance-payment-form">
+      <div class="dialog-heading"><div><p class="eyebrow" id="insurance-payment-contract">ASSURANCE</p><h2 id="insurance-payment-dialog-title">Modifier un prélèvement</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <div class="form-grid">
+        <label>Mois de cotisation<input name="period" type="month" min="1900-01" max="2199-12" required></label>
+        <label>Date du prélèvement<input name="date" type="date" min="1900-01-01" max="2199-12-31" required></label>
+        <label>Montant (€)<input name="amount" inputmode="decimal" required></label>
+        <label>Appliquer la modification<select name="scope"><option value="one">À ce prélèvement uniquement</option><option value="forward">À ce prélèvement et aux suivants</option></select></label>
+        <p class="hint full-width">Le nouveau tarif s’applique à partir du mois choisi et remplace aussi les changements de prix déjà prévus. La date et les notes ne concernent que le prélèvement sélectionné. Un remboursement peut être saisi comme montant négatif pour un seul prélèvement.</p>
+        <label class="full-width">Notes de ce prélèvement<textarea name="notes" rows="3"></textarea></label>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer la modification</button></div>
+    </form>
+  </dialog>
   <dialog id="vehicle-dialog" aria-labelledby="vehicle-dialog-title">
     <form id="vehicle-form">
       <div class="dialog-heading"><div><p class="eyebrow">MON GARAGE</p><h2 id="vehicle-dialog-title">Ajouter un véhicule</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>

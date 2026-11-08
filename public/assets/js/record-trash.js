@@ -33,6 +33,9 @@ export function discardTrashedRecord(garage, vehicleId, recordId) {
   const { next, vehicle } = copyVehicle(garage, vehicleId);
   const index = vehicle.trashedRecords?.findIndex((entry) => entry.record.id === recordId) ?? -1;
   if (index < 0) throw Error('Cette fiche ne se trouve plus dans la corbeille.');
+  const link = vehicle.trashedRecords[index].record.insurance;
+  const contract = vehicle.insurances?.find((one) => one.id === link?.contractId);
+  if (contract) contract.skippedPeriods = [...new Set([...(contract.skippedPeriods ?? []), link.period])];
   vehicle.trashedRecords.splice(index, 1);
   return next;
 }

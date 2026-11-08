@@ -202,7 +202,7 @@ export class DrivePanel {
     const preview = this.engine.preview;
     $('drive-preview-description').textContent = `Version Drive du ${date(preview.node.at)} · ${preview.node.revision.slice(0, 8)}. Le fichier et ses documents ont été vérifiés.`;
     const tbody = $('drive-preview-counts'); tbody.replaceChildren();
-    for (const [field, label] of [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']]) {
+    for (const [field, label] of [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['insurances', 'Contrats d’assurance'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']]) {
       const row = document.createElement('tr'); const heading = document.createElement('th'); heading.scope = 'row'; heading.textContent = label; row.append(heading);
       for (const counts of [preview.localCounts, preview.remoteCounts]) { const cell = document.createElement('td'); cell.textContent = counts[field]; row.append(cell); }
       tbody.append(row);
