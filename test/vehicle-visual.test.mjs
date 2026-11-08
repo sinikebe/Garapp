@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { parseGarage } from '../public/assets/js/garage.js';
 import { backupBlob, readBackupFile } from '../public/assets/js/backups.js';
 import { visualKind, validateVisualDocument, vehicleVisualMarkup, vehicleCover, validateGlb } from '../public/assets/js/vehicle-visual.js';
@@ -72,4 +73,14 @@ test('GLB structure and all external dependencies are checked before a model is 
     assert.throws(()=>validateVisualDocument(model({extensionsUsed:[extension]})),/sans compression/);
   }
   assert.equal(validateVisualDocument(model({images:[{uri:`data:image/png;base64,${png}`}]})),'model');
+});
+
+test('the local model reader keeps the strict script policy without requiring WebAssembly',async()=>{
+  const html = await readFile(new URL('../public/index.html',import.meta.url),'utf8');
+  const scriptPolicy = /script-src[^;]+/.exec(html)[0];
+  assert.doesNotMatch(scriptPolicy,/unsafe-eval|wasm-unsafe-eval|data:|blob:/);
+  assert.match(html,/img-src 'self' data: blob:/);
+  assert.match(html,/connect-src 'self' data: blob:/);
+  const reader = await readFile(new URL('../public/assets/vendor/model-viewer/model-viewer.min.js',import.meta.url),'utf8');
+  assert.doesNotMatch(reader,/WebAssembly\.(?:instantiate|compile)/);
 });

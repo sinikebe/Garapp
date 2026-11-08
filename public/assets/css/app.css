@@ -68,6 +68,11 @@ main { min-width: 0; padding: var(--space-4xl); display: grid; align-content: st
 .panel-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-sm) var(--space-xl); margin-bottom: var(--space-2xl); }
 .panel-heading .text-button { font-size: var(--type-xs); }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr); gap: var(--space-3xl); }
+.dashboard-summary { display: grid; gap: var(--space-xl); min-width: 0; align-content: start; }
+.dashboard-summary .stat-grid { margin: 0; gap: var(--space-md); }
+.dashboard-summary .stat-card { padding: var(--space-xl); }
+.dashboard-summary .stat-value { font-size: var(--type-xl); }
+.dashboard-grid + .panel { margin-top: var(--space-3xl); }
 .vehicle-hero { padding: var(--space-3xl) var(--space-4xl); position: relative; overflow: hidden; align-self: start; }
 .vehicle-hero .hero-top { display: flex; justify-content: space-between; align-items: start; gap: var(--space-xl); }
 .vehicle-hero h2 { font-size: var(--type-title); letter-spacing: -.8px; margin-bottom: var(--space-xs); }

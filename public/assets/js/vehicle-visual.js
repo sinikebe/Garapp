@@ -75,7 +75,7 @@ export function mountVehicleModel(container, vehicle) {
   let disposed = false, viewer;
   const controller = new AbortController();
   const status = container.querySelector('[data-model-status]'), reset = container.querySelector('[data-model-reset]');
-  const fail = () => { if (disposed) return; host.hidden = true; reset.hidden = true; status.hidden = false; status.textContent = 'Le modèle ne peut pas être affiché sur cet appareil. Son fichier reste disponible dans la fiche du véhicule.'; };
+  const fail = () => { if (disposed) return; host.hidden = true; reset.hidden = true; status.hidden = false; status.textContent = 'Modèle 3D indisponible sur cet appareil.'; };
   void (async () => {
     try {
       validateVisualDocument(document);
@@ -86,6 +86,7 @@ export function mountVehicleModel(container, vehicle) {
       ModelViewerElement.modelCacheSize = 0;
       viewer = window.document.createElement('model-viewer');
       viewer.setAttribute('camera-controls',''); viewer.setAttribute('touch-action','pan-y');
+      viewer.setAttribute('environment-image','neutral');
       viewer.setAttribute('alt',`Modèle 3D de ${vehicle.name}`); viewer.setAttribute('interaction-prompt','none');
       viewer.setAttribute('loading','eager');
       viewer.addEventListener('load',() => { if (!disposed) { status.hidden = true; reset.hidden = false; } },{signal:controller.signal});

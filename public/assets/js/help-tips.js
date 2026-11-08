@@ -24,7 +24,7 @@ export function initHelpTips(root = document) {
     if (element.querySelector(':scope > .help-trigger')) return;
     const text = element.textContent.replace(/\s+/g,' ').trim();
     if (text.length < 96 && !element.hasAttribute('data-help')) return;
-    const heading = element.closest('fieldset')?.querySelector('legend') ?? element.closest('section, article, dialog')?.querySelector('h2,h3');
+    const heading = element.closest('fieldset')?.querySelector('legend') ?? element.closest('details')?.querySelector('summary') ?? element.closest('section, article')?.querySelector('h2,h3');
     const label = element.dataset.helpLabel || heading?.textContent.trim() || 'Informations complémentaires';
     const content = document.createElement('span'); content.className = 'help-content';
     content.append(...element.childNodes);
