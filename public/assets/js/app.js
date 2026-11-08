@@ -466,7 +466,7 @@ function refreshDiscoveries() {
   if (!vehicle()) return;
   const remembered = new Map([...$('record-discoveries').querySelectorAll('[data-discovery-key]')].map((row) => [row.dataset.discoveryKey, { checked: row.querySelector('input').checked, effect: row.querySelector('[data-discovery-effect]').value, target: row.querySelector('[data-discovery-target]').value }]));
   const form = $('record-form');
-  const draft = { title: form.elements.title.value, componentIds: new FormData(form).getAll('componentIds'), observedComponentIds: new FormData(form).getAll('observedComponentIds'), lines: [...$('line-editors').querySelectorAll('[data-line-id]')].map((row) => ({ label: row.querySelector('[data-line-field="label"]').value, componentId: row.querySelector('[data-line-field="componentId"]').value || null })) };
+  const draft = { title: form.elements.title.value, componentIds: new FormData(form).getAll('componentIds'), observedComponentIds: new FormData(form).getAll('observedComponentIds'), lines: [...$('line-editors').querySelectorAll('[data-line-id]')].map((row) => ({ label: row.querySelector('[data-line-field="label"]').value, kind: row.querySelector('[data-line-field="kind"]').value, effect: row.querySelector('[data-line-field="effect"]').value, componentId: row.querySelector('[data-line-field="componentId"]').value || null })) };
   discoveryCandidates = form.elements.type.value === 'fuel' ? [] : proposedDiscoveries(vehicle(), draft);
   $('record-discoveries').innerHTML = discoveryCandidates.map((candidate, index) => {
     const previous = remembered.get(candidate.key), checked = previous?.checked ?? !candidate.ambiguous;
@@ -498,7 +498,7 @@ $('record-form').addEventListener('change', (event) => {
     const name = row.querySelector('[data-line-field="componentName"]'); name.required = active;
     if (active && !name.value) name.value = row.querySelector('[data-line-field="label"]').value;
   }
-  if (event.target.name === 'componentIds' || event.target.name === 'observedComponentIds' || event.target.name === 'type' || event.target.dataset.lineField === 'componentId') refreshDiscoveries();
+  if (event.target.name === 'componentIds' || event.target.name === 'observedComponentIds' || event.target.name === 'type' || ['componentId', 'kind', 'effect'].includes(event.target.dataset.lineField)) refreshDiscoveries();
 });
 function openRecord(componentId = null, id = null) {
   if (!vehicle()) return openVehicle();

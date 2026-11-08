@@ -133,6 +133,8 @@ présentation en liste reste disponible.
   suivi de remplacement. Les types de freinage et les positions restent inconnus
   lorsqu’ils ne sont pas précisés.
 - Les anciennes fiches sans liens explicites sont interprétées en lecture seule.
+  Une ligne explicitement classée comme pièce peut aussi faire apparaître un
+  composant de nom libre, avec une forme générique si son type est inconnu.
   Le bouton **Enregistrer et préciser** transforme un composant repéré en fiche
   éditable, avec ses liens d’observation. Aucun contenu source n’est réécrit à
   l’ouverture de la vue.

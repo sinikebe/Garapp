@@ -1,16 +1,23 @@
 import { associatedComponentIds, today, uid } from './garage.js';
-import { componentSpatial, compatibleKind, detectComponents, matchingComponents, possibleComponents, mergeSpatial } from './component-catalog.js';
+import { componentSpatial, compatibleKind, detectComponents, matchingComponents, possibleComponents, mergeSpatial, inferSpatial, isPositiveComponentLabel, normalizeName } from './component-catalog.js';
 
 const explicitMatches = (components, candidate, linked) => components.filter((part) => {
   const spatial = componentSpatial(part), desired = candidate.spatial;
+  if (desired.kind === 'unknown' && normalizeName(part.name) !== normalizeName(candidate.name)) return false;
   return linked.has(part.id) && compatibleKind(spatial.kind, desired.kind) && (desired.zone === 'unknown' || spatial.zone === 'unknown' || spatial.zone === desired.zone) && (desired.side === 'unknown' || spatial.side === 'unknown' || spatial.side === desired.side);
 });
 
 const actual = (record, date) => record.status !== 'planned' && (!record.date || record.date <= date);
 export function recordDiscoveries(record) {
+  if (record.type === 'fuel') return [];
   const byKey = new Map();
-  for (const text of [record.title, ...(record.lines ?? []).filter((line) => !line.componentId).map((line) => line.label)]) {
-    for (const candidate of detectComponents(text)) if (!byKey.has(candidate.key)) byKey.set(candidate.key, candidate);
+  for (const source of [{ label:record.title }, ...(record.lines ?? []).filter((line) => !line.componentId)]) {
+    const detected = detectComponents(source.label);
+    for (const candidate of detected) if (!byKey.has(candidate.key) || source.effect && source.effect !== 'none') byKey.set(candidate.key, { ...candidate, effect:source.effect && source.effect !== 'none' ? source.effect : candidate.effect });
+    if (!detected.length && source.kind === 'part' && isPositiveComponentLabel(source.label)) {
+      const key = 'custom-' + normalizeName(source.label).replaceAll(' ','-');
+      byKey.set(key,{key,name:source.label,group:'',spatial:inferSpatial(source.label),effect:source.effect??'none'});
+    }
   }
   return [...byKey.values()];
 }

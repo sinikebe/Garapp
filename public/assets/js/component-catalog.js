@@ -36,8 +36,13 @@ const rules = [
 const uncertain = /\b(?:sans|aucun|aucune|absence|absent|absente|non|pas|devis|hypothese|eventuel|eventuelle|prevoir|prevu|prevue|envisage)\b/;
 
 export function inferSpatial(name) {
-  return detectComponents(name)[0]?.spatial ?? { kind: 'unknown', zone: 'unknown', side: 'unknown' };
+  const detected = detectComponents(name)[0];
+  if (detected) return detected.spatial;
+  const text = normalizeName(name);
+  if (!isPositiveComponentLabel(name)) return { kind: 'unknown', zone: 'unknown', side: 'unknown' };
+  return { kind: 'unknown', zone: /\barriere\b/.test(text) ? 'rear' : /\bavant\b(?!\s+(?:de|le|la|les)\b)/.test(text) ? 'front' : 'unknown', side: /\bgauche\b/.test(text) ? 'left' : /\bdroite\b/.test(text) ? 'right' : 'unknown' };
 }
+export const isPositiveComponentLabel = (text) => normalizeName(text).length > 0 && !uncertain.test(normalizeName(text));
 
 /** Only positive titles and line labels are interpreted. Notes and document bodies are not scanned. */
 export function detectComponents(text) {
@@ -75,6 +80,7 @@ export function mergeSpatial(original, incoming) {
 export function matchingComponents(components, candidate) {
   const exact = components.filter((part) => normalizeName(part.name) === normalizeName(candidate.name));
   if (exact.length) return exact;
+  if (candidate.spatial.kind === 'unknown') return [];
   return components.filter((part) => {
     const spatial = componentSpatial(part), desired = candidate.spatial;
     return spatial.kind !== 'unknown' && compatibleKind(spatial.kind, desired.kind) && !(desired.kind === 'braking' && spatial.kind !== 'braking') && (spatial.zone === desired.zone || spatial.zone === 'unknown') && (spatial.side === desired.side || spatial.side === 'unknown');
@@ -85,6 +91,7 @@ export function matchingComponents(components, candidate) {
 export function possibleComponents(components, candidate) {
   return components.filter((part) => {
     const spatial = componentSpatial(part), desired = candidate.spatial;
+    if (desired.kind === 'unknown') return normalizeName(part.name) === normalizeName(candidate.name);
     return spatial.kind !== 'unknown' && compatibleKind(spatial.kind, desired.kind) && !(desired.kind === 'braking' && spatial.kind !== 'braking') && (desired.zone === 'unknown' || spatial.zone === 'unknown' || desired.zone === spatial.zone) && (desired.side === 'unknown' || spatial.side === 'unknown' || desired.side === spatial.side);
   });
 }

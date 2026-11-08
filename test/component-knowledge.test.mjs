@@ -108,6 +108,14 @@ test('a free-name line can create a component atomically and keeps all original 
   assert.equal(result.record.lines[0].componentId,'sensor');assert.equal(result.record.lines[0].amount,'12.345');assert.deepEqual(result.record.lines[0].metadata,{example:true});assert.deepEqual(vehicle.components,[]);
 });
 
+test('an explicitly classified part line supports unknown component names without guessing from labor or fuel',()=>{
+  const vehicle=fixture([record('Contrôle fictif',{lines:[{id:'line',label:'Capteur fictif arrière gauche',kind:'part',amount:null,effect:'inspect'}]})],[{id:'battery',name:'Batterie'}]).vehicles[0];
+  const rows=knownComponents(vehicle);assert.equal(rows.length,2);assert.equal(rows[1].name,'Capteur fictif arrière gauche');assert.equal(rows[1].spatial.kind,'unknown');assert.equal(rows[1].spatial.zone,'rear');assert.equal(rows[1].spatial.side,'left');
+  assert.equal(proposedDiscoveries(vehicle,vehicle.records[0])[0].targetId,null);
+  vehicle.records[0].lines[0].kind='labor';assert.deepEqual(knownComponents(vehicle).map(part=>part.id),['battery']);
+  vehicle.records[0].type='fuel';vehicle.records[0].lines[0].kind='part';assert.deepEqual(knownComponents(vehicle).map(part=>part.id),['battery']);
+});
+
 test('record-created components disappear from the scene when their final source is trashed',()=>{
   const garage=fixture(),vehicle=garage.vehicles[0],draft=record('Contrôle tambours arrière',{lines:[]});const result=applyDiscoveries(vehicle,draft,[drum()],()=> 'drum');vehicle.components=result.components;vehicle.records=[result.record];
   const moved=moveRecordToTrash(roundTrip(garage),'fiction','record','2026-11-08T12:00:00.000Z');assert.equal(moved.vehicles[0].components.length,1);assert.deepEqual(knownComponents(moved.vehicles[0]),[]);
