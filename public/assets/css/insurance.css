@@ -1,3 +1,4 @@
+.workspace-nav .nav-label-short { display: none; }
 .insurance-overview { margin-top: 0; }
 .insurance-overview .stat-card { min-width: 0; }
 .insurance-overview .stat-value { display: block; overflow-wrap: anywhere; }
@@ -22,6 +23,8 @@
 .insurance-row-actions { justify-content: flex-end; }
 .insurance-row-actions .hint { margin: 0; }
 @media (max-width: 760px) {
+  .workspace-nav .nav-label-long { display: none; }
+  .workspace-nav .nav-label-short { display: block; }
   .insurance-overview { grid-template-columns: minmax(0, 1fr); }
   .insurance-overview .stat-card { padding: var(--space-xl); }
   .insurance-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-lg); }
