@@ -3,7 +3,7 @@ export const SECTIONS = Object.freeze(['garage', 'interventions', 'composants', 
 export const navigationKey = (base) => `garapp.navigation.v1:${new URL('./', base).pathname}`;
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const validId = (value) => /^[\w-]{1,128}$/.test(value);
-export const defaultFilters = (year) => ({ recordSearch: '', recordType: 'all', componentSearch: '', componentStatus: 'all', expenseYear: String(year), expenseScope: 'maintenance', statisticsPeriod: 'all', statisticsScope: 'maintenance' });
+export const defaultFilters = (year) => ({ recordSearch: '', recordType: 'all', componentSearch: '', componentStatus: 'all', componentView: 'exploded', expenseYear: String(year), expenseScope: 'maintenance', statisticsPeriod: 'all', statisticsScope: 'maintenance' });
 
 export function normalizeFilters(value, year) {
   const defaults = defaultFilters(year);
@@ -14,6 +14,7 @@ export function normalizeFilters(value, year) {
     recordType: typeof value.recordType === 'string' && value.recordType.length > 0 && value.recordType.length <= 2000 ? value.recordType : 'all',
     componentSearch: query('componentSearch'),
     componentStatus: ['all', 'attention', 'ok', 'unknown'].includes(value.componentStatus) ? value.componentStatus : 'all',
+    componentView: value.componentView === 'list' ? 'list' : 'exploded',
     expenseYear: ['all', 'undated'].includes(value.expenseYear) || /^(?:19|20|21)\d{2}$/.test(value.expenseYear) ? String(value.expenseYear) : defaults.expenseYear,
     expenseScope: value.expenseScope === 'all' ? 'all' : 'maintenance',
     statisticsPeriod: ['all', '12m', '36m'].includes(value.statisticsPeriod) ? value.statisticsPeriod : 'all',

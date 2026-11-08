@@ -85,6 +85,25 @@ test('origins and publication paths isolate Drive workspaces', async () => {
   assert.notEqual(namespace, await driveNamespace('https://another.test/Garapp/dev/'));
 });
 
+test('Drive preserves component placement and observation links without changing source metadata', async () => {
+  const garage = data(), vehicle = garage.vehicles[0], part = vehicle.components[0];
+  part.spatial = { kind: 'drum', zone: 'rear', side: 'unknown', presenceOrigin: 'record', source: { example: 'Position fictive' } };
+  vehicle.records[0].observedComponentIds = [part.id];
+  const snapshot = await makeSnapshot(garage, [], namespace, 'folder-fiction');
+  const api = new FakeDrive(), file = await api.upload(snapshot.metadata, snapshot.blob);
+  assert.deepEqual(await readSnapshot(snapshot.blob, snapshotInfo(file, namespace, 'folder-fiction')), garage);
+});
+
+test('Drive preserves an optional vehicle photo and its full embedded original', async () => {
+  const garage = data(), vehicle = garage.vehicles[0];
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1sAAAAASUVORK5CYII=';
+  vehicle.documents.push({id:'photo-fiction',name:'Photo fictive.png',mimeType:'image/png',size:Buffer.from(png,'base64').length,dataUrl:'data:image/png;base64,'+png,description:'',source:{example:true}});
+  vehicle.coverDocumentId = 'photo-fiction';
+  const snapshot = await makeSnapshot(garage, [], namespace, 'folder-fiction');
+  const api = new FakeDrive(), file = await api.upload(snapshot.metadata, snapshot.blob);
+  assert.deepEqual(await readSnapshot(snapshot.blob, snapshotInfo(file, namespace, 'folder-fiction')), garage);
+});
+
 test('Drive synchronizes trash and restoration with all embedded source content intact', async () => {
   const { api, a, b } = await pair();
   const vehicle = a.model.garage.vehicles[0];

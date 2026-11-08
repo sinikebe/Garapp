@@ -1,0 +1,39 @@
+#composants-view { min-width:0; }
+.component-view-switch { display:flex; align-items:center; flex-wrap:wrap; gap:var(--space-md); margin-bottom:var(--space-xl); }
+.component-view-switch select { width:auto; min-width:220px; max-width:100%; }
+.component-view-switch button[aria-pressed="true"] { color:var(--accent); border-color:var(--accent); background:var(--accent-wash); }
+.component-scene-panel { overflow:hidden; }
+.scene-badge { flex:none; padding:var(--space-sm) var(--space-lg); border-radius:999px; border:1px solid var(--border-strong); font-size:var(--type-xs); color:var(--text-secondary); }
+.scene-note { max-width:95ch; }
+.scene-controls { display:flex; flex-wrap:wrap; gap:var(--space-xl); align-items:center; margin-block:var(--space-2xl); }
+.scene-presets { display:flex; flex-wrap:wrap; gap:var(--space-sm); }
+.scene-presets button { min-height:38px; padding-inline:var(--space-md); font-size:var(--type-xs); }
+.scene-controls>label { display:grid; gap:var(--space-xs); flex:1; min-width:140px; max-width:240px; font-size:var(--type-xs); color:var(--text-secondary); }
+.scene-controls output { float:right; font-variant-numeric:tabular-nums; }
+.scene-controls input { min-height:28px; padding:0; accent-color:var(--accent); }
+.scene-layout { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:var(--space-2xl); align-items:start; }
+.scene-stage { min-width:0; }
+#component-scene { display:block; width:100%; height:440px; touch-action:none; cursor:grab; border:1px solid var(--border); border-radius:var(--radius); color:var(--text-primary); background:radial-gradient(ellipse at 48% 55%,var(--accent-wash),var(--surface-2) 76%); }
+#component-scene:active { cursor:grabbing; }
+.scene-stage>.hint { font-size:var(--type-xs); margin-top:var(--space-md); }
+.scene-selection { min-width:0; border-left:1px solid var(--border); padding-left:var(--space-xl); }
+.scene-selection h3 { font-size:var(--type-xl); overflow-wrap:anywhere; }
+.scene-selection h4 { margin:var(--space-2xl) 0 var(--space-md); font-size:var(--type-sm); font-weight:600; }
+.scene-selection>.ghost-button { margin-top:var(--space-lg); width:100%; white-space:normal; }
+.scene-selection>.text-button { display:flex; flex-direction:column; align-items:flex-start; text-align:left; line-height:1.5; margin-bottom:var(--space-sm); }
+.scene-selection small { color:var(--text-secondary); font-size:var(--type-xs); }
+.scene-position { margin-block:var(--space-lg); font-size:var(--type-sm); }
+.scene-selection .reference-note { margin-top:var(--space-lg); }
+.scene-picker { display:grid; gap:var(--space-sm); margin-top:var(--space-2xl); color:var(--text-secondary); font-size:var(--type-xs); }
+.scene-empty { text-align:center; padding:var(--space-2xl); }
+.component-discoveries { margin-top:var(--space-lg); }
+.component-discovery { display:grid; grid-template-columns:auto minmax(0,1fr) 180px; align-items:center; gap:var(--space-md); padding:var(--space-lg) 0; border-top:1px solid var(--border); }
+.component-discovery>input { width:20px; min-height:20px; height:20px; accent-color:var(--accent); }
+.component-discovery label { font-size:var(--type-sm); }
+.component-discovery small { display:block; color:var(--text-secondary); font-size:var(--type-xs); margin-top:var(--space-xs); }
+.component-discovery select { font-size:var(--type-xs); }
+.line-new-component { border-left:2px solid var(--accent); padding-left:var(--space-lg); margin-block:var(--space-lg); }
+.component-inferred { margin-top:var(--space-sm); font-size:var(--type-xs); color:var(--text-secondary); }
+@media(max-width:1100px){.scene-layout{grid-template-columns:minmax(0,1fr)}.scene-selection{border-left:0;border-top:1px solid var(--border);padding-left:0;padding-top:var(--space-xl);display:grid;grid-template-columns:1fr 1fr;gap:var(--space-sm) var(--space-xl)}.scene-selection>*{min-width:0}.scene-selection h4{grid-column:1/-1}.scene-selection>.reference-note{margin:0}}
+@media(max-width:760px){#component-scene{height:340px}.component-scene-panel{padding:var(--space-xl)}.scene-selection{display:block}.component-discovery{grid-template-columns:auto minmax(0,1fr)}.component-discovery>select{grid-column:2}.scene-controls{gap:var(--space-lg)}.scene-controls>label{max-width:none}.scene-selection>.text-button{margin-block:var(--space-md)}}
+@media print{.component-view-switch,.scene-controls,.scene-picker{display:none}.scene-layout{grid-template-columns:minmax(0,1fr)}}

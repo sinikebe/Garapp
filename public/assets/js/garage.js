@@ -1,5 +1,7 @@
 /** Local garage format, preserving source material and independently editable records. */
 import { isAmount, sumAmounts, cents } from './amounts.js';
+import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES } from './component-catalog.js';
+import { validateVisualDocument } from './vehicle-visual.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
@@ -15,7 +17,7 @@ export const today = () => {
 };
 export const uid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const chronological = (records) => [...records].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || (b.odometer ?? -1) - (a.odometer ?? -1));
-export const associatedComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.lines ?? []).map((line) => line.componentId).filter(Boolean)])];
+export const associatedComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.observedComponentIds ?? []), ...(record.lines ?? []).map((line) => line.componentId).filter(Boolean)])];
 export const replacementComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.lines ?? []).filter((line) => line.effect === 'replace').map((line) => line.componentId).filter(Boolean)])];
 export const componentHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => associatedComponentIds(record).includes(id)));
 export const replacementHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => record.status !== 'planned' && replacementComponentIds(record).includes(id)));
@@ -180,6 +182,10 @@ export function parseGarage(raw) {
       uniqueId(part, componentIds);
       check(label(part.name) && text(part.group ?? '', 2000) && text(part.description ?? ''));
       for (const [field, max] of [['intervalKm', 1000000], ['intervalMonths', 1200]]) check(part[field] == null || (integer(part[field], max) && part[field] > 0));
+      if (part.spatial !== undefined) {
+        check(object(part.spatial) && Object.hasOwn(COMPONENT_KINDS, part.spatial.kind ?? 'unknown') && Object.hasOwn(COMPONENT_ZONES, part.spatial.zone ?? 'unknown') && Object.hasOwn(COMPONENT_SIDES, part.spatial.side ?? 'unknown'), 'Le type ou l’emplacement 3D d’un composant est invalide.');
+        check(part.spatial.presenceOrigin === undefined || ['manual', 'record'].includes(part.spatial.presenceOrigin), 'La provenance du composant dans la vue 3D est invalide.');
+      }
       return { ...part, group: part.group ?? '', description: part.description ?? '', intervalKm: part.intervalKm ?? null, intervalMonths: part.intervalMonths ?? null, ...notes(part) };
     });
     const recordIds = new Set();
@@ -192,6 +198,7 @@ export function parseGarage(raw) {
       for (const field of ['partsAmount', 'laborAmount', 'totalAmount']) check(isAmount(record[field] ?? null), 'Les montants sont des chaînes décimales en euros, ou null si inconnus.');
       const replaced = record.componentIds ?? [];
       check(Array.isArray(replaced) && replaced.every((id) => componentIds.has(id)) && new Set(replaced).size === replaced.length, 'Un remplacement pointe vers un composant absent ou dupliqué.');
+      if (record.observedComponentIds !== undefined) check(Array.isArray(record.observedComponentIds) && record.observedComponentIds.every((id) => componentIds.has(id)) && new Set(record.observedComponentIds).size === record.observedComponentIds.length, 'Une observation pointe vers un composant absent ou dupliqué.');
       const lineIds = new Set();
       check(Array.isArray(record.lines ?? []) && (record.lines?.length ?? 0) <= 10000);
       const lines = (record.lines ?? []).map((line) => {
@@ -219,7 +226,14 @@ export function parseGarage(raw) {
       check(object(entry) && isTimestamp(entry.deletedAt) && (entry.position === undefined || integer(entry.position, 20000)), 'Une fiche de la corbeille comporte une date de suppression ou une position invalide.');
       return { ...entry, record: readRecord(entry.record) };
     });
-    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...notes(vehicle) };
+    const common = notes(vehicle);
+    if (vehicle.coverDocumentId != null) {
+      check(validId(vehicle.coverDocumentId), 'Le visuel du véhicule doit désigner un document intégré.');
+      const cover = common.documents.find((document) => document.id === vehicle.coverDocumentId);
+      check(cover, 'Le fichier du visuel du véhicule est absent de ses documents.');
+      validateVisualDocument(cover);
+    }
+    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...common };
   });
   check(data.documents === undefined || Array.isArray(data.documents));
   check(data.activeId == null || ids.has(data.activeId), 'Le véhicule actif est absent de la sauvegarde.');

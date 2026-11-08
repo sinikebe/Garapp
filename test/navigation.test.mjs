@@ -22,11 +22,13 @@ test('each vehicle retains its own useful list filters without modifying garage 
   const before = structuredClone(garage);
   const input = { section: 'interventions', filters: {
     first: { recordSearch: 'filtre fictif', recordType: 'entretien', expenseYear: 'all', statisticsPeriod: '12m', statisticsScope: 'all' },
-    second: { componentSearch: 'batterie fictive', componentStatus: 'attention', expenseScope: 'all' },
+    second: { componentSearch: 'batterie fictive', componentStatus: 'attention', componentView: 'list', expenseScope: 'all' },
   } };
   const state = normalizeNavigation(input, year);
   assert.equal(state.filters.first.recordSearch, 'filtre fictif');
   assert.equal(state.filters.second.componentStatus, 'attention');
+  assert.equal(state.filters.second.componentView, 'list');
+  assert.equal(state.filters.first.componentView, 'exploded');
   assert.equal(state.filters.second.recordSearch, '');
   assert.equal(state.filters.first.statisticsPeriod, '12m');
   assert.equal(state.filters.first.statisticsScope, 'all');
