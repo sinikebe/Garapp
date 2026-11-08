@@ -86,7 +86,7 @@ de Finapp et de Garapp entre elles et les versions principales entre elles.
 Dans Finapp, ce menu suit le choix français/anglais. Les applications conservent
 leurs propres données et préférences.
 
-La vue 3D éclatée avec composants cliquables reste à développer. Les palettes et le serveur de développement repris de Finapp sont
+La vue 3D éclatée des composants connus est accessible dans **Composants**. Elle utilise une silhouette générique et des volumes réutilisables, sans modèle de voiture à télécharger. Les palettes et le serveur de développement repris de Finapp sont
 attribués dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Données complètes et sauvegardes
@@ -118,6 +118,41 @@ la copie ouverte restent exportables. Les transactions IndexedDB et les notifica
 entre onglets protègent contre le remplacement silencieux d’une autre copie. Le
 stockage navigateur reste local à un appareil et à un chemin de publication : les
 exports sont nécessaires pour conserver une sauvegarde indépendante.
+
+### Vue éclatée des composants
+
+La présentation **Vue 3D éclatée**, dans **Composants**, propose rotation, zoom,
+vues de dessus et de côté, éclatement réglable et sélection des pièces. Chaque
+sélection retrouve ses fiches sources et permet de préciser sa représentation.
+Le clavier et un sélecteur natif donnent aussi accès à tous les composants ; la
+présentation en liste reste disponible.
+
+- Le modèle commence sans équipement supposé. Les composants ajoutés manuellement
+  et les mentions positives explicites dans les intitulés et libellés de lignes
+  alimentent la vue. Un contrôle peut documenter une pièce sans remise à zéro du
+  suivi de remplacement. Les types de freinage et les positions restent inconnus
+  lorsqu’ils ne sont pas précisés.
+- Les anciennes fiches sans liens explicites sont interprétées en lecture seule.
+  Le bouton **Enregistrer et préciser** transforme un composant repéré en fiche
+  éditable, avec ses liens d’observation. Aucun contenu source n’est réécrit à
+  l’ouverture de la vue.
+- À la saisie d’une intervention, les propositions de composants et leurs actions
+  sont visibles avant enregistrement. Elles peuvent être décochées, reliées à un
+  composant existant ou précisées. Le sélecteur des lignes propose aussi **Créer
+  un composant…** pour les noms qui ne figurent pas dans le vocabulaire reconnu.
+- Les pièces non localisées sont dessinées dans **À placer**. Les formes et les
+  positions sont schématiques. Une pièce absente de la vue reste inconnue ; les
+  couleurs ne représentent pas son état réel.
+- Les fiches prévues, futures et celles de la corbeille ne confirment pas la
+  présence. Un composant créé par les fiches cesse d’être représenté quand sa
+  dernière source est mise à la corbeille ; la restauration le fait réapparaître.
+  Les composants déclarés manuellement restent indépendants de ces sources.
+
+Le rendu 3D est calculé localement avec des volumes géométriques, sans bibliothèque
+ou service externe. Il reste disponible hors connexion. Pour les grandes listes,
+80 composants sont dessinés à la fois ; la recherche et la sélection conservent
+l’accès à tous les autres. Le [format de sauvegarde](docs/backup-format.md) décrit
+les positions et les liens d’observation, conservés dans les JSON et dans Drive.
 
 ### Corbeille des interventions
 

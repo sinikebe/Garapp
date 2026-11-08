@@ -94,12 +94,40 @@ Aucune date d’expiration n’entraîne sa suppression.
 | `intervalMonths` | entier 1–1 200 ou `null` | Repère calendaire, facultatif |
 | `description`, `notes`, `content` | chaînes facultatives | Informations conservées séparément |
 | `documents` | tableau facultatif | Documents du composant |
+| `spatial` | objet facultatif | Représentation générique et emplacement, sans modèle de voiture |
 
 Un composant représente ce qui est suivi dans le véhicule. Ses achats, interventions
 et prix historiques sont portés par les lignes des fiches, pas par un prix courant
 unique. Une entrée source qui ne représente pas une pièce peut rester une ligne de
 prestation, ou un élément complémentaire du garage. Un modèle vide peut être conservé
 sans être présenté comme une pièce réelle, dans une propriété complémentaire `templates`.
+
+### Représentation des composants
+
+`spatial` contient les propriétés facultatives suivantes. Les propriétés
+supplémentaires, y compris leurs valeurs imbriquées, restent conservées.
+
+| Champ | Valeurs | Rôle |
+| --- | --- | --- |
+| `kind` | `unknown`, `engine`, `battery`, `belt`, `braking`, `drum`, `disc`, `pads`, `tire`, `wheel`, `oilFilter`, `airFilter`, `cabinFilter`, `fuelFilter`, `oil`, `coolant`, `shock`, `exhaust`, `clutch`, `gearbox`, `steering`, `wiper`, `sparkPlug` | Forme générique ; `braking` ne précise pas un disque ou un tambour |
+| `zone` | `unknown`, `front`, `rear`, `cabin`, `engineBay`, `underbody` | Emplacement schématique ; `unknown` signifie « À placer » |
+| `side` | `unknown`, `left`, `right`, `center` | Côté explicitement renseigné |
+| `presenceOrigin` | `manual`, `record` | `record` : présence issue des fiches, confirmée uniquement par une source active non prévue et non future |
+
+Sans objet `spatial`, une mention explicite dans le nom peut fournir une forme ou
+une position à l’affichage. Une valeur `unknown` renseignée explicitement est
+respectée. Aucune disposition propre à une marque ou un modèle n’est supposée.
+Un composant non reconnu conserve son nom et une forme générique. La propriété
+supplémentaire `origin`, si présente sur le composant, reste une donnée source
+ordinaire ; elle n’est pas utilisée comme indicateur de présence.
+
+Les intitulés et libellés positifs d’anciennes fiches peuvent aussi produire des
+composants dérivés pour l’affichage. Cette projection n’altère pas le JSON. Les
+notes et corps de fiches ne sont pas analysés. Les négations, hypothèses, devis et
+mentions de prévision ne créent pas d’équipement. Enregistrer un composant repéré
+crée sa fiche et des liens d’observation vers les sources, sans supposer un
+remplacement. Les composants déjà ajoutés manuellement restent représentés même
+si aucune intervention ne les documente.
 
 ## Fiche d’historique
 
@@ -113,10 +141,19 @@ sans être présenté comme une pièce réelle, dans une propriété complément
 | `partsAmount`, `laborAmount` | montant ou `null` | Ventilation globale utilisée si aucune ligne détaillée |
 | `totalAmount` | montant ou `null` | Total du justificatif ; fait autorité s’il est renseigné |
 | `componentIds` | tableau d’identifiants | Composants remplacés ou renouvelés, sans doublon |
+| `observedComponentIds` | tableau facultatif d’identifiants | Composants observés ou contrôlés, sans réinitialiser le suivi de remplacement |
 | `lines` | tableau facultatif | Lignes détaillées, au plus 10 000 par fiche |
 | `notes`, `content` | chaînes facultatives | Commentaires et corps de fiche |
 | `documents` | tableau facultatif | Justificatifs, factures, photos, etc. |
 | `fuel` | objet facultatif | Quantité et indication de plein complet pour un événement carburant |
+
+Les identifiants de `observedComponentIds` doivent désigner des composants du même
+véhicule et ne pas être dupliqués dans le tableau. Les observations sont conservées
+dans les sauvegardes, y compris pour les fiches de la corbeille. L’historique d’un
+composant réunit observations, remplacements et lignes associées ; seuls les
+remplacements explicites réinitialisent ses repères. Les propositions visibles
+dans l’éditeur d’intervention peuvent créer un composant et son lien dans la même
+transaction d’enregistrement.
 
 ### Événement carburant
 
