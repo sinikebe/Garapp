@@ -55,6 +55,7 @@ Les collections facultatives absentes deviennent des tableaux vides.
 | `odometerDate` | date ou `null` | Date du relevé courant |
 | `example` | booléen facultatif | `true` uniquement pour un exemple fictif |
 | `coverDocumentId` | identifiant facultatif ou `null` | Photo ou modèle affiché sur l’accueil ; référence un document intégré de ce véhicule. Absent ou `null` : aucun visuel |
+| `componentLayout` | objet facultatif | Disposition schématique des composants connus ; ne crée aucun équipement |
 | `components` | tableau | Composants suivis, au plus 10 000 |
 | `records` | tableau | Historique actif |
 | `trashedRecords` | tableau facultatif | Fiches dans la corbeille ; absence équivalente à une corbeille vide |
@@ -103,6 +104,20 @@ unique. Une entrée source qui ne représente pas une pièce peut rester une lig
 prestation, ou un élément complémentaire du garage. Un modèle vide peut être conservé
 sans être présenté comme une pièce réelle, dans une propriété complémentaire `templates`.
 
+### Disposition du véhicule
+
+`vehicle.componentLayout` accepte `wheelCount` (entier de 2 à 12), `doorCount`
+(entier de 1 à 8, portières latérales hors hayon) et `enginePosition` (`front`,
+`center` ou `rear`). Les autres propriétés et leurs valeurs imbriquées sont
+conservées. Les choix concernent la représentation des groupes de composants,
+sans modifier leurs identifiants, leurs associations ou leurs repères d’entretien.
+
+Sans réglage explicite, le schéma utilise quatre emplacements de roue, quatre
+portières latérales et un compartiment moteur avant. Une position avant, centrale
+ou arrière explicitement connue pour un moteur peut fournir la disposition du
+compartiment moteur en l’absence de réglage. Ces valeurs d’affichage ne sont pas
+ajoutées à la sauvegarde à sa lecture et ne confirment aucun équipement.
+
 ### Représentation des composants
 
 `spatial` contient les propriétés facultatives suivantes. Les propriétés
@@ -110,14 +125,15 @@ supplémentaires, y compris leurs valeurs imbriquées, restent conservées.
 
 | Champ | Valeurs | Rôle |
 | --- | --- | --- |
-| `kind` | `unknown`, `engine`, `battery`, `belt`, `braking`, `drum`, `disc`, `pads`, `tire`, `wheel`, `oilFilter`, `airFilter`, `cabinFilter`, `fuelFilter`, `oil`, `coolant`, `shock`, `exhaust`, `clutch`, `gearbox`, `steering`, `wiper`, `sparkPlug` | Forme générique ; `braking` ne précise pas un disque ou un tambour |
-| `zone` | `unknown`, `front`, `rear`, `cabin`, `engineBay`, `underbody` | Emplacement schématique ; `unknown` signifie « À placer » |
+| `kind` | `unknown`, `engine`, `battery`, `belt`, `braking`, `drum`, `disc`, `pads`, `tire`, `wheel`, `oilFilter`, `airFilter`, `cabinFilter`, `fuelFilter`, `oil`, `coolant`, `shock`, `exhaust`, `clutch`, `gearbox`, `steering`, `wiper`, `sparkPlug`, `door`, `hood`, `tailgate`, `bumper`, `mirror`, `headlight`, `rearLight`, `radiator`, `fuelTank` | Forme générique ; `braking` ne précise pas un disque ou un tambour |
+| `zone` | `unknown`, `front`, `rear`, `cabin`, `engineBay`, `underbody` | Position explicitement renseignée ; `unknown` laisse l’affichage utiliser les emplacements schématiques du type, ou « À placer » si aucun n’est connu |
 | `side` | `unknown`, `left`, `right`, `center` | Côté explicitement renseigné |
 | `presenceOrigin` | `manual`, `record` | `record` : présence issue des fiches, confirmée uniquement par une source active non prévue et non future |
 
 Sans objet `spatial`, une mention explicite dans le nom peut fournir une forme ou
-une position à l’affichage. Une valeur `unknown` renseignée explicitement est
-respectée. Aucune disposition propre à une marque ou un modèle n’est supposée.
+une position à l’affichage. Une valeur `unknown` reste inchangée dans les données ;
+un type reconnu peut recevoir un emplacement schématique sans confirmer sa position
+réelle. Aucune disposition propre à une marque ou un modèle n’est supposée.
 Un composant non reconnu conserve son nom et une forme générique. La propriété
 supplémentaire `origin`, si présente sur le composant, reste une donnée source
 ordinaire ; elle n’est pas utilisée comme indicateur de présence.

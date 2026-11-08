@@ -4,8 +4,9 @@ export const COMPONENT_KINDS = Object.freeze({
   braking: 'Freinage · type inconnu', drum: 'Tambour de frein', disc: 'Disque de frein', pads: 'Plaquettes de frein',
   tire: 'Pneu', wheel: 'Roue / jante', oilFilter: 'Filtre à huile', airFilter: 'Filtre à air', cabinFilter: 'Filtre habitacle', fuelFilter: 'Filtre à carburant',
   oil: 'Huile moteur', coolant: 'Liquide de refroidissement', shock: 'Amortisseur', exhaust: 'Échappement', clutch: 'Embrayage', gearbox: 'Boîte de vitesses', steering: 'Direction', wiper: 'Essuie-glace', sparkPlug: 'Bougie',
+  door:'Portière latérale', hood:'Capot', tailgate:'Hayon / coffre', bumper:'Pare-chocs', mirror:'Rétroviseur', headlight:'Phare avant', rearLight:'Feu arrière', radiator:'Radiateur', fuelTank:'Réservoir de carburant',
 });
-export const COMPONENT_ZONES = Object.freeze({ unknown: 'À placer', front: 'Avant', rear: 'Arrière', cabin: 'Habitacle', engineBay: 'Compartiment moteur · schématique', underbody: 'Dessous du véhicule' });
+export const COMPONENT_ZONES = Object.freeze({ unknown: 'Non renseignée', front: 'Avant', rear: 'Arrière', cabin: 'Habitacle', engineBay: 'Compartiment moteur · schématique', underbody: 'Dessous du véhicule' });
 export const COMPONENT_SIDES = Object.freeze({ unknown: 'Côté non renseigné', left: 'Gauche', right: 'Droite', center: 'Centre' });
 export const normalizeName = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[’']/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
 
@@ -21,6 +22,15 @@ const rules = [
   ['pads', /\bplaquettes?(?:\s+de\s+freins?)?\b/, 'Plaquettes', 'Freinage'],
   ['tire', /\bpneus?\b|\bpneumatiques?\b/, 'Pneus', 'Liaison au sol'],
   ['wheel', /\b(?:roues?|jantes?)\b/, 'Roues / jantes', 'Liaison au sol'],
+  ['door', /\b(?:portieres?|portes?(?:\s+laterales?)?)\b/, 'Portières', 'Carrosserie'],
+  ['hood', /\bcapots?(?:\s+moteur)?\b/, 'Capot', 'Carrosserie'],
+  ['tailgate', /\b(?:hayons?|coffres?(?!\s+(?:de\s+)?toit)|malles?)\b/, 'Hayon / coffre', 'Carrosserie'],
+  ['bumper', /\bpare\s+chocs?\b/, 'Pare-chocs', 'Carrosserie'],
+  ['mirror', /\bretroviseurs?(?:\s+exterieurs?)?\b/, 'Rétroviseurs', 'Visibilité'],
+  ['rearLight', /\b(?:feux?(?=\s+(?:arriere|stop)\b)|optiques?(?=\s+arriere\b))\b/, 'Feux arrière', 'Visibilité'],
+  ['headlight', /\b(?:phares?|optiques?|feux?(?=\s+avant\b))\b/, 'Phares', 'Visibilité'],
+  ['radiator', /\bradiateurs?\b/, 'Radiateur', 'Refroidissement'],
+  ['fuelTank', /\breservoirs?\s+(?:de\s+|a\s+)?(?:carburant|essence|gazole|gasoil|diesel)\b/, 'Réservoir de carburant', 'Alimentation'],
   ['oil', /\bhuile\s+moteur\b/, 'Huile moteur', 'Moteur'],
   ['coolant', /\bliquide\s+de\s+refroidissement\b/, 'Liquide de refroidissement', 'Moteur'],
   ['shock', /\bamortisseurs?\b/, 'Amortisseurs', 'Liaison au sol'],
@@ -30,7 +40,7 @@ const rules = [
   ['steering', /\b(?:cremaillere|direction)\b/, 'Direction', 'Direction'],
   ['wiper', /\bessuie\s+glaces?\b/, 'Essuie-glaces', 'Habitacle'],
   ['sparkPlug', /\bbougies?(?:\s+(?:de\s+)?prechauffage)?\b/, 'Bougies', 'Moteur'],
-  ['engine', /\bmoteurs?\b/, 'Moteur', 'Moteur'],
+  ['engine', /\bmoteurs?\b(?!\s+(?:de\s+|d\s+)?(?:leve\s+vitre|essuie\s+glace|ventilateur))/, 'Moteur', 'Moteur'],
   ['braking', /\bfreins?\b|\bfreinage\b/, 'Freinage', 'Freinage'],
 ];
 const uncertain = /\b(?:sans|aucun|aucune|absence|absent|absente|non|pas|devis|hypothese|eventuel|eventuelle|prevoir|prevu|prevue|envisage)\b/;
@@ -54,7 +64,7 @@ export function detectComponents(text) {
       const match = pattern.exec(remainder);
       if (!match) continue;
       const after = remainder.slice(match.index + match[0].length);
-      const zone = /\b(?:arriere|ar|arg|ard)\b/.test(after) ? 'rear' : /\b(?:avant(?!\s+(?:de|le|la|les|un|une)\b)|av|avg|avd)\b/.test(after) ? 'front' : /\bhabitacle\b/.test(after) ? 'cabin' : /\bcompartiment\s+moteur\b/.test(after) ? 'engineBay' : /\b(?:dessous|soubassement)\b/.test(after) ? 'underbody' : 'unknown';
+      const zone = /\b(?:arriere|ar|arg|ard)\b/.test(after) ? 'rear' : /\b(?:avant(?!\s+(?:de|le|la|les|un|une)\b)|av|avg|avd)\b/.test(after) ? 'front' : /\b(?:habitacle|interieur)\b/.test(after) ? 'cabin' : /\bcompartiment\s+moteur\b/.test(after) ? 'engineBay' : /\b(?:dessous|soubassement)\b/.test(after) ? 'underbody' : 'unknown';
       const side = /\b(?:gauche|avg|arg)\b/.test(after) ? 'left' : /\b(?:droite?|avd|ard)\b/.test(after) ? 'right' : /\bcentre\b/.test(after) ? 'center' : 'unknown';
       const key = `${kind}-${zone}-${side}`;
       const effect = /\b(?:remplacement|remplace|changer|changement|renouvellement)\b/.test(clause) ? 'replace' : /\b(?:controle|verification|inspection)\b/.test(clause) ? 'inspect' : 'none';

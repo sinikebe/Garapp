@@ -1,7 +1,8 @@
 /** Small software 3D renderer: real volumes, orthographic camera, depth ordering and face picking. */
-const point = (x, y, z) => [x, y, z];
+import { fixedComponentLayout } from './component-layout.js';
 const add = (a, b) => a.map((value, index) => value + b[index]);
 const colors = { battery: '#c09a45', drum: '#b97d5b', disc: '#a5b5b9', pads: '#c18d70', braking: '#b68c77', tire: '#52727d', wheel: '#829aa1', engine: '#558d78', oil: '#6d9a77', coolant: '#6b9ea9', unknown: '#82978e' };
+Object.assign(colors,{door:'#629583',hood:'#6d9f8d',tailgate:'#629583',bumper:'#8b9a96',mirror:'#8aafa3',headlight:'#c8b77a',rearLight:'#b97468',radiator:'#91a7aa',fuelTank:'#8a9b83'});
 
 function box(w, h, d, offset = [0, 0, 0]) {
   const v = [[-w/2,-h/2,-d/2],[w/2,-h/2,-d/2],[w/2,h/2,-d/2],[-w/2,h/2,-d/2],[-w/2,-h/2,d/2],[w/2,-h/2,d/2],[w/2,h/2,d/2],[-w/2,h/2,d/2]].map((v) => add(v, offset));
@@ -42,27 +43,22 @@ export function componentMesh(kind) {
   if (kind === 'gearbox') return [...box(.5,.43,.5), ...ring(.14,0,.7)];
   if (kind === 'clutch') return [...ring(.32,.08,.12), ...ring(.2,.08,.18)];
   if (kind === 'steering') return [...box(.85,.09,.1), ...ring(.18,.14,.045,{offset:[0,.18,0]})];
+  if (kind === 'door') return [...box(1,.48,.07,[0,-.15,0]),...box(.86,.035,.06,[0,.5,0]),...box(.035,.4,.06,[-.41,.3,0]),...box(.035,.4,.06,[.41,.3,0]),...box(.15,.035,.1,[.3,.08,0])];
+  if (kind === 'hood') return box(1.15,.07,1.38);
+  if (kind === 'tailgate') return [...box(.09,.82,1.42),...box(.13,.035,.22,[.06,-.08,0])];
+  if (kind === 'bumper') return box(.14,.22,1.84);
+  if (kind === 'mirror') return [...box(.23,.16,.2),...box(.18,.035,.055,[.12,-.06,0])];
+  if (kind === 'headlight') return box(.12,.18,.35);
+  if (kind === 'rearLight') return box(.12,.3,.22);
+  if (kind === 'radiator') return [...box(.12,.48,.8),...Array.from({length:8},(_,i)=>box(.14,.4,.015,[0,0,-.35+i*.1])).flat()];
+  if (kind === 'fuelTank') return box(.65,.24,.7);
   if (kind === 'braking') return [...ring(.32,.08,.12), ...box(.17,.38,.15,[.28,0,.04])];
   const top = [0,.34,0], bottom = [0,-.34,0], sides = [[.3,0,0],[0,0,.3],[-.3,0,0],[0,0,-.3]];
   return sides.flatMap((v,i) => [[top,v,sides[(i+1)%4]], [bottom,sides[(i+1)%4],v]]);
 }
 
-export function sceneLayout(parts, spread = .7) {
-  const counts = new Map();
-  let unplaced = 0;
-  return parts.map((part) => {
-    const { zone, side } = part.spatial, group = `${zone}-${side}`, index = counts.get(group) ?? 0;
-    counts.set(group,index+1);
-    const anchor = zone === 'front' ? [1.55,.25,0] : zone === 'rear' ? [-1.55,.25,0] : zone === 'cabin' ? [-.2,.8,0] : zone === 'engineBay' ? [1.1,.65,0] : zone === 'underbody' ? [0,-.15,0] : null;
-    if (!anchor) {
-      const slot = unplaced++;
-      return { part, anchor:null, center:[-3.5-(slot%3)*.75,.25+Math.floor(slot/3)*.72,-1.3+(slot%3)*1.25] };
-    }
-    anchor[2] = side === 'left' ? -.86 : side === 'right' ? .86 : 0;
-    const direction = [zone === 'front' || zone === 'engineBay' ? 1 : zone === 'rear' ? -1 : 0, zone === 'underbody' ? -.5 : 1, side === 'left' ? -1 : side === 'right' ? 1 : (index%2 ? -1 : 1)*.45];
-    const center = add(anchor,[direction[0]*spread*(.6+index*.12), .2+index*.42+direction[1]*spread*.9, direction[2]*spread*.8]);
-    return { part, anchor, center };
-  });
+export function sceneLayout(parts, spread = .3, configuration = {}) {
+  return fixedComponentLayout(parts,spread,configuration);
 }
 
 export function rotatePoint([x,y,z], yaw, pitch) {
@@ -70,17 +66,26 @@ export function rotatePoint([x,y,z], yaw, pitch) {
   return [u,y*Math.cos(pitch)-v*Math.sin(pitch),y*Math.sin(pitch)+v*Math.cos(pitch)];
 }
 const body = [[-2.2,.08,-.88],[2.2,.08,-.88],[2.2,.08,.88],[-2.2,.08,.88],[-2.2,.08,-.88]];
-export function projectScene(parts, { yaw = -.6, pitch = .48, zoom = 1, spread = .7 } = {}, width = 800, height = 440) {
-  const layout = sceneLayout(parts,spread);
+export function projectScene(parts, { yaw = -.6, pitch = .48, zoom = 1, spread = .3, selected = null } = {}, width = 800, height = 440, configuration = {}) {
+  const mounts = sceneLayout(parts,spread,configuration), occupied = new Map();
+  const specificity = (part) => (part.spatial?.zone && part.spatial.zone !== 'unknown' ? 1 : 0) + (part.spatial?.side && part.spatial.side !== 'unknown' ? 1 : 0);
+  for (const entry of mounts) {
+    const previous = occupied.get(entry.key);
+    if (!previous || entry.part.id === selected || previous.part.id !== selected && (specificity(entry.part) > specificity(previous.part) || specificity(entry.part) === specificity(previous.part) && entry.part.id.localeCompare(previous.part.id) < 0)) occupied.set(entry.key,entry);
+  }
+  const all = [...occupied.values()];
+  const layout = all.length <= 160 ? all : [...all.filter((entry)=>entry.part.id===selected),...all.filter((entry)=>entry.part.id!==selected)].slice(0,160);
   const wire = [body, body.map(([x,y,z]) => [x,y+.42,z]), [[-1.4,.5,-.8],[-.9,1.25,-.68],[.65,1.25,-.68],[1.3,.5,-.8]], [[-1.4,.5,.8],[-.9,1.25,.68],[.65,1.25,.68],[1.3,.5,.8]], [[-.9,1.25,-.68],[-.9,1.25,.68]], [[.65,1.25,-.68],[.65,1.25,.68]]];
-  const faces = layout.flatMap(({part,center}) => componentMesh(part.spatial.kind).map((vertices) => ({ id:part.id, color:colors[part.spatial.kind] ?? '#729487', vertices:vertices.map((v) => rotatePoint(add(v,center),yaw,pitch)) })));
-  const bounds = [...wire.flat(), [2.7,0,0],[-2.7,0,0], ...layout.map((item) => item.center)].map((v) => rotatePoint(v,yaw,pitch));
-  const xs = bounds.map((v) => v[0]), ys = bounds.map((v) => v[1]);
-  const minX = Math.min(...xs)-.5, maxX = Math.max(...xs)+.5, minY = Math.min(...ys)-.5, maxY = Math.max(...ys)+.5;
+  const faces = layout.flatMap(({part,kind,center,scale}) => componentMesh(kind).map((vertices) => ({ id:part.id, color:colors[kind] ?? '#729487', vertices:vertices.map((v) => rotatePoint(add(v.map((value,index)=>value*scale[index]),center),yaw,pitch)) })));
+  const bounds = [...wire.flat(),[2.7,0,0],[-2.7,0,0]].map((v)=>rotatePoint(v,yaw,pitch));
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for (const vertex of [...bounds,...faces.flatMap((face)=>face.vertices)]) { minX=Math.min(minX,vertex[0]);maxX=Math.max(maxX,vertex[0]);minY=Math.min(minY,vertex[1]);maxY=Math.max(maxY,vertex[1]); }
+  minX-=.3;maxX+=.3;minY-=.3;maxY+=.3;
   const scale = Math.min((width-70)/(maxX-minX),(height-70)/(maxY-minY))*zoom;
   const project = (v) => [width/2+(v[0]-(minX+maxX)/2)*scale,height/2-(v[1]-(minY+maxY)/2)*scale,v[2]];
   const world = (v) => project(rotatePoint(v,yaw,pitch));
   return {
+    totalInstances:all.length, renderedInstances:layout.length,
     faces:faces.map((face) => ({ ...face, vertices:face.vertices.map(project), depth:face.vertices.reduce((sum,v)=>sum+v[2],0)/face.vertices.length })).sort((a,b)=>a.depth-b.depth),
     wire:wire.map((line)=>line.map(world)),
     markers:layout.map((item,index)=>({ id:item.part.id, name:item.part.name, index:index+1, center:world(item.center), anchor:item.anchor ? world(item.anchor) : null })),
@@ -105,7 +110,7 @@ function shade(hex, amount) {
 
 export class ComponentScene {
   constructor(canvas, state, select, onCamera = () => {}) {
-    this.canvas=canvas; this.state=state; this.select=select; this.onCamera=onCamera; this.parts=[]; this.selected=null; this.abort=new AbortController(); this.pointers=new Map();
+    this.canvas=canvas; this.state=state; this.select=select; this.onCamera=onCamera; this.parts=[]; this.configuration={}; this.selected=null; this.abort=new AbortController(); this.pointers=new Map();
     const listen=(type,handler,options={})=>canvas.addEventListener(type,handler,{...options,signal:this.abort.signal});
     listen('pointerdown',(event)=>{ canvas.focus({preventScroll:true}); canvas.setPointerCapture(event.pointerId); this.pointers.set(event.pointerId,[event.clientX,event.clientY]); this.down=[event.clientX,event.clientY]; this.moved=false; });
     listen('pointermove',(event)=>{
@@ -132,7 +137,7 @@ export class ComponentScene {
     });
     this.observer=new ResizeObserver(()=>this.draw());this.observer.observe(canvas);
   }
-  update(parts,selected){this.parts=parts;this.selected=selected;this.draw();}
+  update(parts,selected,configuration={}){this.parts=parts;this.selected=selected;this.configuration=configuration;this.draw();}
   draw(){
     if(this.raf)cancelAnimationFrame(this.raf);
     this.raf=requestAnimationFrame(()=>{this.raf=null;this.paint();});
@@ -140,9 +145,9 @@ export class ComponentScene {
   paint(){
     const canvas=this.canvas,ctx=canvas.getContext('2d');if(!ctx)return;
     const width=canvas.clientWidth,height=canvas.clientHeight;if(!width||!height)return;
-    this.onCamera(this.state);
     const ratio=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);ctx.scale(ratio,ratio);
-    const frame=this.frame=projectScene(this.parts,this.state,width,height),ink=getComputedStyle(canvas).color;
+    const frame=this.frame=projectScene(this.parts,{...this.state,selected:this.selected},width,height,this.configuration),ink=getComputedStyle(canvas).color;
+    this.onCamera(this.state,frame);
     const stroke=(vertices,color,alpha=1)=>{ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.beginPath();vertices.forEach((v,i)=>i?ctx.lineTo(v[0],v[1]):ctx.moveTo(v[0],v[1]));ctx.stroke();ctx.globalAlpha=1;};
     ctx.lineWidth=1.2;frame.wire.forEach((line)=>stroke(line,ink,.22));
     for(const marker of frame.markers)if(marker.anchor){ctx.setLineDash([3,5]);stroke([marker.anchor,marker.center],ink,.2);ctx.setLineDash([]);}
@@ -153,10 +158,14 @@ export class ComponentScene {
     }
     ctx.fillStyle=ink;ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('AVANT',frame.front[0],frame.front[1]+20);ctx.fillText('ARRIÈRE',frame.rear[0],frame.rear[1]+20);
     if(frame.markers.some((marker)=>!marker.anchor)){ctx.globalAlpha=.7;ctx.fillText('À PLACER',frame.tray[0],frame.tray[1]+16);ctx.globalAlpha=1;}
+    const labelled = new Set(), quantities = new Map();
+    for(const marker of frame.markers)quantities.set(marker.id,(quantities.get(marker.id)??0)+1);
     for(const marker of frame.markers){
-      if(this.parts.length>12&&marker.id!==this.selected)continue;
+      if(!this.state.labels&&marker.id!==this.selected)continue;
+      if(labelled.has(marker.id))continue;labelled.add(marker.id);
       ctx.font=marker.id===this.selected?'600 13px system-ui':'12px system-ui';ctx.fillStyle=ink;
-      const label=marker.name.length>26?marker.name.slice(0,24)+'…':marker.name;ctx.fillText(label,marker.center[0],marker.center[1]-25);
+      const name=marker.name.length>26?marker.name.slice(0,24)+'…':marker.name;
+      const label=name+(quantities.get(marker.id)>1?` ×${quantities.get(marker.id)}`:'');ctx.fillText(label,marker.center[0],marker.center[1]-25);
     }
   }
   dispose(){this.abort.abort();this.observer.disconnect();if(this.raf)cancelAnimationFrame(this.raf);}

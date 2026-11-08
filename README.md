@@ -145,6 +145,21 @@ exports sont nécessaires pour conserver une sauvegarde indépendante.
 
 ### Vue éclatée des composants
 
+Les pièces connues utilisent des emplacements fixes : roues et organes associés
+sur les essieux, portières sur les côtés, capot, hayon, pare-chocs, rétroviseurs,
+feux et organes mécaniques à leurs repères schématiques. Le bouton **Disposition
+du véhicule** règle les emplacements de roues (2 à 12), les portières latérales
+(1 à 8, hors hayon) et le moteur avant, central ou arrière. L’éclatement suit des
+axes définis, sans dérive selon l’ordre des fiches. Les positions explicites des
+composants restent prioritaires. Seul le nom de la sélection est affiché par défaut ;
+**Afficher les noms** donne accès aux autres libellés.
+
+Un groupe peut afficher plusieurs volumes liés à une seule fiche. Le nombre
+d’emplacements n’est pas un inventaire confirmé : aucun composant supplémentaire
+n’est créé et aucun historique de remplacement n’est multiplié. Les types inconnus
+sans position restent dans **À placer**. Le formulaire d’un composant propose aussi
+**Selon le nom**, avec une forme générique explicite toujours disponible.
+
 La présentation **Vue 3D éclatée**, dans **Composants**, propose rotation, zoom,
 vues de dessus et de côté, éclatement réglable et sélection des pièces. Chaque
 sélection retrouve ses fiches sources et permet de préciser sa représentation.
@@ -166,7 +181,7 @@ présentation en liste reste disponible.
   sont visibles avant enregistrement. Elles peuvent être décochées, reliées à un
   composant existant ou précisées. Le sélecteur des lignes propose aussi **Créer
   un composant…** pour les noms qui ne figurent pas dans le vocabulaire reconnu.
-- Les pièces non localisées sont dessinées dans **À placer**. Les formes et les
+- Les formes inconnues sans position sont dessinées dans **À placer**. Les formes et les
   positions sont schématiques. Une pièce absente de la vue reste inconnue ; les
   couleurs ne représentent pas son état réel.
 - Les fiches prévues, futures et celles de la corbeille ne confirment pas la
