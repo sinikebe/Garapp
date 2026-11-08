@@ -256,3 +256,17 @@ test('unlinked insurance expenses and incomplete debits stay visible without inv
   assert.equal(insuranceRows(current, '2026', asOf)[0].state, 'À compléter');
   assert.equal(insuranceRows(current, '2026', asOf)[0].amount, null);
 });
+
+test('amount-only corrections retain unknown dates and pre-existing incomplete statuses', () => {
+  const garage = catchUp();
+  payment(garage, '2026-02').date = null;
+  payment(garage, '2026-03').status = 'incomplete';
+  let next = changeInsurancePayment(garage, 'car', 'contract', '2026-02', { amount: '42' }, 'one', asOf);
+  assert.equal(payment(next, '2026-02').date, null);
+  assert.equal(payment(next, '2026-02').status, 'done');
+  assert.equal(insuranceRows(next.vehicles[0], '2026', asOf).find((row) => row.period === '2026-02').date, null);
+  next = changeInsurancePayment(next, 'car', 'contract', '2026-03', { amount: '45' }, 'one', asOf);
+  assert.equal(payment(next, '2026-03').status, 'incomplete');
+  assert.equal(payment(catchUp(next), '2026-02').date, null);
+  assert.equal(payment(catchUp(next), '2026-03').status, 'incomplete');
+});

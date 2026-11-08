@@ -103,7 +103,7 @@ export function changeInsurancePayment(garage, vehicleId, contractId, period, fi
   record.insurance.overridden = scope === 'one';
   if (fields.date !== undefined) record.date = fields.date;
   if (fields.notes !== undefined) record.notes = fields.notes;
-  if (record.insurance.generated && record.insurance.autoStatus !== false) record.status = record.date <= date && scheduled ? 'done' : 'planned';
+  if (fields.date !== undefined && record.insurance.generated && record.insurance.autoStatus !== false) record.status = record.date <= date && scheduled ? 'done' : 'planned';
   return next;
 }
 
@@ -119,8 +119,8 @@ export function insuranceRows(vehicle, year, date = today()) {
       const skipped = contract.skippedPeriods?.includes(period);
       if (!scheduled && !record && !trash && !skipped) continue;
       const actual = record ?? trash?.record;
-      rows.push({ contract, period, record, trash, date: actual?.date ?? scheduled, amount: actual ? recordCost(actual).total : skipped ? null : premiumAt(contract, period),
-        state: trash ? 'Corbeille' : skipped ? 'Exclu' : record && record.status !== 'planned' ? record.status === 'incomplete' ? 'À compléter' : 'Enregistré' : record && !scheduled ? 'Hors calendrier' : (actual?.date ?? scheduled) <= date ? 'À enregistrer' : 'À venir' });
+      rows.push({ contract, period, record, trash, date: actual ? actual.date : scheduled, amount: actual ? recordCost(actual).total : skipped ? null : premiumAt(contract, period),
+        state: trash ? 'Corbeille' : skipped ? 'Exclu' : record && record.status !== 'planned' ? record.status === 'incomplete' ? 'À compléter' : 'Enregistré' : record && !scheduled ? 'Hors calendrier' : record && !record.date ? 'Date à renseigner' : (actual?.date ?? scheduled) <= date ? 'À enregistrer' : 'À venir' });
     }
   }
   return rows.sort((a, b) => a.period.localeCompare(b.period) || contractLabel(a.contract).localeCompare(contractLabel(b.contract)));

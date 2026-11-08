@@ -494,7 +494,8 @@ function fillInsurancePayment() {
   if (!contract) return;
   const period = form.elements.period.value;
   const record = vehicle().records.find((one) => one.insurance?.contractId === contract.id && one.insurance.period === period);
-  form.elements.date.value = record?.date ?? dueDate(contract, period) ?? '';
+  form.elements.date.value = record ? record.date ?? '' : dueDate(contract, period) ?? '';
+  form.elements.date.required = !record || record.date !== null;
   form.elements.amount.value = record ? recordCost(record).total ?? '' : premiumAt(contract, period) ?? '';
   form.elements.notes.value = record?.notes ?? '';
   editingInsurancePayment.initialDate = form.elements.date.value;
