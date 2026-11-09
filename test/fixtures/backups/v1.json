@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "activeId": "legacy-car",
+  "source": { "fixture": "Synthetic v1 archive", "reference": "000001", "values": [null, false, 0] },
+  "vehicles": [{
+    "id": "legacy-car", "name": "Legacy example vehicle", "year": 2000,
+    "engine": "Example engine", "odometer": 15000,
+    "source": { "label": "Vehicle source" },
+    "components": [{ "id": "legacy-part", "name": "Example part", "group": "Example", "description": " Original description. ", "source": { "reference": "0002" } }],
+    "records": [{
+      "id": "legacy-record", "title": "Example service", "type": "entretien",
+      "date": "2020-01-01", "odometer": 10000, "partsCents": 12345, "laborCents": 0,
+      "componentIds": ["legacy-part"], "notes": " Original note with whitespace. ",
+      "source": { "originalCategory": "Legacy category", "nested": { "value": "0.000000000000000001" } }
+    }]
+  }]
+}

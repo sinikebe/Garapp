@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "activeId": "early-car",
+  "source": { "fixture": "Synthetic early v2 archive", "extension": ["unknown", { "flag": true }] },
+  "vehicles": [{
+    "id": "early-car", "name": "Early example vehicle",
+    "components": [{ "id": "early-part", "name": "Example part" }],
+    "records": [{
+      "id": "early-record", "title": "Example service", "type": "custom-category",
+      "date": null, "odometer": null, "totalAmount": "12.345000000000000001",
+      "source": { "unclassified": true },
+      "lines": [{ "id": "early-line", "label": "Example line", "amount": "12.345000000000000001", "componentId": "early-part", "effect": "replace", "source": { "reference": "001" } }],
+      "documents": [{ "id": "early-document", "name": "example.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "label": "Original embedded bytes" } }]
+    }]
+  }]
+}

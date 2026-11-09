@@ -43,9 +43,10 @@ export async function makeSnapshot(garage, parents, namespace, folderId, develop
   parents = [...new Set(parents)].sort();
   if (parents.length > MAX_PARENTS || parents.some((id) => !REVISION.test(id))) throw invalid();
   const blob = backupBlob(garage);
+  const serialized = JSON.parse(await blob.text());
   const revision = crypto.randomUUID();
-  const hash = await garageHash(garage);
-  const count = inventory(garage);
+  const hash = await garageHash(serialized);
+  const count = inventory(serialized);
   const appProperties = {
     garapp: 'snapshot-v1', namespace, revision, hash, wire: await fingerprint(blob), pc: String(parents.length),
     counts: JSON.stringify(COUNT_FIELDS.map((key) => count[key])),
@@ -104,8 +105,12 @@ export function revisionGraph(nodes) {
 
 export async function readSnapshot(blob, node) {
   if (blob.size !== node.size || await fingerprint(blob) !== node.wire) throw invalid();
-  const garage = parseGarage(await blob.text());
-  const count = inventory(garage);
-  if (await garageHash(garage) !== node.hash || JSON.stringify(COUNT_FIELDS.map((key) => count[key])) !== JSON.stringify(node.counts)) throw invalid();
+  const raw = await blob.text();
+  const garage = parseGarage(raw);
+  // The checksum describes the saved format, before a newer reader adds defaults.
+  // Validating it after migration would make intact historical copies unreadable.
+  if (await garageHash(JSON.parse(raw)) !== node.hash) throw invalid();
+  // Counts summarize the writer's supported fields. New defaults or recognized
+  // collections may change them; the wire checksum authenticates every byte.
   return garage;
 }

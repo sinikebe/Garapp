@@ -1,7 +1,11 @@
-import { visualKind, validateVisualDocument, vehicleVisualMarkup, mountVehicleModel } from './vehicle-visual.js';
+import { escapeHtml as esc, formatNumber as number, formatMileage as mileage, formatDate as dateText, icon } from './ui-format.js';
+import { pill, remaining, empty, recordsMarkup, dashboardMarkup, expensesMarkup } from './overview-view.js';
+import { commitImport } from './workspace-transactions.js';
+import { RecoveryPanel } from './recovery-panel.js';
+import { visualKind, validateVisualDocument, mountVehicleModel } from './vehicle-visual.js';
 import { initHelpTips } from './help-tips.js';
 import { componentLayout, ENGINE_POSITIONS, placementLabel } from './component-layout.js';
-import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, vehicleStats, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
+import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
 import { suiteLinks } from './app-switcher.js';
@@ -19,12 +23,6 @@ import { reconcileInsurance, changeInsurancePayment, insuranceRows, dueDate, pre
 import { renderInsurance, insuranceMonthText } from './insurance-view.js';
 
 const $ = (id) => document.getElementById(id);
-const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-const number = (value) => value === null || value === undefined ? 'Non renseigné' : new Intl.NumberFormat('fr-FR').format(value);
-const mileage = (value) => value === null || value === undefined ? 'Kilométrage inconnu' : `${number(value)} km`;
-const dateText = (date, options = { day: 'numeric', month: 'short', year: 'numeric' }) => date ? new Date(`${date}T12:00:00Z`).toLocaleDateString('fr-FR', options) : 'Date inconnue';
-const icon = (name) => `<svg class="icon ui-icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
-const labels = { due: 'Échéance atteinte', soon: 'À prévoir', ok: 'Repère non atteint', unknown: 'Suivi à compléter' };
 const base = new URL('../../', import.meta.url);
 const key = storageKey(base);
 const preferenceKey = key.replace('workspace', 'preferences');
@@ -71,7 +69,8 @@ try {
 } catch {
   garage = exampleGarage();
   unsaved = true;
-  storageWarning('Le garage enregistré est illisible ou inaccessible. Son contenu est conservé. La copie ouverte reste exportable.');
+  storageWarning('Le garage enregistré est illisible ou inaccessible. Son contenu est conservé. Exportez les données conservées avant de réessayer.');
+  $('storage-export-original').hidden = false;
 }
 try {
   const saved = JSON.parse(localStorage.getItem(preferenceKey) || '{}');
@@ -85,6 +84,7 @@ const backups = new BackupPanel({
   download, announce, showDialog, openFile: prepareImport,
 });
 await backups.restore();
+const recoveries = new RecoveryPanel({ repository, download, showDialog });
 
 const canDriveSync = () => !unsaved && !saving && !localConflict && !repository.invalid && !backups.files.busy && !backups.picking && !$('import-confirm').dataset.importing && !openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog');
 const canDriveApply = (explicit = false) => canDriveSync() && document.hasFocus() && !openDialogs().some((dialog) => dialog.id === 'drive-preview-dialog' && !explicit);
@@ -164,31 +164,8 @@ function applyPreferences() {
   $('presentation-description').textContent = descriptions[preferences.layout];
   try { localStorage.setItem(preferenceKey, JSON.stringify(preferences)); } catch { /* Optional preferences. */ }
 }
-function pill(life) { return `<span class="status-pill" data-status="${life.status}">${labels[life.status]}</span>`; }
-function remaining(life) {
-  if (life.percent === null) return life.last ? 'Complétez les repères, dates ou kilométrages pour suivre ce composant.' : 'Ajoutez son dernier remplacement pour démarrer le suivi.';
-  if (life.status === 'due') return 'Le repère d’entretien est atteint.';
-  return [life.km === null ? null : `${number(life.km)} km`, life.months === null ? null : `${life.months} mois`].filter(Boolean).join(' ou ') + ' avant le repère';
-}
-function empty(title, message, action, label) { return `<div class="panel empty-state">${icon('car')}<h2>${esc(title)}</h2><p class="hint">${esc(message)}</p>${action ? `<button type="button" class="primary-button" data-action="${action}">${esc(label)}</button>` : ''}</div>`; }
-function costMarkup(record) {
-  const cost = recordCost(record);
-  return `<span>${euros(cost.total)}${cost.total === null && cost.subtotal !== null ? `<small class="cost-note">${euros(cost.subtotal)} connus</small>` : ''}</span>`;
-}
-function recordsMarkup(records, current = vehicle()) {
-  if (!records.length) return empty('Rien à afficher pour le moment', 'Ajoutez une intervention ou ajustez les filtres.', 'new-record', 'Ajouter une intervention');
-  return `<div class="record-list">${chronological(records).map((record) => {
-    const parts = associatedComponentIds(record).map((id) => current.components.find((part) => part.id === id)?.name).filter(Boolean);
-    return `<article class="record-row"><span class="record-date">${record.date ? `<time datetime="${record.date}"><strong>${esc(dateText(record.date, { day: 'numeric', month: 'short' }))}</strong>${record.date.slice(0, 4)}</time>` : 'Date inconnue'}</span><div><button type="button" class="record-title" data-record="${record.id}">${esc(record.title)}</button><div class="record-meta"><span>${esc(typeLabel(record.type))}</span><span>${mileage(record.odometer)}</span>${record.status !== 'done' ? `<span>${record.status === 'planned' ? 'Prévu' : 'À compléter'}</span>` : ''}${parts.length ? `<span>${esc(parts.join(' · '))}</span>` : ''}${record.documents.length ? `<span>${record.documents.length} document(s)</span>` : ''}</div></div><span class="record-cost">${costMarkup(record)}</span><button type="button" class="icon-button" data-record="${record.id}" aria-label="Voir ${esc(record.title)}">${icon('arrow')}</button></article>`;
-  }).join('')}</div>`;
-}
 function renderDashboard(current) {
-  const year = today().slice(0, 4);
-  const stats = vehicleStats(current, year);
-  const visual = vehicleVisualMarkup(current);
-  const statCards = `<div class="stat-grid"><section class="panel stat-card"><p class="stat-label">Interventions en ${year}</p><p class="stat-value">${euros(stats.amount)}</p><p class="stat-foot">${stats.incomplete ? 'Sous-total connu · montants à compléter' : 'Dépenses enregistrées'}</p></section><section class="panel stat-card"><p class="stat-label">Historique du véhicule</p><p class="stat-value">${current.records.length}</p><p class="stat-foot">Interventions et événements</p></section><section class="panel stat-card"><p class="stat-label">Pièces et consommables</p><p class="stat-value">${current.components.length}</p><p class="stat-foot">Composants suivis</p></section></div>`;
-  const attention = current.components.map((part) => ({ part, life: componentLife(current, part) })).filter(({ life }) => ['soon', 'due'].includes(life.status)).sort((a, b) => a.life.percent - b.life.percent);
-  $('dashboard').innerHTML = `<div class="dashboard-grid">${!visual ? '<div class="dashboard-summary">' : ''}<section class="panel vehicle-hero"><div class="hero-top"><div><p class="eyebrow">VOTRE VÉHICULE</p><h2>${esc(current.name)}</h2><p class="vehicle-subtitle">${esc([current.engine, current.year].filter(Boolean).join(' · ') || 'Informations à compléter')}</p></div><span class="hero-tag">${current.example ? 'Véhicule d’exemple' : 'Mon véhicule'}</span></div>${visual}<div class="hero-bottom"><div><span class="odometer-label">Kilométrage actuel</span><span class="odometer-value">${number(current.odometer)}${current.odometer === null ? '' : ' <small>km</small>'}</span>${current.odometerDate ? `<p class="hint">Relevé du ${esc(dateText(current.odometerDate))}</p>` : ''}</div><button type="button" class="text-button" data-action="vehicle-details">Fiche du véhicule ${icon('arrow')}</button></div></section>${!visual ? statCards + '</div>' : ''}<section class="panel attention-panel"><div class="panel-heading"><h2>À garder en tête</h2><span class="hero-tag">${attention.length} repère(s)</span></div><div class="attention-list">${attention.length ? attention.slice(0, 3).map(({ part, life }) => `<button class="attention-row" type="button" data-component="${part.id}"><span class="attention-mark" aria-hidden="true">${life.status === 'due' ? '!' : '◇'}</span><span><strong>${esc(part.name)}</strong><small>${esc(remaining(life))}</small></span>${icon('arrow')}</button>`).join('') : '<p class="hint">Aucun repère atteint ou proche parmi les composants renseignés.</p><button class="text-button" type="button" data-route="composants">Consulter les composants</button>'}</div><p class="hint">Des repères personnalisés pour anticiper l’entretien.</p></section></div>${visual ? statCards : ''}<section class="panel"><div class="panel-heading"><h2>Dernières interventions et événements</h2><button type="button" class="text-button" data-route="interventions">Tout l’historique ${icon('arrow')}</button></div>${recordsMarkup(chronological(current.records).slice(0, 3), current)}<div class="panel-end"><button type="button" class="text-button" data-action="new-record">${icon('plus')} Ajouter une intervention</button></div></section>`;
+  $('dashboard').innerHTML = dashboardMarkup(current);
   if (section === 'garage') disposeVehicleModel = mountVehicleModel($('dashboard'), current);
 }
 const searchText = (text) => text.toLocaleLowerCase('fr').normalize('NFD').replace(/\p{Diacritic}/gu, '');
@@ -228,13 +205,10 @@ function renderComponents() {
 }
 function renderExpenses() {
   const current = vehicle();
-  if (!current) return;
-  const period = $('expense-year').value || today().slice(0, 4);
-  const scope = $('expense-scope').value;
-  const stats = vehicleStats(current, period, scope);
-  const caption = period === 'all' ? 'Tout l’historique' : period === 'undated' ? 'Fiches sans date' : `En ${period}`;
-  const categories = stats.categories.filter((one) => one.total !== 0);
-  $('expense-content').innerHTML = `<section class="panel expense-hero"><p class="eyebrow">${caption.toLocaleUpperCase('fr')}</p><h2 class="stat-label">${stats.incomplete ? 'Sous-total des montants connus' : 'Dépenses enregistrées'}</h2><p class="stat-value">${euros(stats.amount)}</p><p class="hint">${stats.count} fiche(s)${stats.incomplete ? ` · ${stats.incomplete} total(aux) inconnu(s)` : ''}. Les événements prévus sont exclus.</p></section><div class="stat-grid"><section class="panel stat-card"><p class="stat-label">Pièces</p><p class="stat-value">${euros(stats.partsAmount)}</p><p class="stat-foot">Ventilation connue</p></section><section class="panel stat-card"><p class="stat-label">Main-d’œuvre</p><p class="stat-value">${euros(stats.laborAmount)}</p><p class="stat-foot">Ventilation connue</p></section><section class="panel stat-card"><p class="stat-label">Prestations, forfaits et frais</p><p class="stat-value">${euros(stats.otherAmount)}</p><p class="stat-foot">Montants détaillés connus</p></section></div><section class="panel"><h2>Répartition par type</h2>${stats.breakdownIncomplete ? '<p class="hint">Certaines ventilations sont incomplètes. Un total de justificatif peut différer de la somme des lignes.</p>' : ''}${categories.length ? `<ul class="expense-bars">${categories.map((one) => `<li><div class="bar-heading"><span>${esc(typeLabel(one.type))}</span><strong>${euros(one.amount)}</strong></div><div class="expense-track" aria-hidden="true"><span style="width:${Math.min(100, Math.abs(one.total / (stats.total || 1) * 100))}%"></span></div></li>`).join('')}</ul>` : '<p class="hint">Aucun montant connu sur cette période.</p>'}</section>`;
+  if (current) $('expense-content').innerHTML = expensesMarkup(current, {
+    period: $('expense-year').value || today().slice(0, 4),
+    scope: $('expense-scope').value,
+  });
 }
 const views = {
   garage: ['Votre véhicule, en un coup d’œil.', 'L’essentiel aujourd’hui. L’historique quand vous en avez besoin.'],
@@ -301,7 +275,13 @@ function render() {
   for (const record of [...current.records, ...(current.trashedRecords ?? []).map((entry) => entry.record)]) if (record.insurance) insuranceYears.add(Number(record.insurance.period.slice(0, 4)));
   $('insurance-year').innerHTML = [...insuranceYears].filter((year) => year >= 1900 && year <= 2199).sort((a, b) => b - a).map((year) => `<option value="${year}">${year}</option>`).join('');
   $('insurance-year').value = filters.insuranceYear;
-  renderDashboard(current); renderRecords(); renderComponents(); renderExpenses();
+  if (section === 'garage') renderDashboard(current);
+  else $('dashboard').replaceChildren();
+  if (section === 'interventions') renderRecords();
+  else $('records-list').replaceChildren();
+  renderComponents();
+  if (section === 'depenses') renderExpenses();
+  else $('expense-content').replaceChildren();
   if (section === 'assurance') renderInsurance($('insurance-content'), current, filters.insuranceYear, { documentsMarkup, textMarkup, extraMarkup });
   else $('insurance-content').replaceChildren();
   if (section === 'statistiques') renderStatistics($('statistics-content'), current, { period: filters.statisticsPeriod, scope: filters.statisticsScope });
@@ -709,6 +689,18 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 function exportGarage(options) { backups.export(options); }
+async function exportStoredGarage() {
+  const button = $('storage-export-original');
+  if (button.disabled) return;
+  button.disabled = true;
+  try {
+    const raw = await repository.readStoredRaw();
+    if (typeof raw !== 'string') throw Error('Aucune donnée enregistrée n’a été trouvée.');
+    download(new Blob([raw], { type: 'application/json' }), 'garapp-donnees-conservees.json');
+    announce('Le téléchargement des données conservées a été demandé. Le fichier contient leur version originale.');
+  } catch (error) { announce(`Export impossible : ${error.message}`); }
+  finally { button.disabled = false; }
+}
 function downloadDocument(token, draftDocument = null) {
   const doc = draftDocument ?? downloadableDocuments.get(token); if (!doc) return;
   const binary = atob(doc.dataUrl.slice(doc.dataUrl.indexOf(',') + 1));
@@ -825,6 +817,8 @@ const actions = {
   'vehicle-layout': () => { openVehicle(true); $('vehicle-layout-options').open = true; $('vehicle-form').dataset.layoutEdited='true'; $('vehicle-form').elements.layoutWheelCount.focus(); },
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
   trash: openTrash,
+  recovery: () => { void recoveries.open(); },
+  'export-stored': () => { void exportStoredGarage(); },
   'new-insurance': () => openInsurance(),
   'insurance-history': () => { $('record-type').value = 'insurance'; $('record-search').value = ''; rememberNavigation(); location.hash = 'interventions'; },
   'insurance-expenses': () => { $('expense-scope').value = 'all'; const year = $('insurance-year').value; if (![...$('expense-year').options].some((option) => option.value === year)) $('expense-year').add(new Option(year, year)); $('expense-year').value = year; rememberNavigation(); location.hash = 'depenses'; },
@@ -898,7 +892,7 @@ window.addEventListener('beforeunload', (event) => { if (unsaved || backups.need
 repository.subscribe(async () => {
   if (openDialogs().length || unsaved || saving) { localConflict = true; backups.suspend(); return storageWarning('Le garage a changé dans un autre onglet. Exportez les modifications ouvertes avant de recharger.'); }
   try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); drive.changed(); }
-  catch { storageWarning('Une modification provenant d’un autre onglet est illisible. La copie ouverte est conservée.'); }
+  catch { storageWarning('Une modification provenant d’un autre onglet est illisible. La copie ouverte est conservée.'); $('storage-export-original').hidden = false; }
 });
 async function prepareImport(file, handle = null) {
   if ($('import-confirm').dataset.importing) throw Error('Un import est déjà en cours.');
@@ -931,15 +925,22 @@ $('import-confirm').addEventListener('click', async () => {
     const incoming = pendingImport;
     if (incoming.handle && await fingerprint(await incoming.handle.getFile()) !== incoming.fileHash) throw Error('Le fichier a changé depuis sa vérification. Ouvrez-le à nouveau avant d’importer. Le garage actuel est conservé.');
     exportGarage({ beforeImport: true });
-    backups.suspend(); await backups.files.disconnect();
-    await save(incoming.garage); pendingImport = null; $('import-dialog').close();
+    backups.suspend();
+    saving = true; applyingRemote = true;
+    try {
+      const imported = await commitImport(repository, garage, incoming.garage);
+      garage = imported; unsaved = false; localConflict = false;
+      $('storage-warning').hidden = true;
+      $('save-status').textContent = 'Enregistré sur cet appareil';
+    } finally { saving = false; applyingRemote = false; }
+    pendingImport = null; $('import-dialog').close(); render(); drive.changed();
     let linkError = '';
-    if (incoming.handle && !unsaved) {
-      try { await backups.files.link(incoming.handle, incoming); }
-      catch (error) { linkError = ` Le garage a été importé, mais le fichier n’a pas été lié : ${backupErrorMessage(error)}`; }
-    }
+    try {
+      await backups.files.disconnect();
+      if (incoming.handle) await backups.files.link(incoming.handle, incoming);
+    } catch (error) { linkError = ` Le garage a été importé, mais la liaison au fichier n’a pas été mise à jour : ${backupErrorMessage(error)}`; }
     await backups.update(false);
-    announce(unsaved ? 'Garage importé dans la copie ouverte. Exportez-le avant de quitter : l’enregistrement local a échoué.' : `Garage et documents importés. Le téléchargement de la copie précédente a été demandé.${linkError}`);
+    announce(`Garage et documents importés. La copie précédente est disponible dans les copies de récupération.${linkError}`);
   } catch (error) { $('import-error').textContent = backupErrorMessage(error); $('import-error').hidden = false; }
   finally { delete button.dataset.importing; backups.render(); }
 });

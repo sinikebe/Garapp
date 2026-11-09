@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "activeId": "complete-car",
+  "source": { "fixture": "Synthetic complete v2 archive", "nested": { "nullable": null, "false": false, "zero": 0 } },
+  "documents": [{ "id": "root-doc", "name": "root.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "garage" } }],
+  "vehicles": [{
+    "id": "complete-car", "name": "Complete example vehicle", "odometer": 12000, "odometerDate": "2026-04-01",
+    "componentLayout": { "wheelCount": 4, "doorCount": 4, "enginePosition": "front", "source": { "layout": "example" } },
+    "documents": [{ "id": "cover-doc", "name": "example.png", "mimeType": "image/png", "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1sAAAAASUVORK5CYII=", "source": { "scope": "vehicle" } }],
+    "coverDocumentId": "cover-doc",
+    "components": [{
+      "id": "complete-part", "name": "Example part", "intervalKm": 10000, "intervalMonths": 12,
+      "spatial": { "kind": "oil", "zone": "front", "side": "center", "presenceOrigin": "record", "source": { "position": "example" } },
+      "documents": [{ "id": "part-doc", "name": "part.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "component" } }]
+    }],
+    "insurances": [{
+      "id": "example-policy", "provider": "Example insurer", "reference": "EXAMPLE-0001",
+      "firstDate": "2026-01-31", "debitDay": 31,
+      "tariffs": [{ "from": "2026-01", "amount": "25.123456789012345678", "source": { "tariff": "example" } }],
+      "skippedPeriods": ["2026-03"], "source": { "policy": "example" },
+      "documents": [{ "id": "policy-doc", "name": "policy.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "insurance" } }]
+    }],
+    "records": [{
+      "id": "fuel-record", "title": "Example fuel purchase", "type": "fuel", "date": "2026-02-01", "odometer": null,
+      "fuel": { "litres": "12.345678901234567890", "fullTank": true, "source": { "station": "Example station" } },
+      "totalAmount": "25.000000000000000001", "notes": " Original multiline note.\nSecond line. ",
+      "documents": [{ "id": "fuel-doc", "name": "fuel.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "fuel" } }]
+    }, {
+      "id": "planned-record", "title": "Example planned service", "type": "entretien", "status": "planned",
+      "observedComponentIds": ["complete-part"], "source": { "plan": "example" },
+      "lines": [{ "id": "planned-line", "label": "Example part", "kind": "part", "amount": null, "componentId": "complete-part", "effect": "inspect", "source": { "line": "example" },
+        "documents": [{ "id": "line-doc", "name": "line.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "line" } }]
+      }]
+    }, {
+      "id": "payment-record", "title": "Example payment", "type": "insurance", "date": "2026-01-31",
+      "totalAmount": "25.123456789012345678", "insurance": { "contractId": "example-policy", "period": "2026-01", "generated": true, "overridden": false, "autoStatus": true, "source": { "payment": "example" } }
+    }],
+    "trashedRecords": [{
+      "deletedAt": "2026-04-01T12:00:00.000Z", "position": 1, "source": { "deletion": "example" },
+      "record": { "id": "trashed-record", "title": "Example archived service", "type": "reparation", "status": "incomplete", "totalAmount": "-0.005", "source": { "archive": "example" },
+        "documents": [{ "id": "trash-doc", "name": "trash.txt", "mimeType": "text/plain", "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "trash" } }]
+      }
+    }]
+  }]
+}
