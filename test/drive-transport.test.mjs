@@ -65,6 +65,99 @@ test('401 expires the session without retries or automatic popups; quota message
   await assert.rejects(api.get('fiction'), (error) => error instanceof DriveError && /plein/.test(error.message) && !/private-raw-error/.test(error.message));
 });
 
+test('Drive refusals distinguish API configuration, permissions, policy and quotas without exposing raw details', async () => {
+  const cases = [
+    ['accessNotConfigured', [/projet Google Cloud/i, /API/i, /activée/i]],
+    ['SERVICE_DISABLED', [/API Google Drive/i, /désactivée/i, /client OAuth/i]],
+    ['insufficientPermissions', [/autorisation/i, /reconnecter/i]],
+    ['ACCESS_TOKEN_SCOPE_INSUFFICIENT', [/autorisation/i, /reconnecter/i]],
+    ['insufficientFilePermissions', [/fichier/i]],
+    ['appNotAuthorizedToFile', [/fichier/i]],
+    ['domainPolicy', [/administrateur/i]],
+    ['storageQuotaExceeded', [/plein/i]],
+    ['dailyLimitExceeded', [/quota/i]],
+    ['quotaExceeded', [/quota/i]],
+    ['rateLimitExceeded', [/Trop de requêtes/i]],
+    ['userRateLimitExceeded', [/Trop de requêtes/i]],
+    ['RATE_LIMIT_EXCEEDED', [/Trop de requêtes/i]],
+  ];
+  for (const [reason, patterns] of cases) {
+    let calls = 0;
+    const api = new DriveAPI({ token: () => 'synthetic-token', fetcher: async () => {
+      calls++;
+      return json({ error: { message: 'synthetic-private-message', errors: [{ reason, message: 'synthetic-private-detail' }], metadata: { consumer: 'synthetic-private-project' } } }, 403);
+    } });
+    await assert.rejects(api.get('fiction'), (error) => {
+      assert.ok(error instanceof DriveError);
+      assert.equal(error.status, 403);
+      assert.equal(error.reason, reason);
+      for (const pattern of patterns) assert.match(error.message, pattern, reason);
+      assert.doesNotMatch(`${error.message} ${JSON.stringify(error)}`, /synthetic-private/);
+      return true;
+    });
+    assert.equal(calls, 1, reason);
+  }
+});
+
+test('structured Google error reasons take precedence and legacy lists are searched beyond the first entry', async () => {
+  const cases = [
+    [{ errors: [{ reason: 'forbidden' }], details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'SERVICE_DISABLED', metadata: { consumer: 'synthetic-private-project' } }] }, 'SERVICE_DISABLED'],
+    [{ errors: [{ reason: 'insufficientPermissions' }], details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'SERVICE_DISABLED' }] }, 'SERVICE_DISABLED'],
+    [{ errors: [{ reason: 'forbidden' }, { reason: 'accessNotConfigured' }] }, 'accessNotConfigured'],
+    [{ errors: [{ reason: 'accessNotConfigured' }], details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'synthetic-private-unknown' }] }, 'accessNotConfigured'],
+    [{ details: [null, { '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' }] }, 'ACCESS_TOKEN_SCOPE_INSUFFICIENT'],
+  ];
+  for (const [body, reason] of cases) {
+    const api = new DriveAPI({ token: () => 'synthetic-token', fetcher: async () => json({ error: { message: 'synthetic-private-message', ...body } }, 403) });
+    await assert.rejects(api.get('fiction'), (error) => {
+      assert.ok(error instanceof DriveError);
+      assert.equal(error.status, 403);
+      assert.equal(error.reason, reason);
+      assert.doesNotMatch(`${error.message} ${JSON.stringify(error)}`, /synthetic-private/);
+      return true;
+    });
+  }
+});
+
+test('unknown and malformed Drive error bodies retain a sanitized generic refusal', async () => {
+  const bodies = [
+    null, {}, { error: null }, { error: 'synthetic-private-message' },
+    { error: { message: 'synthetic-private-message', errors: [{ reason: 'synthetic-private-unknown' }] } },
+    { error: { errors: [null, { reason: { private: 'synthetic-private-detail' } }], details: 'synthetic-private-detail' } },
+    { error: { errors: { reason: 'accessNotConfigured' }, details: { reason: 'SERVICE_DISABLED' } } },
+    { error: { details: [{ '@type': 'type.googleapis.com/google.rpc.Help', reason: 'SERVICE_DISABLED' }, { reason: 'SERVICE_DISABLED' }] } },
+  ];
+  const responses = [...bodies.map((body) => () => json(body, 403)), () => new Response('synthetic-private-invalid-json', { status: 403 })];
+  for (const response of responses) {
+    const api = new DriveAPI({ token: () => 'synthetic-token', fetcher: async () => response() });
+    await assert.rejects(api.get('fiction'), (error) => {
+      assert.ok(error instanceof DriveError);
+      assert.equal(error.status, 403);
+      assert.equal(error.reason, '');
+      assert.match(error.message, /refusé/i);
+      assert.doesNotMatch(`${error.message} ${JSON.stringify(error)}`, /synthetic-private|SERVICE_DISABLED|accessNotConfigured/);
+      return true;
+    });
+  }
+});
+
+test('authentication expiry remains authoritative when a 401 includes another recognized reason', async () => {
+  let expired = 0, calls = 0;
+  const api = new DriveAPI({ token: () => 'synthetic-token', onExpired: () => expired++, fetcher: async () => {
+    calls++;
+    return json({ error: { errors: [{ reason: 'storageQuotaExceeded' }], message: 'synthetic-private-message' } }, 401);
+  } });
+  await assert.rejects(api.get('fiction'), (error) => {
+    assert.ok(error instanceof DriveError);
+    assert.equal(error.status, 401);
+    assert.match(error.message, /expiré/i);
+    assert.doesNotMatch(error.message, /plein|synthetic-private/);
+    return true;
+  });
+  assert.equal(expired, 1);
+  assert.equal(calls, 1);
+});
+
 test('an incomplete or repeated-page listing cannot be interpreted as an empty garage', async () => {
   const api = new DriveAPI({ token: () => 'synthetic', fetcher: async () => json({ incompleteSearch: true, files: [] }) });
   await assert.rejects(api.list('synthetic-query'), /incomplète/);

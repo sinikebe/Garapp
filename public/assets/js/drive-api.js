@@ -9,15 +9,42 @@ const quote = (value) => `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, 
 export const propertyQuery = (key, value) => `appProperties has { key=${quote(key)} and value=${quote(value)} }`;
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Only known reason codes are retained; Google messages and metadata can contain private data.
+const ERROR_MESSAGES = Object.freeze({
+  accessNotConfigured: 'Le projet Google Cloud ne permet pas cet accès. Vérifier que Google Drive API est activée dans le même projet que le client OAuth de Garapp.',
+  SERVICE_DISABLED: 'L’API Google Drive est désactivée dans le projet du client OAuth. L’activer dans Google Cloud, attendre quelques minutes puis réessayer.',
+  insufficientPermissions: 'L’autorisation Google Drive est insuffisante. Se déconnecter puis se reconnecter en accordant l’accès demandé par Garapp.',
+  ACCESS_TOKEN_SCOPE_INSUFFICIENT: 'L’autorisation Google Drive est insuffisante. Se déconnecter puis se reconnecter en accordant l’accès demandé par Garapp.',
+  insufficientFilePermissions: 'Ce compte Google n’a pas les droits nécessaires sur ce fichier ou dossier. Vérifier le compte et les autorisations Drive.',
+  appNotAuthorizedToFile: 'Ce fichier ou dossier n’est pas autorisé pour cette application. Vérifier le compte Google et le projet du client OAuth.',
+  domainPolicy: 'L’administrateur Google Workspace bloque l’accès de Garapp à Drive. Contacter l’administrateur du compte.',
+  storageQuotaExceeded: 'Le stockage Google Drive est plein. Les copies locales sont conservées.',
+  dailyLimitExceeded: 'Le quota de requêtes du projet Google Cloud est atteint. Vérifier les quotas de Google Drive API ou réessayer plus tard.',
+  quotaExceeded: 'Le quota de requêtes du projet Google Cloud est atteint. Vérifier les quotas de Google Drive API ou réessayer plus tard.',
+  rateLimitExceeded: 'Trop de requêtes Google Drive. Patienter quelques instants puis réessayer.',
+  userRateLimitExceeded: 'Trop de requêtes Google Drive. Patienter quelques instants puis réessayer.',
+  RATE_LIMIT_EXCEEDED: 'Trop de requêtes Google Drive. Patienter quelques instants puis réessayer.',
+});
+const knownReason = (reason) => typeof reason === 'string' && Object.hasOwn(ERROR_MESSAGES, reason);
+
+function errorReason(body) {
+  const error = body?.error;
+  const details = Array.isArray(error?.details) ? error.details : [];
+  const errors = Array.isArray(error?.errors) ? error.errors : [];
+  // ErrorInfo distinguishes a disabled API from the broader accessNotConfigured reason.
+  return details.find((detail) => detail?.['@type'] === 'type.googleapis.com/google.rpc.ErrorInfo' && knownReason(detail.reason))?.reason
+    ?? errors.find((entry) => knownReason(entry?.reason))?.reason ?? '';
+}
+
 export class DriveError extends Error {
   constructor(status, reason = '') {
+    reason = knownReason(reason) ? reason : '';
     const message = status === 401 ? 'La connexion Google a expiré. Se reconnecter pour poursuivre.'
-      : reason === 'storageQuotaExceeded' ? 'Le stockage Google Drive est plein. Les copies locales sont conservées.'
-        : status === 404 ? 'Le dossier ou la version Drive est introuvable pour ce compte. Aucune copie locale n’a été remplacée.'
-          : status === 403 ? 'Google Drive a refusé l’accès. Vérifier le compte, les autorisations et les quotas.'
-            : status === 429 || status >= 500 ? 'Google Drive est temporairement indisponible. Réessayer plus tard.'
-              : 'Le transfert Drive a échoué. La copie locale et les versions précédentes sont conservées.';
-    super(message); this.status = status;
+      : status === 404 ? 'Le dossier ou la version Drive est introuvable pour ce compte. Aucune copie locale n’a été remplacée.'
+        : ERROR_MESSAGES[reason] ?? (status === 403 ? 'Google Drive a refusé l’accès. Vérifier le compte, les autorisations et les quotas.'
+          : status === 429 || status >= 500 ? 'Google Drive est temporairement indisponible. Réessayer plus tard.'
+            : 'Le transfert Drive a échoué. La copie locale et les versions précédentes sont conservées.');
+    super(message); this.status = status; this.reason = reason;
   }
 }
 
@@ -54,7 +81,7 @@ export class DriveAPI {
       if ((response.status === 429 || response.status >= 500) && attempt < retries) { await delay(250 * 2 ** attempt); continue; }
       if (response.status === 401) this.onExpired();
       let reason = '';
-      try { reason = (await this.json(response)).error?.errors?.[0]?.reason ?? ''; } catch { /* Error bodies are never exposed. */ }
+      try { reason = errorReason(await this.json(response)); } catch { /* Error bodies are never exposed. */ }
       throw new DriveError(response.status, reason);
     }
   }

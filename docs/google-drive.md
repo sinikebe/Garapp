@@ -42,6 +42,30 @@ de l’API et les réglages d’audience doivent être effectués dans le projet
 Un identifiant client provenant d’un autre projet ne donne pas accès aux propriétés
 privées créées par le précédent projet ; conserver le projet pour retrouver les dossiers.
 
+## Refus de l’API après connexion
+
+Un refus HTTP 403 de Drive arrive après l’obtention du jeton Google. Garapp
+distingue les causes connues sans afficher le corps de la réponse, qui peut
+contenir des informations privées.
+
+- **API désactivée ou projet non configuré** : dans Google Cloud, sélectionner
+  le projet contenant le client OAuth publié, puis **API et services → Bibliothèque
+  → Google Drive API → Activer**. Une API activée dans un autre projet ne suffit
+  pas. Attendre quelques minutes après l’activation puis réessayer.
+- **Autorisation insuffisante** : se déconnecter de Garapp puis se reconnecter
+  en accordant l’accès Drive demandé.
+- **Fichier ou dossier non autorisé** : vérifier le compte Google, les droits
+  sur le dossier et le projet du client OAuth.
+- **Restriction Google Workspace** : demander à l’administrateur du compte
+  d’examiner la politique d’accès aux applications Drive.
+- **Quota ou limite de requêtes** : vérifier les quotas du projet ou attendre
+  avant de réessayer. Un stockage plein nécessite de libérer de l’espace sur Drive.
+
+Un refus inconnu conserve un message générique. Pour un diagnostic manuel dans
+les outils du navigateur, consulter uniquement les champs `reason` de la réponse
+à la requête Drive en échec. Ne jamais partager les en-têtes Authorization, les
+jetons, une requête copiée en cURL ou un export réseau complet.
+
 ## Utilisation sur deux appareils
 
 Sur le premier appareil, connecter Google puis **Créer un nouveau dossier de
