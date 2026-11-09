@@ -7,7 +7,7 @@
   "scripts": {
     "check": "npm run check:source && npm run check:backups && npm test",
     "check:source": "node tools/check-source.mjs && node tools/build-pwa.mjs --check",
-    "check:backups": "node --test test/backup-compatibility.test.mjs test/backup-v2.test.mjs test/file-backups.test.mjs test/storage.test.mjs test/drive-sync.test.mjs test/drive-transport.test.mjs",
+    "check:backups": "node --test test/backup-compatibility.test.mjs test/backup-v2.test.mjs test/file-backups.test.mjs test/storage.test.mjs test/drive-sync.test.mjs test/drive-transport.test.mjs test/line-components.test.mjs",
     "build:pwa": "node tools/build-pwa.mjs",
     "dev": "node tools/serve.mjs",
     "start": "node tools/serve.mjs",

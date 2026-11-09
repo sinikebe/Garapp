@@ -305,9 +305,26 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .line-editor { border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: var(--space-xl); margin-block: var(--space-xl); background: var(--surface-2); }
 .line-editor .supplemental { background: var(--surface-1); }
 .line-editor .text-button { font-size: var(--type-xs); }
+.line-components > .hint { margin-bottom: 0; }
+.line-component-choices { max-height: 240px; overflow-y: auto; overscroll-behavior-y: contain; padding: var(--space-xs); }
+.line-component-choices label { align-items: start; padding: var(--space-sm); }
+.line-component-choices input { margin-top: 2px; }
+.line-component-choices span { min-width: 0; overflow-wrap: anywhere; }
+.line-components > .text-button { margin-top: var(--space-lg); white-space: normal; text-align: left; }
+.line-new-components { display: grid; gap: var(--space-lg); }
+.line-new-components:not(:empty) { margin-top: var(--space-xl); }
+.line-new-component-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-md); padding-top: var(--space-lg); border-top: 1px solid var(--border); }
+.line-new-component-row > label { min-width: 0; }
+.line-new-component-row > button { min-height: 44px; }
+@media (max-width: 430px) {
+  .line-components { padding: var(--space-lg); }
+  .line-new-component-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-xs); }
+  .line-new-component-row > button { justify-self: start; }
+}
 .detail-lines { margin-block: var(--space-xl) var(--space-3xl); }
 .detail-line { border-top: 1px solid var(--border); padding-block: var(--space-xl); }
 .detail-line h3 { margin-top: var(--space-lg); }
+.line-meta { color: var(--text-secondary); font-size: var(--type-sm); line-height: 1.6; margin-bottom: 0; overflow-wrap: anywhere; }
 .detail-line .bar-heading { align-items: start; }
 .detail-line .bar-heading > span { font-variant-numeric: tabular-nums; }
 .detail-notes { overflow-wrap: anywhere; line-height: 1.65; }
