@@ -293,22 +293,33 @@ Les fiches non datées sont accessibles avec la période « Sans date » ou « T
 | `id`, `label` | chaînes | Identifiant de ligne et libellé non vide |
 | `kind` | catégorie ci-dessous | Nature financière, défaut `unclassified` |
 | `amount` | montant ou `null` | Total TTC de la ligne, avec sa précision d’origine |
-| `componentId` | identifiant ou `null` | Composant suivi concerné, si identifiable |
+| `componentIds` | tableau facultatif d’identifiants uniques | Composants couverts par cette ligne, tous présents dans le véhicule |
+| `componentId` | identifiant ou `null` | Ancien lien simple ; les lignes éditées y conservent le premier composant de `componentIds` |
 | `effect` | action ci-dessous | Effet sur le suivi, défaut `none` |
 | `description`, `notes`, `content` | chaînes facultatives | Description, commentaires, corps de fiche source |
 | `documents` | tableau facultatif | Documents propres à cette ligne |
 
 `kind` : `part`, `labor`, `service`, `bundle`, `fee`, `other`, `unclassified`.
 
-`effect` : `none`, `replace`, `inspect`, `service`. `replace` exige un `componentId`.
-Un contrôle peut être associé à une pièce sans réinitialiser son dernier remplacement.
+`effect` : `none`, `replace`, `inspect`, `service`. `replace` exige au moins un composant.
+L’action s’applique à tous les composants de la ligne. Un contrôle peut être associé
+à plusieurs pièces sans réinitialiser leur dernier remplacement.
 Le champ `componentIds` de la fiche sert uniquement aux autres remplacements ; répéter
 le même lien sur une ligne n’entraîne pas de double compte financier.
+
+Une ancienne ligne avec seulement `componentId` reste valide et garde sa forme à
+la lecture. Si les deux champs figurent dans une sauvegarde, leurs liens sont réunis
+sans doublon afin de ne perdre aucune association. L’éditeur enregistre ensuite la
+liste complète dans `componentIds` et synchronise l’ancien lien simple avec son premier
+élément, ou `null` si la liste est vide. Les champs et documents complémentaires de
+la ligne restent conservés. Les anciennes versions de l’interface n’affichent que
+le lien simple ; utiliser une version à jour pour modifier les lignes groupées.
 
 Les quantités, prix unitaires, références, informations d’assurance et ventilations
 supplémentaires peuvent être conservés comme champs additionnels. `amount` reste le
 total de la ligne : aucune multiplication implicite par une quantité n’est effectuée.
-Les forfaits ne sont pas ventilés artificiellement entre pièces et main-d’œuvre.
+Les forfaits ne sont pas ventilés artificiellement entre pièces et main-d’œuvre,
+ni entre leurs composants. Une ligne couvrant plusieurs composants est comptée une seule fois.
 
 ## Montants et totaux
 

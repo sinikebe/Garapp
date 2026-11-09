@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "activeId": "grouped-car",
+  "source": { "fixture": "Synthetic grouped-price v2 archive" },
+  "vehicles": [{
+    "id": "grouped-car", "name": "Grouped-price example vehicle", "odometer": 15000,
+    "components": [
+      { "id": "grouped-left", "name": "Example left component", "intervalKm": 20000 },
+      { "id": "grouped-right", "name": "Example right component", "intervalKm": 30000 }
+    ],
+    "records": [{
+      "id": "grouped-record", "title": "Example bundled service", "type": "entretien", "status": "done",
+      "date": "2026-04-01", "odometer": 12000,
+      "lines": [{
+        "id": "grouped-line", "label": "Example two-component bundle", "kind": "bundle",
+        "amount": "120.125000000000000001", "effect": "replace",
+        "componentId": "grouped-left", "componentIds": ["grouped-left", "grouped-right"],
+        "source": { "reference": "EXAMPLE-BUNDLE", "nested": { "nullable": null, "false": false, "zero": 0, "items": ["first", "second"] } },
+        "documents": [{
+          "id": "grouped-document", "name": "synthetic-bundle.txt", "mimeType": "text/plain",
+          "dataUrl": "data:text/plain;base64,RmljdGlvbgo=", "source": { "scope": "grouped-line" }
+        }]
+      }]
+    }]
+  }]
+}
