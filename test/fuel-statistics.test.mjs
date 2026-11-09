@@ -8,6 +8,7 @@ import { moveRecordToTrash, restoreTrashedRecord } from '../public/assets/js/rec
 import { backupBlob, readBackupFile } from '../public/assets/js/backups.js';
 
 const fill = (id, date, odometer, litres, fullTank, totalAmount = null, extra = {}) => ({ id, title: `Carburant fictif ${id}`, type: 'fuel', date, odometer, fuel: { litres, fullTank }, totalAmount, ...extra });
+const reading = (id, date, odometer) => ({ id, title: `Relevé fictif ${id}`, type: 'reading', date, odometer });
 const garageOf = (records) => parseGarage(JSON.stringify({ version: 2, activeId: 'fiction', vehicles: [{ id: 'fiction', name: 'Véhicule fictif', components: [], records }] }));
 const vehicleOf = (records) => garageOf(records).vehicles[0];
 const options = { date: '2026-11-08' };
@@ -31,6 +32,112 @@ test('full-to-full cycles include intermediate partial fills and omit the initia
   assert.equal(data.distance, 2500);
   assert.equal(data.cost, '269');
   assert.deepEqual(vehicle, original);
+});
+
+test('two mileage observations enclosing unnumbered full tanks yield a labelled estimate', () => {
+  const vehicle = vehicleOf([
+    reading('before', '2026-01-01', 10000),
+    fill('start', '2026-01-06', null, '50', true),
+    fill('end', '2026-01-16', null, '30', true),
+    reading('after', '2026-01-21', 11000),
+  ]);
+  const before = structuredClone(vehicle), data = fuelStatistics(vehicle, options);
+  assert.deepEqual(data.cycles.map(({ distance, consumption, estimated }) => ({ distance, consumption, estimated })), [
+    { distance: 500, consumption: 6, estimated: true },
+  ]);
+  assert.equal(data.estimatedCycles, 1);
+  assert.equal(data.buckets[0].estimatedCycles, 1);
+  assert.deepEqual(vehicle, before);
+});
+
+test('known full tank counters remain exact while only a missing boundary is interpolated', () => {
+  const data = fuelStatistics(vehicleOf([
+    reading('before', '2026-01-01', 10000),
+    fill('a', '2026-01-06', 10250, '50', true),
+    fill('b', '2026-01-16', null, '40', true),
+    reading('after', '2026-01-21', 11000),
+  ]), options);
+  assert.equal(data.cycles[0].distance, 500);
+  assert.equal(data.cycles[0].consumption, 8);
+  assert.equal(data.cycles[0].estimated, true);
+  const exact = fuelStatistics(vehicleOf([
+    fill('a', '2026-01-06', 10250, '50', true),
+    fill('b', '2026-01-16', 10750, '40', true),
+  ]), options);
+  assert.equal(exact.cycles[0].distance, 500);
+  assert.equal(exact.cycles[0].estimated, false);
+  assert.equal(exact.estimatedCycles, 0);
+});
+
+test('intermediate readings improve each interpolation rather than averaging over the entire span', () => {
+  const data = fuelStatistics(vehicleOf([
+    reading('before', '2026-01-01', 10000),
+    fill('a', '2026-01-03', null, '50', true),
+    reading('middle', '2026-01-11', 10500),
+    fill('b', '2026-01-13', null, '35', true),
+    reading('after', '2026-01-21', 12000),
+  ]), options);
+  assert.equal(data.cycles[0].distance, 700);
+  assert.equal(data.cycles[0].consumption, 5);
+  assert.equal(data.cycles[0].estimated, true);
+});
+
+test('estimated and exact cycles combine by distance and flag only affected months', () => {
+  const vehicle = vehicleOf([
+    fill('a', '2026-01-01', 1000, '50', true),
+    fill('b', '2026-01-11', 1500, '30', true),
+    fill('c', '2026-02-10', null, '40', true),
+    reading('after', '2026-03-12', 2500),
+  ]);
+  const data = fuelStatistics(vehicle, options);
+  assert.ok(Math.abs(data.consumption - 7) < 1e-10);
+  assert.equal(data.cycleDistance, 1000);
+  assert.equal(data.estimatedCycles, 1);
+  assert.equal(data.buckets.find((month) => month.key === '2026-01').estimatedCycles, 0);
+  assert.equal(data.buckets.find((month) => month.key === '2026-02').estimatedCycles, 1);
+  const estimatedMarkup = fuelMarkup(vehicle, options);
+  assert.match(estimatedMarkup, /fuel-estimated-card/);
+  assert.match(estimatedMarkup, /fuel-estimated-point/);
+  assert.match(estimatedMarkup, /≈/);
+  assert.match(estimatedMarkup, /Estimation/);
+  assert.doesNotMatch(fuelMarkup(vehicleOf(sequence()), options), /fuel-estimated-card|fuel-estimated-value|fuel-estimated-point/);
+});
+
+test('missing brackets, contradictory readings and zero estimated distance remain unknown', () => {
+  const cases = [
+    [reading('before', '2026-01-01', 10000)],
+    [reading('before', '2026-01-01', 10000), reading('conflict-a', '2026-01-11', 10500), reading('conflict-b', '2026-01-11', 10600), reading('after', '2026-01-21', 11000)],
+    [reading('before', '2026-01-01', 10000), reading('decrease', '2026-01-11', 9000), reading('after', '2026-01-21', 11000)],
+    [reading('before', '2026-01-01', 10000), reading('after', '2026-01-21', 10000)],
+  ];
+  for (const readings of cases) {
+    const data = fuelStatistics(vehicleOf([
+      ...readings,
+      fill('a', '2026-01-06', null, '50', true),
+      fill('b', '2026-01-16', null, '40', true),
+    ]), options);
+    assert.equal(data.consumption, null);
+    assert.equal(data.estimatedCycles, 0);
+    assert.ok(data.issues.length);
+  }
+});
+
+test('partial fills need no counter when their date orders them between complete tanks', () => {
+  const data = fuelStatistics(vehicleOf([
+    fill('a', '2026-01-01', 10000, '50', true),
+    fill('partial', '2026-01-05', null, '20', false),
+    fill('b', '2026-01-10', 11000, '40', true),
+  ]), options);
+  assert.equal(data.consumption, 6);
+  assert.equal(data.cycles[0].estimated, false);
+  assert.equal(data.issues.length, 0);
+  const ambiguous = fuelStatistics(vehicleOf([
+    fill('a', '2026-01-01', 10000, '50', true),
+    fill('partial', '2026-01-10', null, '20', false),
+    fill('b', '2026-01-10', 11000, '40', true),
+  ]), options);
+  assert.equal(ambiguous.consumption, null);
+  assert.ok(ambiguous.issues.some(({ reason }) => reason === 'ambiguous'));
 });
 
 test('monthly costs follow purchase dates while cycles and distances follow their final reading', () => {
@@ -171,3 +278,4 @@ test('empty and incomplete charts stay finite, retain gaps and escape record tit
   assert.match(html, /L\/100 km/);
   assert.match(html, /Distance relevée/);
 });
+
