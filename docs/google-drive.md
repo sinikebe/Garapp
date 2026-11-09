@@ -1,5 +1,7 @@
 # Sauvegardes Google Drive
 
+[Accueil du projet](../README.md) · [Format de sauvegarde](backup-format.md)
+
 ## Activer la connexion Web
 
 Le site statique utilise Google Identity Services et l’API Drive v3 directement
@@ -57,7 +59,7 @@ Activer ensuite la synchronisation automatique si nécessaire. Si les deux garag
 sont déjà identiques, une synchronisation les reconnaît après vérification.
 
 Les dossiers partagés, les Drives partagés et les dossiers appartenant à un autre
-compte sont refusés dans cette première version. Les fichiers restent visibles dans
+compte sont refusés. Les fichiers restent visibles dans
 Mon Drive. Les dossiers dev, main et les origines locales sont séparés par une
 empreinte de l’URL de publication. Un export/import JSON permet un transfert
 explicite entre environnements.
@@ -90,6 +92,13 @@ explicite entre environnements.
   modifications externes. Les relations entre révisions sont vérifiées avant
   toute reprise. Une version connue ou un parent supprimé, déplacé, partagé ou illisible
   bloque la synchronisation ; le garage local reste exportable.
+
+Chaque révision conserve l'empreinte du fichier transféré et celle de son contenu
+JSON enregistré, sans la sélection locale du véhicule. Cette seconde empreinte est
+vérifiée sur le format sauvegardé, indépendamment des valeurs par défaut ou migrations
+appliquées par le lecteur courant. Une évolution compatible du modèle ne doit donc
+pas invalider une ancienne copie intacte. La création d'une révision calcule son
+empreinte et son inventaire à partir du même contenu validé qui est envoyé.
 
 Chaque JSON contient les pièces jointes en base64, les montants exacts et les
 champs complémentaires. Il est limité à 512 Mio, avec 64 Mio par pièce jointe.

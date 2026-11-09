@@ -1,5 +1,7 @@
 # Format de sauvegarde Garapp — version 2
 
+[Accueil du projet](../README.md) · [Guide d'utilisation](user-guide.md)
+
 Une sauvegarde est un fichier JSON UTF-8 autonome. Son import et son export restent
 locaux au navigateur. L’option Google Drive transfère ces mêmes JSON complets après
 connexion et activation explicites. Le dépôt et les pages publiées ne doivent contenir aucune
@@ -41,8 +43,11 @@ des données complémentaires et un petit document intégré.
 | `documents` | tableau facultatif | Documents généraux du garage |
 | Autres propriétés | JSON | Archives, notes globales, provenance, éléments non classés |
 
-`vehicles`, `components` et `records` sont obligatoires, même lorsqu’ils sont vides.
-Les collections facultatives absentes deviennent des tableaux vides.
+`vehicles`, `components` et `records` sont obligatoires, même lorsqu'ils sont vides.
+La lecture complète les valeurs par défaut du modèle : documents et lignes deviennent
+des tableaux vides lorsqu'ils sont absents. Certaines extensions facultatives, notamment
+`insurances` et `trashedRecords`, restent absentes lorsqu'elles ne figuraient pas dans
+le fichier. Aucun contrat ni événement n'est créé par la lecture d'une sauvegarde.
 
 ## Véhicule
 
@@ -253,16 +258,30 @@ nouveau départ. Un événement carburant sans date empêche de situer les ajout
 laisse la consommation inconnue. Aucun résultat ne doit être déduit d’une simple
 quantité partielle ou d’une capacité de réservoir supposée.
 
+Si les deux pleins portent leur compteur, la distance du cycle est leur différence.
+Sinon, le compteur manquant est interpolé entre les relevés datés valides les plus
+proches qui l'encadrent, proportionnellement au temps écoulé. Les relevés peuvent
+provenir de la fiche véhicule ou d'autres fiches actives. Un encadrement manquant ou
+contradictoire empêche le calcul ; aucune extrapolation n'est faite. Cette estimation
+reste un résultat de lecture, sans ajout de compteur au JSON. L'interface signale
+les agrégats concernés avec **≈** et une couleur orange.
+
+Le prix moyen mensuel au litre est la somme des montants complets connus divisée par
+la somme des litres des mêmes achats. Les montants inconnus ou négatifs et les achats
+sans litres sont exclus de cette moyenne ; un montant nul connu reste utilisable.
+Ce prix ne dépend ni des compteurs ni du caractère complet d'un plein. Comme les
+autres statistiques, il est recalculé et n'ajoute aucun champ à la sauvegarde.
+
 Les achats mensuels suivent leur date. Les cycles sont rattachés au mois du plein
 final et les distances observées au mois du relevé final. Il ne s’agit pas d’une
 répartition estimée par jour ; un intervalle peut commencer dans un autre mois.
 Des relevés aux limites de mois sont nécessaires pour un bilan calendaire complet.
 
 Catégories reconnues : `revision`, `entretien`, `reparation`, `controle`, `acquisition`,
-`registration`, `plan`, `reading`, `other`, `unclassified`. Une autre chaîne de catégorie
+`registration`, `plan`, `reading`, `fuel`, `insurance`, `other`, `unclassified`. Une autre chaîne de catégorie
 est conservée et accessible dans les filtres et le formulaire d’édition.
 
-Les types `acquisition`, `registration`, `plan` et `reading` sont exclus du périmètre
+Les types `acquisition`, `registration`, `plan`, `reading`, `fuel` et `insurance` sont exclus du périmètre
 « Interventions » des dépenses. Le périmètre « Tous les événements » les inclut.
 Les fiches `planned` sont exclues des dépenses et ne démarrent aucun suivi d’entretien.
 Les fiches non datées sont accessibles avec la période « Sans date » ou « Tout l’historique ».
@@ -349,12 +368,31 @@ exportable et affiche l’échec ; elle n’est pas annoncée comme un enregistr
 - Valider le JSON avec `parseGarage`, puis vérifier qu’un second passage conserve
   le résultat intégral : `parseGarage(JSON.stringify(parseGarage(json)))`.
 
-Le téléchargement d’une copie précédente est demandé avant le remplacement du garage
-dans l’interface ; le navigateur ne confirme pas sa conservation sur disque. Les copies
+Le téléchargement d'une copie précédente est demandé avant le remplacement du garage
+dans l'interface ; le navigateur ne confirme pas sa conservation sur disque. Une copie
+de récupération locale doit également être enregistrée avant le remplacement. Le
+garage affiché ne change qu'après confirmation de la nouvelle écriture locale. Les copies
 ont un nom unique horodaté et les copies précédant un import portent `avant-import`.
 La liaison facultative à un fichier et le suivi des exports restent propres au navigateur
 et au chemin publié : ils n’ajoutent aucun champ au JSON portable. Le fichier lié est
 vérifié avant écriture et relu après écriture ; un changement externe détecté suspend
 sa mise à jour. Les modifications de plusieurs appareils ne sont pas fusionnées.
-Le fichier produit pour une personne reste privé et ne doit pas être
-ajouté aux exemples ou au dépôt public.
+Les archives locales de récupération sont distinctes du JSON portable. Avant la
+première écriture d'un garage dont la lecture a ajouté des valeurs par défaut ou
+migré la version, le contenu antérieur est archivé. IndexedDB enregistre cette
+archive et le remplacement dans la même transaction ; le repli localStorage exige
+la réussite de l'archive avant toute écriture du garage. Un échec bloque le remplacement.
+Le panneau de récupération exporte le JSON conservé sans le faire passer par le
+lecteur courant. Aucun nettoyage automatique de ces archives n'est effectué.
+Lorsqu'un garage enregistré est illisible ou d'une version non prise en charge,
+l'interface permet également d'exporter la copie primaire telle qu'elle est stockée,
+sans la remplacer par un garage vide ni la normaliser.
+
+La CI vérifie des exports historiques fictifs figés : version 1, première version 2
+et version 2 avec les extensions actuelles. Elle contrôle les documents binaires,
+les montants exacts, les champs complémentaires et la stabilité des aller-retours.
+Un nouveau format exige de nouveaux cas ; les anciennes fixtures doivent rester
+inchangées pour continuer à détecter les régressions.
+
+Les sauvegardes personnelles restent privées et ne doivent pas être ajoutées aux
+exemples ou au dépôt public.

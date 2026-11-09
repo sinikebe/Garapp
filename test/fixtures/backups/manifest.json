@@ -1,0 +1,20 @@
+{
+  "files": {
+    "v1.json": "76fc830b24914d4e3cded011860fd211ee33ea21c4767606df0de62e26b333dc",
+    "v2-early.json": "ea4c669e11b7f45a63c733589e2cf22518ec109d5b070904df47718f94fd4896",
+    "v2-complete.json": "3bb82cc884fc4d34270752df133fa5251b51169e405b403a42f3ac2a53caa0d5"
+  },
+  "drive": {
+    "size": 904,
+    "wire": "ea4c669e11b7f45a63c733589e2cf22518ec109d5b070904df47718f94fd4896",
+    "hash": "042411303b50cff6eb328616fd996a9b626e449bdbcd9a14227f090738175316",
+    "counts": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      8
+    ]
+  }
+}

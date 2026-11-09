@@ -32,6 +32,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
+      actions: read
       pages: write
       id-token: write
     environment:
@@ -58,6 +59,40 @@ jobs:
           ref: dev
           persist-credentials: false
           path: sources/dev
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Require successful CI for both checked-out revisions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          for branch in main dev; do
+            sha=$(git -C "sources/$branch" rev-parse HEAD)
+            passed=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml/runs?head_sha=$sha&status=success&per_page=100" \
+              --jq "[.workflow_runs[] | select(.head_sha == \"$sha\" and .head_branch == \"$branch\" and (.event == \"push\" or .event == \"workflow_dispatch\"))] | length")
+            if [ "$passed" -eq 0 ]; then
+              echo "No successful CI for $branch at $sha; wait for its CI before publishing."
+              exit 1
+            fi
+          done
+
+      # A successful triggering run may precede a newer branch push. Validate
+      # the actual checkout of both branches before publishing either one.
+      - name: Validate the exact main and dev revisions
+        shell: bash
+        run: |
+          for branch in main dev; do
+            (
+              cd "sources/$branch"
+              npm run check:source --if-present
+              npm run check:backups --if-present
+              npm test
+            )
+          done
 
       - name: Prepare both versions
         run: |
