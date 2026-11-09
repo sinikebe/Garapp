@@ -464,9 +464,15 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .fuel-estimated-line { stroke-dasharray: 5 3; }
 .fuel-estimated-point { fill: light-dark(#a85419, #f3b877); }
 .fuel-chart-legend { margin-top: calc(-1 * var(--space-lg)); }
+.fuel-consumption-swatch, .fuel-price-swatch { display: inline-block; width: 1.4em; height: .7em; margin-right: .4em; border-bottom: 2px solid var(--accent); vertical-align: .15em; }
+.fuel-price-swatch { border-color: light-dark(#16745f, #73d8b9); }
+.fuel-price-line, .fuel-price-point { stroke: light-dark(#16745f, #73d8b9); }
+.fuel-price-point { fill: var(--surface-1); }
+.fuel-price-axis { fill: light-dark(#16745f, #73d8b9); }
+.fuel-price-value { font-variant-numeric: tabular-nums; }
 .fuel-legend-swatch { display: inline-block; width: 1.4em; height: .7em; margin-right: .4em; border-bottom: 2px dashed light-dark(#a85419, #f3b877); vertical-align: .15em; }
 .fuel-monthly { margin-top: var(--space-2xl); }
-.fuel-monthly table { min-width: 850px; }
+.fuel-monthly table { min-width: 960px; }
 .fuel-monthly td:last-child { min-width: 180px; }
 .fuel-monthly .text-button { display: flex; }
 @media (max-width: 760px) { .fuel-overview { grid-template-columns: minmax(0, 1fr); } }

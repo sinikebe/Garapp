@@ -6,6 +6,12 @@ import { mileageHistory, statisticsRange } from './statistics.js';
 const inRange = (date, range) => (!range.start || date >= range.start) && date <= range.end;
 const sumKnown = (values) => values.some((value) => value !== null) ? sumAmounts(values) : null;
 const ratio = (litres, distance) => distance > 0 ? Number(litres) / distance * 100 : null;
+const fuelPrice = (purchases) => {
+  const known = purchases.map((record) => ({ cost: recordCost(record).total, litres: record.fuel?.litres ?? null }))
+    .filter(({ cost, litres }) => cost !== null && Number(cost) >= 0 && litres !== null && Number(litres) > 0);
+  const litres = sumAmounts(known.map((entry) => entry.litres));
+  return { value: known.length ? Number(sumAmounts(known.map((entry) => entry.cost))) / Number(litres) : null, excluded: purchases.length - known.length };
+};
 const day = (date) => Date.parse(`${date}T12:00:00Z`) / 86400000;
 const byMonth = (items, date) => {
   const grouped = new Map();
@@ -121,10 +127,12 @@ export function fuelStatistics(vehicle, { period = 'all', date = today() } = {})
     const distances = distancesByMonth.get(key) ?? [];
     const costs = purchases.map(recordCost), known = distances.filter((interval) => interval.distance !== null);
     const cycleDistance = finished.reduce((sum, cycle) => sum + cycle.distance, 0);
+    const price = fuelPrice(purchases);
     return {
       key, records: purchases, cycles: finished, intervals: distances,
       estimatedCycles: finished.filter((cycle) => cycle.estimated).length,
       cost: sumKnown(costs.map((cost) => cost.total ?? cost.subtotal)), partialCost: costs.filter((cost) => cost.total === null).length,
+      averagePricePerLitre: price.value, priceExcluded: price.excluded,
       litres: sumKnown(purchases.map((record) => record.fuel?.litres ?? null)), missingLitres: purchases.filter((record) => record.fuel?.litres == null).length,
       distance: known.length ? known.reduce((sum, interval) => sum + interval.distance, 0) : null,
       distanceIssues: distances.length - known.length,
@@ -133,10 +141,12 @@ export function fuelStatistics(vehicle, { period = 'all', date = today() } = {})
   });
   const costs = records.map(recordCost), knownDistances = intervals.filter((interval) => interval.distance !== null);
   const cycleDistance = selectedCycles.reduce((sum, cycle) => sum + cycle.distance, 0);
+  const price = fuelPrice(records);
   return {
     range, records, buckets, cycles: selectedCycles, issues: issues.filter((issue) => inRange(issue.date, range)), undated, future,
     estimatedCycles: selectedCycles.filter((cycle) => cycle.estimated).length,
     cost: sumKnown(costs.map((cost) => cost.total ?? cost.subtotal)), partialCost: costs.filter((cost) => cost.total === null).length,
+    averagePricePerLitre: price.value, priceExcluded: price.excluded,
     distance: knownDistances.length ? knownDistances.reduce((sum, interval) => sum + interval.distance, 0) : null,
     distanceIssues: intervals.length - knownDistances.length,
     consumption: ratio(sumAmounts(selectedCycles.map((cycle) => cycle.litres)), cycleDistance), cycleDistance,
