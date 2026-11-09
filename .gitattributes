@@ -1,3 +1,2 @@
-public/** text=auto eol=lf
-tools/service-worker.template.js text eol=lf
+* text=auto eol=lf
 *.png binary

@@ -23,6 +23,7 @@
   --radius: 14px;
   --radius-sm: 9px;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fuel-price: light-dark(#7b3fb2, #d3a9ff);
 }
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }

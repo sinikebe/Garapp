@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   check:
-    name: Check site preparation
+    name: Application and backup compatibility
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Prepare the current revision
         env:
@@ -38,5 +39,16 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify garage records and application links
+      - name: Check source, documentation and offline bundle
+        run: npm run check:source
+
+      - name: Verify historical backup compatibility
+        run: npm run check:backups
+
+      - name: Keep historical backup inputs immutable
+        env:
+          BACKUP_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node tools/check-backup-fixtures.mjs
+
+      - name: Verify application behavior
         run: npm test
