@@ -458,6 +458,13 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 
 .fuel-overview .stat-card { min-width: 0; padding: var(--space-xl); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .fuel-overview .stat-value small { font-size: var(--type-sm); letter-spacing: normal; font-weight: 400; }
+.fuel-overview .fuel-estimated-card { border-left: 3px solid light-dark(#a85419, #f3b877); }
+.fuel-estimated-card .stat-value, .fuel-estimated-value { color: light-dark(#a85419, #f3b877); }
+.fuel-estimated-line, .fuel-estimated-point { stroke: light-dark(#a85419, #f3b877); }
+.fuel-estimated-line { stroke-dasharray: 5 3; }
+.fuel-estimated-point { fill: light-dark(#a85419, #f3b877); }
+.fuel-chart-legend { margin-top: calc(-1 * var(--space-lg)); }
+.fuel-legend-swatch { display: inline-block; width: 1.4em; height: .7em; margin-right: .4em; border-bottom: 2px dashed light-dark(#a85419, #f3b877); vertical-align: .15em; }
 .fuel-monthly { margin-top: var(--space-2xl); }
 .fuel-monthly table { min-width: 850px; }
 .fuel-monthly td:last-child { min-width: 180px; }
