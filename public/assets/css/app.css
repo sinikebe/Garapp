@@ -324,6 +324,7 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .detail-lines { margin-block: var(--space-xl) var(--space-3xl); }
 .detail-line { border-top: 1px solid var(--border); padding-block: var(--space-xl); }
 .detail-line h3 { margin-top: var(--space-lg); }
+.line-meta { color: var(--text-secondary); font-size: var(--type-sm); line-height: 1.6; margin-bottom: 0; overflow-wrap: anywhere; }
 .detail-line .bar-heading { align-items: start; }
 .detail-line .bar-heading > span { font-variant-numeric: tabular-nums; }
 .detail-notes { overflow-wrap: anywhere; line-height: 1.65; }
