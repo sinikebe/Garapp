@@ -418,7 +418,7 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .stats-method .text-button { padding: 0 var(--space-sm); }
 .stats-data { margin-top: var(--space-xl); border-top: 1px solid var(--border); padding-top: var(--space-xl); }
 .stats-data summary { cursor: pointer; font-size: var(--type-sm); font-weight: 600; }
-.stats-table-wrap { max-width: 100%; overflow: auto; overscroll-behavior-x: contain; margin-top: var(--space-lg); max-height: 420px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.stats-table-wrap { max-width: 100%; overflow: auto; contain: paint; overscroll-behavior-x: contain; margin-top: var(--space-lg); max-height: 420px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .stats-table-wrap table { width: 100%; border-collapse: collapse; font-size: var(--type-sm); text-align: left; }
 .stats-table-wrap caption { text-align: left; padding: var(--space-lg) var(--space-sm); color: var(--text-secondary); font-size: var(--type-xs); }
 .stats-table-wrap thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); font-weight: 600; }
