@@ -7,9 +7,9 @@ const explicitMatches = (components, candidate, linked) => components.filter((pa
   return linked.has(part.id) && compatibleKind(spatial.kind, desired.kind) && (desired.zone === 'unknown' || spatial.zone === 'unknown' || spatial.zone === desired.zone) && (desired.side === 'unknown' || spatial.side === 'unknown' || spatial.side === desired.side);
 });
 
-const actual = (record, date) => record.status !== 'planned' && (!record.date || record.date <= date);
+const actual = (record, date) => record.type !== 'insurance' && record.status !== 'planned' && (!record.date || record.date <= date);
 export function recordDiscoveries(record) {
-  if (record.type === 'fuel') return [];
+  if (['fuel', 'insurance'].includes(record.type)) return [];
   const byKey = new Map();
   for (const source of [{ label:record.title }, ...(record.lines ?? []).filter((line) => !line.componentId)]) {
     const detected = detectComponents(source.label);

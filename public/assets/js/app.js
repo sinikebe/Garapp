@@ -15,6 +15,8 @@ import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES, componentSpatial, sp
 import { knownComponents, proposedDiscoveries, applyDiscoveries } from './component-knowledge.js';
 import { renderComponentView, newSceneState } from './component-view.js';
 import { moveRecordToTrash, restoreTrashedRecord, discardTrashedRecord } from './record-trash.js';
+import { reconcileInsurance, changeInsurancePayment, insuranceRows, dueDate, premiumAt, contractLabel } from './insurance.js';
+import { renderInsurance, insuranceMonthText } from './insurance-view.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -37,6 +39,8 @@ let importGeneration = 0;
 let editingVehicle = null;
 let editingRecord = null;
 let editingComponent = null;
+let editingInsurance = null;
+let editingInsurancePayment = null;
 let editingEvidenceSources = [];
 let discoveryCandidates = [];
 let disposeComponentView = null;
@@ -115,6 +119,8 @@ for (const type of ['click', 'change', 'input', 'submit', 'keydown']) document.a
 async function save(next) {
   if (saving) throw Error('Un enregistrement est déjà en cours.');
   next = parseGarage(JSON.stringify(next));
+  const insurance = reconcileInsurance(next);
+  if (insurance.changed) next = parseGarage(JSON.stringify(insurance.garage));
   saving = true;
   garage = next;
   unsaved = true;
@@ -130,6 +136,16 @@ async function save(next) {
   if (unsaved) backups.suspend();
   void backups.update(!unsaved);
   drive.changed();
+}
+
+/** Catch up while idle, including after a suspended tab; never compete with an open edit or sync. */
+async function refreshInsurance() {
+  if (unsaved || saving || localConflict || repository.invalid || drive.busy() || backups.files.busy || backups.picking || $('import-confirm').dataset.importing || openDialogs().length || document.visibilityState === 'hidden') return;
+  try {
+    const result = reconcileInsurance(garage);
+    $('insurance-error').hidden = true;
+    if (result.changed) await save(result.garage);
+  } catch (error) { $('insurance-error').textContent = error.message; $('insurance-error').hidden = false; }
 }
 function applyPreferences() {
   document.body.dataset.layout = preferences.layout;
@@ -224,6 +240,7 @@ const views = {
   garage: ['Votre véhicule, en un coup d’œil.', 'L’essentiel aujourd’hui. L’historique quand vous en avez besoin.'],
   interventions: ['Une histoire qui se conserve.', 'Interventions, documents et événements, reliés au véhicule.'],
   composants: ['Chaque pièce a son histoire.', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
+  assurance: ['L’assurance, mois après mois.', 'Les contrats, les cotisations et les prélèvements du véhicule.'],
   depenses: ['Savoir où va votre budget.', 'Les dépenses connues et les montants à compléter.'],
   statistiques: ['Le véhicule au fil du temps.', 'Kilométrage, rythme de roulage et dépenses, à partir des informations enregistrées.'],
 };
@@ -235,11 +252,13 @@ function rememberNavigation() {
     recordSearch: $('record-search').value, recordType: $('record-type').value,
     componentSearch: $('component-search').value, componentStatus: $('component-status').value, componentView: $('component-view-mode').value,
     expenseYear: $('expense-year').value, expenseScope: $('expense-scope').value,
+    insuranceYear: $('insurance-year').value,
     statisticsPeriod: $('statistics-period').value, statisticsScope: $('statistics-scope').value,
   }, today().slice(0, 4));
   try { writeNavigation(localStorage, navigationStorageKey, navigation); } catch { /* Optional UI context. */ }
 }
 function render() {
+  downloadableDocuments.clear();
   disposeVehicleModel?.(); disposeVehicleModel = null;
   const current = vehicle();
   document.body.dataset.section = section;
@@ -271,10 +290,20 @@ function render() {
   $('record-type').innerHTML = '<option value="all">Tous les types</option>' + types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
   $('record-type').value = types.includes(previousType) ? previousType : 'all';
   const previousYear = filters.expenseYear;
-  const years = [...new Set([today().slice(0, 4), ...current.records.map((record) => record.date?.slice(0, 4)).filter(Boolean)])].sort().reverse();
+  const years = [...new Set([today().slice(0, 4), ...(/^(?:19|20|21)\d{2}$/.test(previousYear) ? [previousYear] : []), ...current.records.map((record) => record.date?.slice(0, 4)).filter(Boolean)])].sort().reverse();
   $('expense-year').innerHTML = years.map((year) => `<option value="${year}">${year}</option>`).join('') + '<option value="undated">Sans date</option><option value="all">Tout l’historique</option>';
   $('expense-year').value = ['all', 'undated', ...years].includes(previousYear) ? previousYear : today().slice(0, 4);
+  const insuranceYears = new Set([Number(today().slice(0, 4)), Number(today().slice(0, 4)) + 1, Number(filters.insuranceYear)]);
+  for (const contract of current.insurances ?? []) {
+    const first = Number(contract.firstDate.slice(0, 4)), last = Number((contract.endDate ?? today()).slice(0, 4));
+    for (let year = first; year <= Math.max(first, last) + 1 && year <= 2199; year++) insuranceYears.add(year);
+  }
+  for (const record of [...current.records, ...(current.trashedRecords ?? []).map((entry) => entry.record)]) if (record.insurance) insuranceYears.add(Number(record.insurance.period.slice(0, 4)));
+  $('insurance-year').innerHTML = [...insuranceYears].filter((year) => year >= 1900 && year <= 2199).sort((a, b) => b - a).map((year) => `<option value="${year}">${year}</option>`).join('');
+  $('insurance-year').value = filters.insuranceYear;
   renderDashboard(current); renderRecords(); renderComponents(); renderExpenses();
+  if (section === 'assurance') renderInsurance($('insurance-content'), current, filters.insuranceYear, { documentsMarkup, textMarkup, extraMarkup });
+  else $('insurance-content').replaceChildren();
   if (section === 'statistiques') renderStatistics($('statistics-content'), current, { period: filters.statisticsPeriod, scope: filters.statisticsScope });
   else $('statistics-content').replaceChildren();
   rememberNavigation();
@@ -283,10 +312,11 @@ function render() {
 const CORE = {
   garage: ['version', 'activeId', 'vehicles', 'documents'],
   document: ['id', 'name', 'mimeType', 'dataUrl', 'size', 'description'],
-  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout'],
+  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances'],
+  insurance: ['id', 'provider', 'reference', 'firstDate', 'debitDay', 'endDate', 'tariffs', 'skippedPeriods', 'notes', 'content', 'documents'],
   layout: ['wheelCount', 'doorCount', 'enginePosition'],
   component: ['id', 'name', 'group', 'description', 'intervalKm', 'intervalMonths', 'notes', 'content', 'documents', 'spatial'],
-  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel'],
+  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel', 'insurance'],
   spatial: ['kind', 'zone', 'side', 'presenceOrigin'],
   fuel: ['litres', 'fullTank'],
   line: ['id', 'label', 'kind', 'amount', 'componentId', 'effect', 'description', 'notes', 'content', 'documents'],
@@ -339,12 +369,12 @@ function detailRecord(id, trashed = false) {
   const entry = trashed ? current?.trashedRecords?.find((one) => one.record.id === id) : null;
   const record = trashed ? entry?.record : current?.records.find((one) => one.id === id);
   if (!record) return;
-  downloadableDocuments.clear();
   const cost = recordCost(record);
+  const insuranceDetail = record.insurance ? `<p class="insurance-calendar">Cotisation de ${esc(insuranceMonthText(record.insurance.period))}</p>${!trashed ? `<button type="button" class="ghost-button" data-insurance-payment="${record.insurance.contractId}" data-insurance-period="${record.insurance.period}">Modifier le prélèvement ou le tarif futur</button>` : ''}` : '';
   const fuelDetail = record.type === 'fuel' || record.fuel ? `<dl class="detail-facts"><div><dt>Carburant ajouté</dt><dd>${record.fuel?.litres == null ? 'Non renseigné' : esc(record.fuel.litres.replace('.', ',')) + ' L'}</dd></div><div><dt>Plein complet</dt><dd>${record.fuel?.fullTank == null ? 'Non renseigné' : record.fuel.fullTank ? 'Oui' : 'Non · ajout partiel'}</dd></div></dl>${extraMarkup(record.fuel ?? {}, 'fuel')}` : '';
   $('detail-title').textContent = record.title;
   $('detail-eyebrow').textContent = `${typeLabel(record.type)}${record.status === 'done' ? '' : ' · ' + (record.status === 'planned' ? 'Prévu' : 'À compléter')}`;
-  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">Montant indiqué sur le justificatif : ${formatExactAmount(record.totalAmount)}. Le détail peut être incomplet ou arrondi.</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="hint">${LINE_TYPES[line.kind]}${line.componentId ? ' · ' + esc(current.components.find((part) => part.id === line.componentId)?.name) + ' · ' + EFFECTS[line.effect] : ''}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
+  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${insuranceDetail}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">${record.insurance ? 'Montant enregistré pour cette échéance' : 'Montant indiqué sur le justificatif'} : ${formatExactAmount(record.totalAmount)}.${record.insurance ? '' : ' Le détail peut être incomplet ou arrondi.'}</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="hint">${LINE_TYPES[line.kind]}${line.componentId ? ' · ' + esc(current.components.find((part) => part.id === line.componentId)?.name) + ' · ' + EFFECTS[line.effect] : ''}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
   showDialog('detail-dialog');
 }
 
@@ -397,7 +427,6 @@ $('discard-dialog').addEventListener('close', () => { pendingDiscard = null; });
 function detailComponent(id) {
   const current = vehicle(); const part = current && (knownComponents(current).find((one) => one.id === id) ?? current.components.find((one) => one.id === id));
   if (!part) return;
-  downloadableDocuments.clear();
   const life = componentLife(current, part);
   $('detail-title').textContent = part.name;
   $('detail-eyebrow').textContent = part.group || 'Non classé';
@@ -406,7 +435,6 @@ function detailComponent(id) {
 }
 function detailVehicle() {
   const current = vehicle(); if (!current) return openVehicle();
-  downloadableDocuments.clear();
   $('detail-title').textContent = current.name;
   $('detail-eyebrow').textContent = 'VÉHICULE';
   $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
@@ -450,6 +478,53 @@ function prepareForm(kind, entity, defaults = {}) {
   refreshDocuments(kind);
   return form;
 }
+function openInsurance(id = null) {
+  const current = vehicle();
+  if (!current) return openVehicle();
+  const contract = current.insurances?.find((one) => one.id === id);
+  editingInsurance = contract?.id ?? null;
+  const form = prepareForm('insurance', contract ?? {}, { provider: '', reference: '', firstDate: today(), debitDay: Number(today().slice(8)), endDate: '', notes: '', content: '' });
+  form.elements.initialAmount.value = contract?.tariffs[0]?.amount ?? '';
+  for (const field of ['firstDate', 'debitDay', 'initialAmount']) form.elements[field].readOnly = !!contract;
+  $('insurance-dialog-title').textContent = contract ? 'Modifier le contrat' : 'Ajouter une assurance';
+  showDialog('insurance-dialog');
+}
+function fillInsurancePayment() {
+  const form = $('insurance-payment-form'), contract = vehicle()?.insurances?.find((one) => one.id === editingInsurancePayment.contractId);
+  if (!contract) return;
+  const period = form.elements.period.value;
+  const record = vehicle().records.find((one) => one.insurance?.contractId === contract.id && one.insurance.period === period);
+  form.elements.date.value = record ? record.date ?? '' : dueDate(contract, period) ?? '';
+  form.elements.date.required = !record || record.date !== null;
+  form.elements.amount.value = record ? recordCost(record).total ?? '' : premiumAt(contract, period) ?? '';
+  form.elements.notes.value = record?.notes ?? '';
+  editingInsurancePayment.initialDate = form.elements.date.value;
+  editingInsurancePayment.initialNotes = form.elements.notes.value;
+}
+function openInsurancePayment(contractId, period = null) {
+  const current = vehicle(), contract = current?.insurances?.find((one) => one.id === contractId);
+  if (!contract) return;
+  const rate = period === null;
+  if (rate) {
+    const years = new Set([today().slice(0, 4), String(Number(today().slice(0, 4)) + 1), contract.firstDate.slice(0, 4), contract.endDate?.slice(0, 4)].filter(Boolean));
+    const rows = [...years].flatMap((year) => insuranceRows(current, year).filter((row) => row.contract.id === contractId && !row.trash && !['Exclu', 'Hors calendrier'].includes(row.state))).sort((a, b) => a.period.localeCompare(b.period));
+    period = (rows.find((row) => row.date >= today()) ?? rows.at(-1))?.period;
+    if (!period) return announce('Ce contrat ne comporte aucune échéance modifiable.');
+  }
+  editingInsurancePayment = { contractId };
+  const form = $('insurance-payment-form'); form.reset();
+  form.querySelector('.form-error').hidden = true;
+  form.elements.period.value = period; form.elements.period.readOnly = !rate;
+  form.elements.scope.value = rate ? 'forward' : 'one';
+  fillInsurancePayment();
+  $('insurance-payment-contract').textContent = contractLabel(contract);
+  $('insurance-payment-dialog-title').textContent = rate ? 'Changer la cotisation' : `Prélèvement de ${insuranceMonthText(period)}`;
+  showDialog('insurance-payment-dialog');
+}
+$('insurance-form').elements.firstDate.addEventListener('change', (event) => {
+  if (!editingInsurance && event.target.value) $('insurance-form').elements.debitDay.value = Number(event.target.value.slice(8));
+});
+$('insurance-payment-form').elements.period.addEventListener('change', fillInsurancePayment);
 function openVehicle(edit = false) {
   const current = edit ? vehicle() : null;
   editingVehicle = current?.id ?? null;
@@ -564,6 +639,7 @@ function openRecord(componentId = null, id = null) {
   const types = [...new Set([...Object.keys(TYPES), ...(record ? [record.type] : [])])];
   $('record-form-type').innerHTML = types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
   const form = prepareForm('record', record ?? {}, { title: '', type: 'revision', status: 'done', date: today(), odometer: vehicle().odometer, partsAmount: '', laborAmount: '', totalAmount: '', notes: '', content: '' });
+  form.elements.type.disabled = !!record?.insurance;
   $('record-dialog-title').textContent = record ? 'Modifier la fiche' : 'Ajouter une intervention ou un événement';
   const selected = record?.componentIds ?? (componentId ? [componentId] : []);
   $('record-components').innerHTML = vehicle().components.length ? vehicle().components.map((part) => `<label><input type="checkbox" name="componentIds" value="${part.id}"${selected.includes(part.id) ? ' checked' : ''}>${esc(part.name)}</label>`).join('') : '<p class="hint">Aucun composant renseigné.</p>';
@@ -650,6 +726,26 @@ async function submitForm(form, build) {
   catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
   finally { delete form.dataset.saving; button.disabled = false; }
 }
+$('insurance-form').addEventListener('submit', (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  void submitForm(form, () => {
+    const next = structuredClone(garage), current = next.vehicles.find((one) => one.id === next.activeId);
+    const index = current.insurances?.findIndex((one) => one.id === editingInsurance) ?? -1;
+    const firstDate = form.elements.firstDate.value;
+    const original = current.insurances?.[index] ?? { id: uid(), firstDate, debitDay: Number(form.elements.debitDay.value), tariffs: [{ from: firstDate.slice(0, 7), amount: amountInput(form.elements.initialAmount.value) }] };
+    const updated = { ...editableBase(original, 'insurance', extrasInput(form.elements.extras, 'insurance')), provider: form.elements.provider.value.trim(), reference: form.elements.reference.value, endDate: form.elements.endDate.value || null, ...readCommon(form, 'insurance') };
+    if (index < 0) (current.insurances ??= []).push(updated); else current.insurances[index] = updated;
+    return next;
+  });
+});
+$('insurance-payment-form').addEventListener('submit', (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  void submitForm(form, () => changeInsurancePayment(garage, garage.activeId, editingInsurancePayment.contractId, form.elements.period.value, {
+    amount: amountInput(form.elements.amount.value),
+    ...(form.elements.date.value === editingInsurancePayment.initialDate ? {} : { date: form.elements.date.value }),
+    ...(form.elements.notes.value === editingInsurancePayment.initialNotes ? {} : { notes: form.elements.notes.value }),
+  }, form.elements.scope.value));
+});
 $('vehicle-form').addEventListener('submit', (event) => {
   event.preventDefault(); const form = event.currentTarget;
   void submitForm(form, () => {
@@ -669,6 +765,11 @@ $('record-form').addEventListener('submit', (event) => {
     const index = current.records.findIndex((one) => one.id === editingRecord);
     const original = current.records[index] ?? { id: uid() };
     const updated = { ...editableBase(original, 'record', extrasInput(form.elements.extras, 'record')), title: form.elements.title.value, type: form.elements.type.value, status: form.elements.status.value, date: form.elements.date.value || null, odometer: nullableNumber(form.elements.odometer.value), partsAmount: amountInput(form.elements.partsAmount.value), laborAmount: amountInput(form.elements.laborAmount.value), totalAmount: amountInput(form.elements.totalAmount.value), componentIds: new FormData(form).getAll('componentIds'), observedComponentIds: new FormData(form).getAll('observedComponentIds'), lines: readLines(), ...readCommon(form, 'record'), ...readFuel(form, original) };
+    if (updated.insurance) {
+      updated.insurance = { ...updated.insurance };
+      if (updated.totalAmount !== original.totalAmount || updated.date !== original.date) updated.insurance.overridden = true;
+      if (updated.status !== original.status) updated.insurance.autoStatus = false;
+    }
     const resolved = applyDiscoveries(current, updated, readDiscoveryChoices());
     current.components = resolved.components;
     if (index < 0) current.records.push(resolved.record); else current.records[index] = resolved.record;
@@ -707,7 +808,7 @@ document.addEventListener('change', async (event) => {
   const files = [...input.files]; input.value = ''; if (!files.length) return;
   const form = input.closest('form'); const button = form.querySelector('[type="submit"]');
   form.dataset.loadingDocuments = String(Number(form.dataset.loadingDocuments || 0) + 1); button.disabled = true;
-  try { const documents = await Promise.all(files.map(readDocument)); if (documentDrafts.get(owner) === draft) { draft.documents.push(...documents); refreshDocuments(owner); } }
+  try { const documents = await Promise.all(files.map((file) => readDocument(file))); if (documentDrafts.get(owner) === draft) { draft.documents.push(...documents); refreshDocuments(owner); } }
   catch (error) { const box = form.querySelector('.form-error'); box.textContent = error.message; box.hidden = false; }
   finally { const count = Number(form.dataset.loadingDocuments) - 1; if (count > 0) form.dataset.loadingDocuments = String(count); else { delete form.dataset.loadingDocuments; button.disabled = false; } }
 });
@@ -724,6 +825,9 @@ const actions = {
   'vehicle-layout': () => { openVehicle(true); $('vehicle-layout-options').open = true; $('vehicle-form').dataset.layoutEdited='true'; $('vehicle-form').elements.layoutWheelCount.focus(); },
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
   trash: openTrash,
+  'new-insurance': () => openInsurance(),
+  'insurance-history': () => { $('record-type').value = 'insurance'; $('record-search').value = ''; rememberNavigation(); location.hash = 'interventions'; },
+  'insurance-expenses': () => { $('expense-scope').value = 'all'; const year = $('insurance-year').value; if (![...$('expense-year').options].some((option) => option.value === year)) $('expense-year').add(new Option(year, year)); $('expense-year').value = year; rememberNavigation(); location.hash = 'depenses'; },
   'new-fuel': () => {
     if (!vehicle()) return openVehicle();
     openRecord();
@@ -746,7 +850,9 @@ document.addEventListener('click', (event) => {
   const target = event.target;
   const close = target.closest('[data-close]'); if (close) return close.closest('dialog').close();
   const action = target.closest('[data-action]'); if (action) { closeMenus(); if (action.closest('#commands-dialog')) $('commands-dialog').close(); return actions[action.dataset.action]?.(); }
+  const payment = target.closest('[data-insurance-payment]'); if (payment) return openInsurancePayment(payment.dataset.insurancePayment, payment.dataset.insurancePeriod);
   for (const [attribute, handler] of [
+    ['data-insurance-contract', openInsurance], ['data-insurance-rate', openInsurancePayment],
     ['data-edit-record', (id) => openRecord(null, id)], ['data-edit-component', openComponent], ['data-record', detailRecord], ['data-component', detailComponent], ['data-replace', (id) => openRecord(id)], ['data-download', downloadDocument],
     ['data-trashed-record', (id) => detailRecord(id, true)], ['data-trash-record', (id) => { void changeRecord(id); }], ['data-restore-record', (id) => { void changeRecord(id, true); }], ['data-discard-record', confirmDiscard],
   ]) { const element = target.closest(`[${attribute}]`); if (element) return handler(element.getAttribute(attribute)); }
@@ -770,6 +876,7 @@ for (const id of ['record-search', 'record-type']) $(id).addEventListener(id.end
 $('component-view-mode').addEventListener('change', () => { rememberNavigation(); renderComponents(); });
 for (const id of ['component-search', 'component-status']) $(id).addEventListener(id.endsWith('search') ? 'input' : 'change', () => { rememberNavigation(); renderComponents(); });
 for (const id of ['expense-year', 'expense-scope']) $(id).addEventListener('change', () => { rememberNavigation(); renderExpenses(); });
+$('insurance-year').addEventListener('change', () => { rememberNavigation(); if (vehicle()) renderInsurance($('insurance-content'), vehicle(), $('insurance-year').value, { documentsMarkup, textMarkup, extraMarkup }); });
 for (const id of ['statistics-period', 'statistics-scope']) $(id).addEventListener('change', () => {
   rememberNavigation();
   if (vehicle()) renderStatistics($('statistics-content'), vehicle(), { period: $('statistics-period').value, scope: $('statistics-scope').value });
@@ -804,7 +911,7 @@ async function prepareImport(file, handle = null) {
   pendingImport = { ...incoming, handle };
   const before = inventory(garage), after = inventory(incoming.garage);
   $('import-description').textContent = `${file.name} · ${number(Math.ceil(file.size / 1024))} Kio. Le contenu a été vérifié, y compris les documents intégrés et les relations entre les fiches.`;
-  $('import-counts').innerHTML = [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']].map(([field, label]) => `<tr><th scope="row">${label}</th><td>${number(before[field])}</td><td>${number(after[field])}</td></tr>`).join('');
+  $('import-counts').innerHTML = [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['insurances', 'Contrats d’assurance'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']].map(([field, label]) => `<tr><th scope="row">${label}</th><td>${number(before[field])}</td><td>${number(after[field])}</td></tr>`).join('');
   $('import-vehicles').textContent = `Véhicules du fichier : ${incoming.garage.vehicles.map((one) => one.name).join(' · ') || 'aucun'}. Les champs complémentaires sont conservés.`;
   $('import-link-note').textContent = handle ? 'Après confirmation, ce fichier sera lié au garage. L’écriture automatique restera désactivée.' : 'Toute liaison au fichier précédent sera détachée pour préserver son contenu.';
   $('import-error').hidden = true;
@@ -840,6 +947,10 @@ const suite = suiteLinks(base);
 $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;
 applyPreferences(); render();
+await refreshInsurance();
+setInterval(() => { void refreshInsurance(); }, 60000);
+window.addEventListener('focus', () => { void refreshInsurance(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshInsurance(); });
 document.addEventListener('garapp:before-update', (event) => {
   if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || drive.busy() || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || ['import-dialog', 'drive-preview-dialog'].includes(dialog.id))) event.preventDefault();
 });

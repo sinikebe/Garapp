@@ -22,9 +22,13 @@ adaptée au suivi d'un véhicule :
   les composants remplacés ou renouvelés.
 - **Composants** : historique des remplacements et intervalles personnalisables
   en kilomètres ou en mois. Le premier intervalle atteint gouverne le repère.
+- **Assurance** : contrats par véhicule, cotisations mensuelles, échéancier annuel
+  et ajout automatique des prélèvements échus. Un prélèvement peut être corrigé
+  seul, ou définir le tarif de ce mois et de tous les suivants.
 - **Dépenses** : total par période, pièces, main-d'œuvre et répartition par type
   d'intervention. Une intervention liée à plusieurs composants est comptée une
-  seule fois. Le carburant et l'assurance ne sont pas inclus dans ces totaux.
+  seule fois. Le périmètre « Tous les événements » inclut le carburant et
+  l’assurance ; le périmètre « Interventions » reste consacré à l’entretien.
 - **Statistiques** : évolution datée du compteur, écart observé, rythme annualisé
   estimé et dépenses connues dans le temps. Les périodes et le périmètre des
   dépenses sont mémorisés par véhicule. Les graphiques fonctionnent hors connexion.
@@ -47,6 +51,19 @@ inconnus, les sous-totaux partiels et les zéros connus sont distingués ; les
 remboursements ne sont pas convertis en dépenses positives. Les tables accessibles
 sous les graphiques donnent les sources et montants exacts. Une période vide ne
 constitue pas une preuve d’absence de dépenses.
+
+Les assurances utilisent une première échéance et un jour mensuel de prélèvement.
+Les mois courts conservent le jour souhaité en utilisant leur dernier jour.
+L’application rattrape les mois échus à son ouverture ou à son retour au premier
+plan, et vérifie les échéances chaque minute lorsqu’elle reste ouverte. Elle
+enregistre un calendrier, sans vérifier les opérations bancaires. Les échéances
+à venir restent prévisionnelles et sont exclues des dépenses enregistrées.
+Une fin de contrat arrête les nouvelles échéances ; les fiches déjà enregistrées
+et les anciens tarifs restent conservés. Les copies JSON et Drive contiennent les
+contrats, leurs documents, les modifications de tarif et les ajustements ponctuels.
+Un prélèvement mis à la corbeille n’est pas recréé automatiquement. Sa suppression
+définitive conserve uniquement le mois exclu dans le calendrier pour empêcher sa
+réapparition.
 
 Les véhicules, interventions, événements, composants et lignes détaillées peuvent
 être ajoutés et modifiés dans l’application. Les documents locaux peuvent être

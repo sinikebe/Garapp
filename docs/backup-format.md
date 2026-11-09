@@ -59,6 +59,7 @@ Les collections facultatives absentes deviennent des tableaux vides.
 | `components` | tableau | Composants suivis, au plus 10 000 |
 | `records` | tableau | Historique actif |
 | `trashedRecords` | tableau facultatif | Fiches dans la corbeille ; absence équivalente à une corbeille vide |
+| `insurances` | tableau facultatif | Contrats d’assurance mensuels, au plus 100 par véhicule |
 | `notes`, `content` | chaînes facultatives | Notes et corps de fiche |
 | `documents` | tableau facultatif | Documents rattachés au véhicule |
 
@@ -85,6 +86,59 @@ d’import distinguent les fiches actives de celles de la corbeille. Ces derniè
 ne participent ni aux dépenses, ni aux graphiques, ni au suivi des composants.
 La restauration conserve la fiche complète, son identifiant et ses relations.
 Aucune date d’expiration n’entraîne sa suppression.
+
+## Assurance mensuelle
+
+`insurances` est une extension facultative du format 2. Son absence reste conservée
+dans les anciens garages. Chaque contrat comporte les champs suivants :
+
+| Champ | Type | Rôle |
+| --- | --- | --- |
+| `id` | identifiant | Unique dans les contrats du véhicule |
+| `provider`, `reference` | chaînes facultatives | Assureur / intitulé et référence du contrat |
+| `firstDate` | date 1900–2199 | Date exacte de la première échéance |
+| `debitDay` | entier 1–31 | Jour des échéances suivantes, ramené au dernier jour des mois courts |
+| `endDate` | date ou `null` | Dernière date d’échéance autorisée, incluse ; après `firstDate` ou égale |
+| `tariffs` | tableau non vide, au plus 1 000 entrées | Historique des tarifs `{ "from": "AAAA-MM", "amount": "49.90" }` |
+| `skippedPeriods` | tableau facultatif de mois uniques | Mois exclus après suppression définitive d’une fiche |
+| `notes`, `content`, `documents` | formats habituels | Notes, contenu et documents intégrés du contrat |
+| Autres propriétés | JSON | Conservées, y compris dans chaque tarif |
+
+Chaque montant récurrent est une chaîne décimale positive ou nulle. Au moins un
+tarif doit couvrir le mois de `firstDate`. Le tarif applicable est celui dont
+`from` est le plus récent sans dépasser le mois concerné ; à mois égal, la dernière
+entrée du tableau gagne. Les anciennes entrées restent conservées. Une modification
+« ce prélèvement et les suivants » remplace également les changements déjà prévus
+après ce mois, en ajoutant des tarifs de remplacement aux mois correspondants.
+
+Les prélèvements échus deviennent des fiches habituelles `type: "insurance"`.
+Leur objet `insurance` contient `contractId` (contrat du même véhicule), `period`
+(`AAAA-MM`), et éventuellement les booléens `generated`, `overridden`, `autoStatus`.
+Les champs supplémentaires de cet objet sont conservés. Un couple contrat/mois
+ne peut apparaître qu’une fois, entre fiches actives et corbeille. Une fiche
+d’assurance sans objet `insurance` reste un événement indépendant valide.
+
+La date réelle peut différer du mois de cotisation ; les dépenses utilisent la
+date réelle, l’échéancier utilise le mois de cotisation. Une correction ponctuelle
+conserve le tarif récurrent et peut indiquer un remboursement négatif. Les notes,
+documents, lignes et données complémentaires du prélèvement sont conservés lors
+d’un changement de montant. Les fiches antérieures et celles de la corbeille ne
+sont pas réécrites par un nouveau tarif ultérieur.
+
+La génération s’effectue dans l’application après validation, jamais dans le
+lecteur de sauvegarde. Elle utilise des identifiants déterministes et rattrape
+les mois échus sans créer de doublon. Les échéances futures sont calculées à la
+demande. Une correction explicite d’un mois futur crée une fiche `planned` ; avec
+`generated: true` et `autoStatus` différent de `false`, elle devient `done` à sa
+date si elle reste dans le calendrier du contrat. Un statut explicitement modifié
+dans l’éditeur de fiche désactive cette conversion avec `autoStatus: false`.
+
+Les fiches de la corbeille bloquent la génération de leur mois. Une suppression
+définitive ajoute le mois à `skippedPeriods` avant de retirer la fiche et ses
+documents. Les contrats et leurs documents participent aux exports complets,
+aux versions Drive et à l’inventaire des documents avant import. L’assurance est
+incluse dans les dépenses « Tous les événements » et ne sert pas de preuve de
+présence ou de remplacement d’un composant.
 
 ## Composant suivi
 
@@ -163,6 +217,7 @@ si aucune intervention ne les documente.
 | `notes`, `content` | chaînes facultatives | Commentaires et corps de fiche |
 | `documents` | tableau facultatif | Justificatifs, factures, photos, etc. |
 | `fuel` | objet facultatif | Quantité et indication de plein complet pour un événement carburant |
+| `insurance` | objet facultatif | Contrat et mois d’un prélèvement d’assurance récurrent |
 
 Les identifiants de `observedComponentIds` doivent désigner des composants du même
 véhicule et ne pas être dupliqués dans le tableau. Les observations sont conservées

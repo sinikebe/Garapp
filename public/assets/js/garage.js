@@ -3,14 +3,15 @@ import { isAmount, sumAmounts, cents } from './amounts.js';
 import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES } from './component-catalog.js';
 import { validateVisualDocument } from './vehicle-visual.js';
 import { validateComponentLayout } from './component-layout.js';
+import { validateInsuranceContract, validateInsurancePayment } from './insurance-schema.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
-export const TYPES = Object.freeze({ revision: 'Révision', entretien: 'Entretien', reparation: 'Réparation', controle: 'Contrôle', acquisition: 'Acquisition / cession', registration: 'Mise en circulation', plan: 'Programme d’entretien', reading: 'Relevé kilométrique', fuel: 'Carburant', other: 'Autre événement', unclassified: 'Non classé' });
+export const TYPES = Object.freeze({ revision: 'Révision', entretien: 'Entretien', reparation: 'Réparation', controle: 'Contrôle', acquisition: 'Acquisition / cession', registration: 'Mise en circulation', plan: 'Programme d’entretien', reading: 'Relevé kilométrique', fuel: 'Carburant', insurance: 'Assurance', other: 'Autre événement', unclassified: 'Non classé' });
 export const LINE_TYPES = Object.freeze({ part: 'Pièce / consommable', labor: 'Main-d’œuvre', service: 'Prestation / contrôle', bundle: 'Forfait', fee: 'Frais', other: 'Autre', unclassified: 'Non classé' });
 export const EFFECTS = Object.freeze({ none: 'Sans effet sur le suivi', replace: 'Remplacement / renouvellement', inspect: 'Contrôle', service: 'Entretien sans remplacement' });
 export const ADMIN_TYPES = new Set(['acquisition', 'registration', 'plan', 'reading']);
-export const isMaintenanceRecord = (record) => !ADMIN_TYPES.has(record.type) && record.type !== 'fuel';
+export const isMaintenanceRecord = (record) => !ADMIN_TYPES.has(record.type) && !['fuel', 'insurance'].includes(record.type);
 export const typeLabel = (type) => Object.hasOwn(TYPES, type) ? TYPES[type] : type;
 export const today = () => {
   const date = new Date();
@@ -21,7 +22,7 @@ export const chronological = (records) => [...records].sort((a, b) => (b.date ??
 export const associatedComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.observedComponentIds ?? []), ...(record.lines ?? []).map((line) => line.componentId).filter(Boolean)])];
 export const replacementComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.lines ?? []).filter((line) => line.effect === 'replace').map((line) => line.componentId).filter(Boolean)])];
 export const componentHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => associatedComponentIds(record).includes(id)));
-export const replacementHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => record.status !== 'planned' && replacementComponentIds(record).includes(id)));
+export const replacementHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => record.status !== 'planned' && record.type !== 'insurance' && replacementComponentIds(record).includes(id)));
 
 /** A known invoice total remains authoritative even when its breakdown is incomplete. */
 export function recordCost(record) {
@@ -175,6 +176,12 @@ export function parseGarage(raw) {
     check(label(vehicle.name) && text(vehicle.engine ?? '', 2000) && nullableInteger(vehicle.year ?? null, 2100) && (vehicle.year == null || vehicle.year >= 1900) && nullableInteger(vehicle.odometer ?? null));
     check(validDate(vehicle.odometerDate ?? null));
     check(vehicle.example === undefined || typeof vehicle.example === 'boolean');
+    check(vehicle.insurances === undefined || Array.isArray(vehicle.insurances) && vehicle.insurances.length <= 100, 'Un véhicule peut contenir au plus 100 contrats d’assurance.');
+    const insuranceIds = new Set(), insurancePeriods = new Set();
+    const insurances = (vehicle.insurances ?? []).map((contract) => {
+      uniqueId(contract, insuranceIds);
+      return { ...validateInsuranceContract(contract), ...notes(contract) };
+    });
     if (vehicle.componentLayout !== undefined) validateComponentLayout(vehicle.componentLayout);
     check(Array.isArray(vehicle.components) && vehicle.components.length <= 10000 && Array.isArray(vehicle.records) && vehicle.records.length <= 20000);
     const trash = vehicle.trashedRecords === undefined ? [] : vehicle.trashedRecords;
@@ -197,6 +204,7 @@ export function parseGarage(raw) {
       const type = record.type ?? 'unclassified';
       const status = record.status ?? 'done';
       check(label(type) && ['done', 'planned', 'incomplete'].includes(status));
+      validateInsurancePayment({ ...record, type }, insuranceIds, insurancePeriods);
       for (const field of ['partsAmount', 'laborAmount', 'totalAmount']) check(isAmount(record[field] ?? null), 'Les montants sont des chaînes décimales en euros, ou null si inconnus.');
       const replaced = record.componentIds ?? [];
       check(Array.isArray(replaced) && replaced.every((id) => componentIds.has(id)) && new Set(replaced).size === replaced.length, 'Un remplacement pointe vers un composant absent ou dupliqué.');
@@ -235,7 +243,7 @@ export function parseGarage(raw) {
       check(cover, 'Le fichier du visuel du véhicule est absent de ses documents.');
       validateVisualDocument(cover);
     }
-    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...common };
+    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.insurances === undefined ? {} : { insurances }), ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...common };
   });
   check(data.documents === undefined || Array.isArray(data.documents));
   check(data.activeId == null || ids.has(data.activeId), 'Le véhicule actif est absent de la sauvegarde.');
@@ -244,7 +252,7 @@ export function parseGarage(raw) {
 
 /** Counts are shown before import and include documents attached to individual lines. */
 export function inventory(garage) {
-  const result = { vehicles: garage.vehicles.length, records: 0, trashedRecords: 0, components: 0, lines: 0, documents: 0, bytes: 0 };
+  const result = { vehicles: garage.vehicles.length, records: 0, trashedRecords: 0, insurances: 0, components: 0, lines: 0, documents: 0, bytes: 0 };
   const count = (docs) => { for (const doc of docs ?? []) { result.documents++; result.bytes += doc.size ?? 0; } };
   count(garage.documents);
   for (const vehicle of garage.vehicles) {
@@ -252,6 +260,8 @@ export function inventory(garage) {
     const trashed = (vehicle.trashedRecords ?? []).map((entry) => entry.record);
     result.trashedRecords += trashed.length;
     for (const component of vehicle.components) count(component.documents);
+    result.insurances += vehicle.insurances?.length ?? 0;
+    for (const contract of vehicle.insurances ?? []) count(contract.documents);
     for (const record of [...vehicle.records, ...trashed]) { count(record.documents); result.lines += record.lines.length; for (const line of record.lines) count(line.documents); }
   }
   return result;
