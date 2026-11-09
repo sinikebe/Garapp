@@ -47,6 +47,13 @@ les lignes complètes, ou la ventilation globale en l'absence de lignes. Un tota
 incomplet apparaît comme un sous-total connu. La ventilation globale et les lignes
 ne sont pas additionnées ensemble.
 
+Pour un forfait, ajouter une seule ligne de nature **Forfait**, saisir son prix puis
+cocher tous les **Composants de la ligne**. Il est aussi possible de créer plusieurs
+composants directement depuis cette ligne. L’action choisie (remplacement, contrôle
+ou entretien) s’applique à tous ; le prix est compté une seule fois, sans répartition
+inventée entre les pièces. Si les actions diffèrent, utiliser des lignes distinctes
+ou les associations complémentaires de la fiche, sans répéter le prix du forfait.
+
 Les montants conservent leurs décimales d'origine. Les synthèses arrondissent seulement
 après addition. Les remboursements restent négatifs. Une fiche liée à plusieurs
 composants est comptée une seule fois. Le périmètre **Interventions** concerne

@@ -19,8 +19,10 @@ export const today = () => {
 };
 export const uid = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 export const chronological = (records) => [...records].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || (b.odometer ?? -1) - (a.odometer ?? -1));
-export const associatedComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.observedComponentIds ?? []), ...(record.lines ?? []).map((line) => line.componentId).filter(Boolean)])];
-export const replacementComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.lines ?? []).filter((line) => line.effect === 'replace').map((line) => line.componentId).filter(Boolean)])];
+/** Read both historical single links and grouped lines without dropping either association. */
+export const lineComponentIds = (line) => [...new Set([line.componentId, ...(Array.isArray(line.componentIds) ? line.componentIds : [])].filter(Boolean))];
+export const associatedComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.observedComponentIds ?? []), ...(record.lines ?? []).flatMap(lineComponentIds)])];
+export const replacementComponentIds = (record) => [...new Set([...(record.componentIds ?? []), ...(record.lines ?? []).filter((line) => line.effect === 'replace').flatMap(lineComponentIds)])];
 export const componentHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => associatedComponentIds(record).includes(id)));
 export const replacementHistory = (vehicle, id) => chronological(vehicle.records.filter((record) => record.status !== 'planned' && record.type !== 'insurance' && replacementComponentIds(record).includes(id)));
 
@@ -218,8 +220,10 @@ export function parseGarage(raw) {
         const effect = line.effect ?? 'none';
         const componentId = line.componentId ?? null;
         check(Object.hasOwn(LINE_TYPES, kind) && Object.hasOwn(EFFECTS, effect) && (componentId === null || componentIds.has(componentId)), 'Une ligne comporte un type ou un lien de composant invalide.');
-        check(effect !== 'replace' || componentId !== null, 'Un remplacement doit être lié à un composant.');
-        return { ...line, kind, effect, componentId, amount: line.amount ?? null, description: line.description ?? '', ...notes(line) };
+        if (line.componentIds !== undefined) check(Array.isArray(line.componentIds) && line.componentIds.length <= 10000 && line.componentIds.every((id) => componentIds.has(id)) && new Set(line.componentIds).size === line.componentIds.length, 'Une ligne pointe vers un composant absent ou dupliqué.');
+        const linked = lineComponentIds(line);
+        check(effect !== 'replace' || linked.length > 0, 'Un remplacement doit être lié à un composant.');
+        return { ...line, kind, effect, componentId: linked[0] ?? null, ...(line.componentIds === undefined ? {} : { componentIds: linked }), amount: line.amount ?? null, description: line.description ?? '', ...notes(line) };
       });
       let fuel;
       if (record.fuel !== undefined) {

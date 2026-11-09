@@ -5,7 +5,7 @@ import { RecoveryPanel } from './recovery-panel.js';
 import { visualKind, validateVisualDocument, mountVehicleModel } from './vehicle-visual.js';
 import { initHelpTips } from './help-tips.js';
 import { componentLayout, ENGINE_POSITIONS, placementLabel } from './component-layout.js';
-import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
+import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, lineComponentIds, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
 import { suiteLinks } from './app-switcher.js';
@@ -21,6 +21,7 @@ import { renderComponentView, newSceneState } from './component-view.js';
 import { moveRecordToTrash, restoreTrashedRecord, discardTrashedRecord } from './record-trash.js';
 import { reconcileInsurance, changeInsurancePayment, insuranceRows, dueDate, premiumAt, contractLabel } from './insurance.js';
 import { renderInsurance, insuranceMonthText } from './insurance-view.js';
+import { lineComponentPicker, newLineComponentEditor, readLineComponentIds } from './line-components-view.js';
 
 const $ = (id) => document.getElementById(id);
 const base = new URL('../../', import.meta.url);
@@ -299,7 +300,7 @@ const CORE = {
   record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel', 'insurance'],
   spatial: ['kind', 'zone', 'side', 'presenceOrigin'],
   fuel: ['litres', 'fullTank'],
-  line: ['id', 'label', 'kind', 'amount', 'componentId', 'effect', 'description', 'notes', 'content', 'documents'],
+  line: ['id', 'label', 'kind', 'amount', 'componentId', 'componentIds', 'effect', 'description', 'notes', 'content', 'documents'],
 };
 const extrasOf = (entity, kind) => Object.fromEntries(Object.entries(entity ?? {}).filter(([name]) => !CORE[kind].includes(name)));
 function extrasInput(input, kind) {
@@ -315,6 +316,10 @@ function extraMarkup(entity, kind) {
 }
 function textMarkup(entity) {
   return `${entity.description ? `<h3>Description</h3><p class="detail-notes">${esc(entity.description)}</p>` : ''}${entity.notes ? `<h3>Notes</h3><p class="detail-notes">${esc(entity.notes)}</p>` : ''}${entity.content ? `<h3>Contenu de la fiche</h3><p class="detail-notes">${esc(entity.content)}</p>` : ''}`;
+}
+function lineComponentSummary(line) {
+  const names = lineComponentIds(line).map((id) => vehicle().components.find((part) => part.id === id)?.name).filter(Boolean);
+  return names.length ? ` · ${names.map(esc).join(' · ')} · ${EFFECTS[line.effect]}` : '';
 }
 function documentsMarkup(documents) {
   if (!documents?.length) return '';
@@ -354,7 +359,7 @@ function detailRecord(id, trashed = false) {
   const fuelDetail = record.type === 'fuel' || record.fuel ? `<dl class="detail-facts"><div><dt>Carburant ajouté</dt><dd>${record.fuel?.litres == null ? 'Non renseigné' : esc(record.fuel.litres.replace('.', ',')) + ' L'}</dd></div><div><dt>Plein complet</dt><dd>${record.fuel?.fullTank == null ? 'Non renseigné' : record.fuel.fullTank ? 'Oui' : 'Non · ajout partiel'}</dd></div></dl>${extraMarkup(record.fuel ?? {}, 'fuel')}` : '';
   $('detail-title').textContent = record.title;
   $('detail-eyebrow').textContent = `${typeLabel(record.type)}${record.status === 'done' ? '' : ' · ' + (record.status === 'planned' ? 'Prévu' : 'À compléter')}`;
-  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${insuranceDetail}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">${record.insurance ? 'Montant enregistré pour cette échéance' : 'Montant indiqué sur le justificatif'} : ${formatExactAmount(record.totalAmount)}.${record.insurance ? '' : ' Le détail peut être incomplet ou arrondi.'}</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="hint">${LINE_TYPES[line.kind]}${line.componentId ? ' · ' + esc(current.components.find((part) => part.id === line.componentId)?.name) + ' · ' + EFFECTS[line.effect] : ''}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
+  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${insuranceDetail}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">${record.insurance ? 'Montant enregistré pour cette échéance' : 'Montant indiqué sur le justificatif'} : ${formatExactAmount(record.totalAmount)}.${record.insurance ? '' : ' Le détail peut être incomplet ou arrondi.'}</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="hint">${LINE_TYPES[line.kind]}${lineComponentSummary(line)}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
   showDialog('detail-dialog');
 }
 
@@ -559,10 +564,30 @@ $('vehicle-visual-file').addEventListener('change', async (event) => {
 });
 function lineEditor(line) {
   const options = (entries, selected) => Object.entries(entries).map(([value, label]) => `<option value="${value}"${selected === value ? ' selected' : ''}>${label}</option>`).join('');
-  return `<article class="line-editor" data-line-id="${line.id}"><div class="form-grid"><label class="full-width">Libellé de la ligne<input data-line-field="label" required value="${esc(line.label)}"></label><label>Nature<select data-line-field="kind">${options(LINE_TYPES, line.kind)}</select></label><label>Montant TTC de la ligne (€)<input data-line-field="amount" inputmode="decimal" placeholder="Inconnu" value="${esc(line.amount)}"></label><label>Composant concerné<select data-line-field="componentId"><option value="">Aucun</option>${vehicle().components.map((part) => `<option value="${part.id}"${part.id === line.componentId ? ' selected' : ''}>${esc(part.name)}</option>`).join('')}<option value="__new__">Créer un composant…</option></select></label><label>Action sur le composant<select data-line-field="effect">${options(EFFECTS, line.effect)}</select></label><div class="full-width line-new-component" hidden><label>Nom du nouveau composant<input data-line-field="componentName" maxlength="2000" placeholder="Ex. Capteur de pression arrière gauche"></label><p class="hint">Le composant sera créé avec la fiche. Son type et sa position pourront ensuite être précisés.</p></div><label class="full-width">Description de la ligne<textarea data-line-field="description" rows="2">${esc(line.description)}</textarea></label><details class="full-width supplemental"><summary>Notes, documents et autres informations de la ligne</summary><div class="form-grid"><label class="full-width">Notes de la ligne<textarea data-line-field="notes" rows="2">${esc(line.notes)}</textarea></label><label class="full-width">Contenu de la fiche de ligne<textarea data-line-field="content" rows="2">${esc(line.content)}</textarea></label><div class="full-width line-documents">${documentEditor('line-' + line.id)}</div><label class="full-width">Autres données de la ligne (JSON)<textarea data-line-field="extras" rows="3" spellcheck="false">${esc(JSON.stringify(extrasOf(line, 'line'), null, 2))}</textarea></label></div></details></div><button type="button" class="text-button" data-remove-line="${line.id}">Retirer cette ligne</button></article>`;
+  return `<article class="line-editor" data-line-id="${line.id}">
+    <div class="form-grid">
+      <label class="full-width">Libellé de la ligne<input data-line-field="label" required value="${esc(line.label)}"></label>
+      <label>Nature<select data-line-field="kind">${options(LINE_TYPES, line.kind)}</select></label>
+      <label>Montant TTC de la ligne (€)<input data-line-field="amount" inputmode="decimal" placeholder="Inconnu" value="${esc(line.amount)}"></label>
+      ${lineComponentPicker(line, vehicle().components)}
+      <label class="full-width">Action sur les composants de la ligne<select data-line-field="effect">${options(EFFECTS, line.effect)}</select><span class="hint">Cette action s’applique à tous les composants de la ligne.</span></label>
+      <label class="full-width">Description de la ligne<textarea data-line-field="description" rows="2">${esc(line.description)}</textarea></label>
+      <details class="full-width supplemental">
+        <summary>Notes, documents et autres informations de la ligne</summary>
+        <div class="form-grid">
+          <label class="full-width">Notes de la ligne<textarea data-line-field="notes" rows="2">${esc(line.notes)}</textarea></label>
+          <label class="full-width">Contenu de la fiche de ligne<textarea data-line-field="content" rows="2">${esc(line.content)}</textarea></label>
+          <div class="full-width line-documents">${documentEditor('line-' + line.id)}</div>
+          <label class="full-width">Autres données de la ligne (JSON)<textarea data-line-field="extras" rows="3" spellcheck="false">${esc(JSON.stringify(extrasOf(line, 'line'), null, 2))}</textarea></label>
+        </div>
+      </details>
+    </div>
+    <button type="button" class="text-button" data-remove-line="${line.id}">Retirer cette ligne</button>
+  </article>`;
 }
+
 function lineFields(line) {
-  return { id: line.id ?? uid(), label: '', kind: 'unclassified', amount: null, componentId: null, effect: 'none', description: '', notes: '', content: '', documents: [], ...line };
+  return { id: line.id ?? uid(), label: '', kind: 'unclassified', amount: null, componentId: null, effect: 'none', description: '', notes: '', content: '', documents: [], ...line, componentIds: lineComponentIds(line) };
 }
 function appendLine(line = {}) {
   const value = lineFields(line);
@@ -575,9 +600,20 @@ function appendLine(line = {}) {
 function refreshDiscoveries() {
   if (!vehicle()) return;
   const remembered = new Map([...$('record-discoveries').querySelectorAll('[data-discovery-key]')].map((row) => [row.dataset.discoveryKey, { checked: row.querySelector('input').checked, effect: row.dataset.effectEdited ? row.querySelector('[data-discovery-effect]').value : null, target: row.querySelector('[data-discovery-target]').value }]));
-  const form = $('record-form');
-  const draft = { title: form.elements.title.value, componentIds: new FormData(form).getAll('componentIds'), observedComponentIds: new FormData(form).getAll('observedComponentIds'), lines: [...$('line-editors').querySelectorAll('[data-line-id]')].map((row) => ({ label: row.querySelector('[data-line-field="label"]').value, kind: row.querySelector('[data-line-field="kind"]').value, effect: row.querySelector('[data-line-field="effect"]').value, componentId: row.querySelector('[data-line-field="componentId"]').value || null })) };
-  discoveryCandidates = form.elements.type.value === 'fuel' ? [] : proposedDiscoveries(vehicle(), draft);
+  const form = $('record-form'), pendingComponents = [];
+  const lines = [...$('line-editors').querySelectorAll('[data-line-id]')].map((row) => {
+    const componentIds = readLineComponentIds(row);
+    const pending = [...row.querySelectorAll('[data-new-line-component]')];
+    for (const entry of pending) {
+      const name = entry.querySelector('[data-line-component-name]').value.trim();
+      if (!name) continue;
+      const id = `pending-${entry.dataset.newLineComponent}`;
+      pendingComponents.push({ id, name, spatial: inferSpatial(name) }); componentIds.push(id);
+    }
+    return { label: pending.length ? '' : row.querySelector('[data-line-field="label"]').value, kind: row.querySelector('[data-line-field="kind"]').value, effect: row.querySelector('[data-line-field="effect"]').value, componentIds };
+  });
+  const draft = { title: form.elements.title.value, componentIds: new FormData(form).getAll('componentIds'), observedComponentIds: new FormData(form).getAll('observedComponentIds'), lines };
+  discoveryCandidates = form.elements.type.value === 'fuel' ? [] : proposedDiscoveries({ ...vehicle(), components: [...vehicle().components, ...pendingComponents] }, draft);
   $('record-discoveries').innerHTML = discoveryCandidates.map((candidate, index) => {
     const previous = remembered.get(candidate.key), checked = previous?.checked ?? !candidate.ambiguous;
     const target = previous?.target ?? candidate.targetId ?? (candidate.ambiguous ? '' : '__new__');
@@ -592,24 +628,19 @@ function readDiscoveryChoices() {
     return { ...candidate, targetId: target === '__new__' ? null : target, forceNew: target === '__new__', effect: row.querySelector('[data-discovery-effect]').value };
   });
   for (const row of $('line-editors').querySelectorAll('[data-line-id]')) {
-    if (row.querySelector('[data-line-field="componentId"]').value !== '__new__') continue;
-    const name = row.querySelector('[data-line-field="componentName"]').value.trim();
-    if (!name) throw Error('Renseigner le nom du nouveau composant.');
-    const detected = detectComponents(name)[0];
-    choices.push({ name, group: detected?.group ?? '', spatial: inferSpatial(name), effect: row.querySelector('[data-line-field="effect"]').value, lineId: row.dataset.lineId });
+    for (const input of row.querySelectorAll('[data-line-component-name]')) {
+      const name = input.value.trim();
+      if (!name) throw Error('Renseigner le nom de chaque nouveau composant.');
+      const detected = detectComponents(name)[0];
+      choices.push({ name, group: detected?.group ?? '', spatial: inferSpatial(name), effect: row.querySelector('[data-line-field="effect"]').value, lineId: row.dataset.lineId, forceNew: true });
+    }
   }
   return choices;
 }
-$('record-form').addEventListener('input', (event) => { if (event.target.name === 'title' || event.target.dataset.lineField === 'label') refreshDiscoveries(); });
+$('record-form').addEventListener('input', (event) => { if (event.target.name === 'title' || event.target.dataset.lineField === 'label' || event.target.hasAttribute('data-line-component-name')) refreshDiscoveries(); });
 $('record-form').addEventListener('change', (event) => {
   if (event.target.hasAttribute('data-discovery-effect')) event.target.closest('[data-discovery-key]').dataset.effectEdited = 'true';
-  if (event.target.dataset.lineField === 'componentId') {
-    const row = event.target.closest('[data-line-id]'), active = event.target.value === '__new__';
-    row.querySelector('.line-new-component').hidden = !active;
-    const name = row.querySelector('[data-line-field="componentName"]'); name.required = active;
-    if (active && !name.value) name.value = row.querySelector('[data-line-field="label"]').value;
-  }
-  if (event.target.name === 'componentIds' || event.target.name === 'observedComponentIds' || event.target.name === 'type' || ['componentId', 'kind', 'effect'].includes(event.target.dataset.lineField)) refreshDiscoveries();
+  if (event.target.name === 'componentIds' || event.target.name === 'observedComponentIds' || event.target.name === 'type' || event.target.hasAttribute('data-line-component') || ['kind', 'effect'].includes(event.target.dataset.lineField)) refreshDiscoveries();
 });
 function openRecord(componentId = null, id = null) {
   if (!vehicle()) return openVehicle();
@@ -657,7 +688,8 @@ function readLines() {
   return [...$('line-editors').querySelectorAll('[data-line-id]')].map((element) => {
     const original = editingLines.find((line) => line.id === element.dataset.lineId);
     const field = (name) => element.querySelector(`[data-line-field="${name}"]`);
-    return { ...editableBase(original, 'line', extrasInput(field('extras'), 'line')), id: original.id, label: field('label').value, kind: field('kind').value, amount: amountInput(field('amount').value), componentId: field('componentId').value === '__new__' ? null : field('componentId').value || null, effect: field('effect').value, description: field('description').value, notes: field('notes').value, content: field('content').value, documents: collectDocuments('line-' + original.id) };
+    const componentIds = readLineComponentIds(element);
+    return { ...editableBase(original, 'line', extrasInput(field('extras'), 'line')), id: original.id, label: field('label').value, kind: field('kind').value, amount: amountInput(field('amount').value), componentIds, componentId: componentIds[0] ?? null, effect: field('effect').value, description: field('description').value, notes: field('notes').value, content: field('content').value, documents: collectDocuments('line-' + original.id) };
   });
 }
 function openComponent(id = null) {
@@ -852,6 +884,18 @@ document.addEventListener('click', (event) => {
   ]) { const element = target.closest(`[${attribute}]`); if (element) return handler(element.getAttribute(attribute)); }
   const removeLine = target.closest('[data-remove-line]');
   if (removeLine) { editingLines = editingLines.filter((line) => line.id !== removeLine.dataset.removeLine); documentDrafts.delete('line-' + removeLine.dataset.removeLine); removeLine.closest('[data-line-id]').remove(); $('summary-costs').hidden = editingLines.length > 0; refreshDiscoveries(); return; }
+  const addLineComponent = target.closest('[data-add-line-component]');
+  if (addLineComponent) {
+    const list = addLineComponent.closest('[data-line-id]').querySelector('[data-line-new-components]');
+    list.insertAdjacentHTML('beforeend', newLineComponentEditor(uid()));
+    refreshDiscoveries(); list.lastElementChild.querySelector('input').focus(); return;
+  }
+  const removeLineComponent = target.closest('[data-remove-line-component]');
+  if (removeLineComponent) {
+    const row = removeLineComponent.closest('[data-line-id]');
+    removeLineComponent.closest('[data-new-line-component]').remove();
+    refreshDiscoveries(); row.querySelector('[data-add-line-component]').focus(); return;
+  }
   const draftDownload = target.closest('[data-draft-download]');
   if (draftDownload) return downloadDocument(null, documentDrafts.get(draftDownload.dataset.owner).documents.find((doc) => doc.id === draftDownload.dataset.draftDownload));
   const removeDoc = target.closest('[data-remove-document]');

@@ -1,4 +1,4 @@
-import { associatedComponentIds, today, uid } from './garage.js';
+import { associatedComponentIds, lineComponentIds, today, uid } from './garage.js';
 import { componentSpatial, compatibleKind, detectComponents, matchingComponents, possibleComponents, mergeSpatial, inferSpatial, isPositiveComponentLabel, normalizeName } from './component-catalog.js';
 
 const explicitMatches = (components, candidate, linked) => components.filter((part) => {
@@ -11,7 +11,7 @@ const actual = (record, date) => record.type !== 'insurance' && record.status !=
 export function recordDiscoveries(record) {
   if (['fuel', 'insurance'].includes(record.type)) return [];
   const byKey = new Map();
-  for (const source of [{ label:record.title }, ...(record.lines ?? []).filter((line) => !line.componentId)]) {
+  for (const source of [{ label:record.title }, ...(record.lines ?? []).filter((line) => !lineComponentIds(line).length)]) {
     const detected = detectComponents(source.label);
     for (const candidate of detected) if (!byKey.has(candidate.key) || source.effect && source.effect !== 'none') byKey.set(candidate.key, { ...candidate, effect:source.effect && source.effect !== 'none' ? source.effect : candidate.effect });
     if (!detected.length && source.kind === 'part' && isPositiveComponentLabel(source.label)) {
@@ -71,13 +71,13 @@ export function applyDiscoveries(vehicle, record, choices, newId = uid) {
       part = { id: newId(), name: choice.name, group: choice.group, spatial: { ...choice.spatial, presenceOrigin: 'record' }, intervalKm: null, intervalMonths: null, notes: '', description: '', content: '', documents: [] };
       components.push(part);
     } else part.spatial = mergeSpatial(componentSpatial(part), choice.spatial);
-    if (choice.effect === 'replace') updated.componentIds = [...new Set([...(updated.componentIds ?? []), part.id])];
-    else updated.observedComponentIds = [...new Set([...updated.observedComponentIds, part.id])];
     if (choice.lineId) {
       const line = updated.lines.find((line) => line.id === choice.lineId);
       if (!line) throw Error('La ligne du composant est introuvable.');
-      line.componentId = part.id;
-    }
+      line.componentIds = [...new Set([...lineComponentIds(line), part.id])];
+      line.componentId = line.componentIds[0];
+    } else if (choice.effect === 'replace') updated.componentIds = [...new Set([...(updated.componentIds ?? []), part.id])];
+    else updated.observedComponentIds = [...new Set([...updated.observedComponentIds, part.id])];
   }
   return { components, record: updated };
 }
