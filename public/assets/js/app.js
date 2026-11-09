@@ -808,7 +808,7 @@ document.addEventListener('change', async (event) => {
   const files = [...input.files]; input.value = ''; if (!files.length) return;
   const form = input.closest('form'); const button = form.querySelector('[type="submit"]');
   form.dataset.loadingDocuments = String(Number(form.dataset.loadingDocuments || 0) + 1); button.disabled = true;
-  try { const documents = await Promise.all(files.map(readDocument)); if (documentDrafts.get(owner) === draft) { draft.documents.push(...documents); refreshDocuments(owner); } }
+  try { const documents = await Promise.all(files.map((file) => readDocument(file))); if (documentDrafts.get(owner) === draft) { draft.documents.push(...documents); refreshDocuments(owner); } }
   catch (error) { const box = form.querySelector('.form-error'); box.textContent = error.message; box.hidden = false; }
   finally { const count = Number(form.dataset.loadingDocuments) - 1; if (count > 0) form.dataset.loadingDocuments = String(count); else { delete form.dataset.loadingDocuments; button.disabled = false; } }
 });
