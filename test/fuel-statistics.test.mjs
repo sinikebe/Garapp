@@ -148,6 +148,53 @@ test('monthly costs follow purchase dates while cycles and distances follow thei
   assert.equal(february.cycles.length, 2);
 });
 
+test('monthly fuel prices are weighted by litres from the same complete purchases', () => {
+  const vehicle = vehicleOf([
+    fill('cheap', '2026-01-02', null, '20', false, '40'),
+    fill('expensive', '2026-01-09', null, '80', false, '240'),
+    fill('free', '2026-01-11', null, '10', false, '0'),
+    fill('unknown-cost', '2026-01-14', null, '50', false),
+    fill('partial-cost', '2026-01-17', null, '30', false, null, { partsAmount: '15', laborAmount: null }),
+    fill('unknown-litres', '2026-01-21', null, null, false, '30'),
+    fill('refund', '2026-01-25', null, '5', false, '-2'),
+    fill('next-month', '2026-02-04', null, '20', false, '40'),
+  ]);
+  const original = structuredClone(vehicle), data = fuelStatistics(vehicle, options);
+  const [january, february] = data.buckets;
+  assert.equal(january.averagePricePerLitre, 280 / 110);
+  assert.equal(january.priceExcluded, 4);
+  assert.equal(february.averagePricePerLitre, 2);
+  assert.equal(february.priceExcluded, 0);
+  assert.equal(data.averagePricePerLitre, 320 / 130);
+  assert.equal(data.priceExcluded, 4);
+  assert.equal(data.consumption, null);
+  assert.deepEqual(vehicle, original);
+});
+
+test('price stays unknown if no purchase has both a complete cost and litres', () => {
+  const data = fuelStatistics(vehicleOf([
+    fill('cost-only', '2026-01-03', null, null, false, '25'),
+    fill('litres-only', '2026-01-08', null, '20', false),
+  ]), options);
+  assert.equal(data.buckets[0].averagePricePerLitre, null);
+  assert.equal(data.buckets[0].priceExcluded, 2);
+  assert.equal(data.averagePricePerLitre, null);
+});
+
+test('the fuel chart and table show the price even without a calculable consumption', () => {
+  const html = fuelMarkup(vehicleOf([
+    fill('first', '2026-01-03', null, '20', false, '40'),
+    fill('second', '2026-02-03', null, '30', false, '75'),
+    fill('incomplete', '2026-02-10', null, '10', false),
+  ]), options);
+  assert.match(html, /Prix moyen \(€\/L\)/);
+  assert.match(html, /fuel-price-line/);
+  assert.match(html, /fuel-price-point/);
+  assert.match(html, /axe droit, €\/L/);
+  assert.match(html, /1 achat\(s\) sans prix calculable/);
+  assert.doesNotMatch(html, /NaN|Infinity/);
+});
+
 test('a tank baseline before the selected period remains available without including its purchase cost', () => {
   const data = fuelStatistics(vehicleOf([
     fill('a', '2025-11-20', 10000, '50', true, '80'),
