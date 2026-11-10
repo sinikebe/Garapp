@@ -32,6 +32,27 @@ La rubrique et les filtres utiles sont mémorisés par véhicule. Un fragment ex
 dans l'URL reste prioritaire sur la rubrique mémorisée. Ces préférences d'affichage
 restent séparées des sauvegardes du garage.
 
+## Supprimer un véhicule
+
+Dans **Vue d’ensemble**, ouvrir **Fiche du véhicule**, puis choisir
+**Supprimer le véhicule** et confirmer. Le véhicule est retiré avec ses interventions,
+sa corbeille, ses composants, ses assurances et ses documents. Les autres véhicules
+et les documents généraux du garage sont conservés. Supprimer le dernier véhicule
+laisse un garage vide, dans lequel un nouveau véhicule peut être ajouté.
+
+Une copie complète est enregistrée avant la suppression. Si cette copie ou
+l’enregistrement échoue, le garage reste inchangé. Pour récupérer le véhicule,
+ouvrir **Outils → Sauvegardes → Récupérer une ancienne copie**, puis la copie
+**Avant la suppression d’un véhicule**. La comparaison permet de réintégrer le
+véhicule sans remplacer tout le garage.
+
+Les copies de récupération restent propres à cet appareil ; elles ne sont pas
+envoyées dans les sauvegardes suivantes. La synchronisation Drive et l’écriture
+automatique dans un fichier lié prennent en compte la suppression lorsqu’elles
+sont activées. Les anciennes versions Drive et les exports déjà téléchargés
+restent inchangés. Une fusion avec une ancienne copie peut proposer de réintégrer
+le véhicule absent : l’exclure pour conserver la suppression.
+
 ## Historique, montants et documents
 
 Une fiche peut décrire une révision, une réparation, un achat, une mise en circulation,

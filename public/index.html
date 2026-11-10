@@ -237,6 +237,13 @@
     <p id="trash-description" class="hint"></p><p id="trash-guidance" class="reference-note">Les fiches de la corbeille sont exclues des dépenses, des statistiques et du suivi des composants. Leurs lignes, documents et informations sont conservés dans les sauvegardes. Aucune suppression automatique.</p>
     <div id="trash-list" class="trash-list"></div>
   </dialog>
+  <dialog id="vehicle-delete-dialog" aria-labelledby="vehicle-delete-title" aria-describedby="vehicle-delete-description vehicle-delete-recovery"><form id="vehicle-delete-form">
+    <div class="dialog-heading"><h2 id="vehicle-delete-title">Supprimer ce véhicule ?</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p id="vehicle-delete-description" class="hint" data-help-keep></p>
+    <p id="vehicle-delete-recovery" class="hint" data-help-keep>Une copie complète du garage sera conservée sur cet appareil. Vous pourrez la retrouver dans Sauvegardes → Récupérer une ancienne copie.</p>
+    <p id="vehicle-delete-error" class="form-error" role="alert" hidden></p>
+    <div class="dialog-actions"><button id="vehicle-delete-cancel" type="button" class="ghost-button" data-close>Annuler</button><button id="vehicle-delete-confirm" type="submit" class="primary-button danger-button">Supprimer le véhicule</button></div>
+  </form></dialog>
   <dialog id="discard-dialog" aria-labelledby="discard-title" aria-describedby="discard-description"><form id="discard-form">
     <div class="dialog-heading"><h2 id="discard-title">Supprimer définitivement cette fiche ?</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <p id="discard-description" class="hint"></p><p id="discard-error" class="form-error" role="alert" hidden></p>
