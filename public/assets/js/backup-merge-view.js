@@ -1,5 +1,7 @@
 /** Differences-only backup comparison. Display choices never modify source copies. */
 import { escapeHtml as esc } from './ui-format.js';
+import { TYPES, LINE_TYPES, EFFECTS } from './garage.js';
+import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES } from './component-catalog.js';
 
 let sequence = 0;
 const SIDES = new Set(['local', 'incoming']);
@@ -9,16 +11,56 @@ const FIELD_NAMES = {
   size: 'Taille', type: 'Type', status: 'État', amount: 'Montant', totalAmount: 'Total',
   documents: 'Documents', lines: 'Lignes', records: 'Interventions', components: 'Composants',
   record: 'Fiche', deletedAt: 'Mise à la corbeille', position: 'Position', id: 'Identifiant',
+  partsAmount: 'Montant des pièces', laborAmount: 'Main-d’œuvre / prestation', kind: 'Nature', effect: 'Action sur les composants',
+  componentId: 'Composant lié', componentIds: 'Composants liés', observedComponentIds: 'Composants observés',
+  year: 'Année', engine: 'Motorisation', odometerDate: 'Date du relevé', example: 'Véhicule de démonstration',
+  intervalKm: 'Intervalle kilométrique', intervalMonths: 'Intervalle en mois', group: 'Groupe',
+  spatial: 'Emplacement', zone: 'Zone', side: 'Côté', presenceOrigin: 'Provenance',
+  fuel: 'Carburant', litres: 'Quantité en litres', fullTank: 'Plein complet',
+  insurances: 'Contrats d’assurance', insurance: 'Échéance d’assurance', provider: 'Assureur', reference: 'Référence',
+  firstDate: 'Première échéance', endDate: 'Fin du contrat', debitDay: 'Jour du prélèvement', tariffs: 'Tarifs', from: 'À partir du mois',
+  skippedPeriods: 'Échéances exclues', contractId: 'Contrat associé', period: 'Mois', generated: 'Échéance générée',
+  overridden: 'Montant personnalisé', autoStatus: 'Validation automatique', coverDocumentId: 'Visuel du véhicule',
+  componentLayout: 'Disposition du véhicule', trashedRecords: 'Fiches dans la corbeille',
 };
+const COLLECTION_ROLES = { garage: { vehicles: 'vehicle', documents: 'document' }, vehicle: { components: 'component', records: 'record', insurances: 'insurance', documents: 'document' }, record: { lines: 'line', documents: 'document' }, component: { documents: 'document' }, insurance: { documents: 'document' }, line: { documents: 'document' } };
+const OBJECT_ROLES = { vehicle: { componentLayout: 'layout', trashedRecords: 'trash' }, record: { fuel: 'fuel', insurance: 'payment' }, component: { spatial: 'spatial' }, insurance: { tariffs: 'tariff' }, trash: { record: 'record' } };
+const member = (values, key) => values && Object.hasOwn(values, key) ? values[key] : undefined;
+const childRole = (role, key) => member(member(COLLECTION_ROLES, role), key) ?? member(member(OBJECT_ROLES, role), key) ?? null;
+const ENUMS = { record: { type: TYPES, status: { done: 'Réalisé', planned: 'Prévu', incomplete: 'Incomplet' } }, line: { kind: LINE_TYPES, effect: EFFECTS }, spatial: { kind: COMPONENT_KINDS, zone: COMPONENT_ZONES, side: COMPONENT_SIDES, presenceOrigin: { manual: 'Saisie manuelle', record: 'Intervention' } } };
 const documentValue = (value) => value && typeof value === 'object' && !Array.isArray(value) && typeof value.dataUrl === 'string';
 const countLabel = (count, singular, plural = `${singular}s`) => `${count} ${count === 1 ? singular : plural}`;
-const labelFor = (key) => FIELD_NAMES[key] ?? key;
+const labelFor = (key, role = 'known') => role ? member(FIELD_NAMES, key) ?? key : key;
 
-function textValue(value) {
+function textValue(value, key = '', role = null) {
   if (value === null) return 'Non renseigné';
   if (value === '') return 'Texte vide';
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
+  const labels = member(member(ENUMS, role), key);
+  if (labels && Object.hasOwn(labels, value)) return labels[value];
   return String(value);
+}
+
+function parentRole(path) {
+  let role = 'garage';
+  for (let index = 0; index < path.length - 1; index++) {
+    const collectionRole = member(member(COLLECTION_ROLES, role), path[index]);
+    if (collectionRole) { role = collectionRole; index++; }
+    else role = childRole(role, path[index]);
+    if (!role) return null;
+  }
+  return role;
+}
+
+function atomicPath(path, initialRole) {
+  let role = initialRole;
+  const names = path.map((field, index) => {
+    if (/^Élément \d+$/.test(field)) return field;
+    const label = labelFor(field, role);
+    if (index < path.length - 1) role = childRole(role, field);
+    return label;
+  });
+  return { label: names.join(' · '), role };
 }
 
 function sizeLabel(bytes) {
@@ -31,14 +73,14 @@ function binaryValue(value, key) {
 }
 
 /** Bound previews by depth and length; binary document data never enters the markup. */
-function preview(value, depth = 0, key = '') {
+function preview(value, depth = 0, key = '', role = null) {
   if (binaryValue(value, key)) return '<span class="merge-muted">Fichier intégré — contenu conservé</span>';
   if (documentValue(value)) {
     const additional = Object.fromEntries(Object.entries(value).filter(([field, item]) => !['id', 'name', 'mimeType', 'size', 'dataUrl'].includes(field) && item !== ''));
-    return `<div class="merge-document"><strong>${esc(value.name || 'Document')}</strong><span>${esc(value.mimeType || 'Type inconnu')} · ${esc(sizeLabel(value.size))}</span>${Object.keys(additional).length ? preview(additional, depth + 1) : ''}<span class="merge-muted">Fichier original intégré</span></div>`;
+    return `<div class="merge-document"><strong>${esc(value.name || 'Document')}</strong><span>${esc(value.mimeType || 'Type inconnu')} · ${esc(sizeLabel(value.size))}</span>${Object.keys(additional).length ? preview(additional, depth + 1, '', 'document') : ''}<span class="merge-muted">Fichier original intégré</span></div>`;
   }
   if (value === null || typeof value !== 'object') {
-    const text = textValue(value);
+    const text = textValue(value, key, role);
     if (text.length <= 220) return `<span class="merge-text">${esc(text)}</span>`;
     const visible = text.slice(0, 4000);
     return `<span class="merge-text">${esc(text.slice(0, 180))}…</span><details class="merge-value-more"><summary>Lire le texte${text.length > 4000 ? ' (extrait)' : ' complet'}</summary><pre>${esc(visible)}${text.length > 4000 ? '\n…' : ''}</pre>${text.length > 4000 ? '<p class="merge-muted">Texte long : télécharger la copie pour consulter la totalité.</p>' : ''}</details>`;
@@ -46,13 +88,13 @@ function preview(value, depth = 0, key = '') {
   if (Array.isArray(value)) {
     if (!value.length) return '<span class="merge-muted">Liste vide</span>';
     if (depth >= 3) return `<span>${countLabel(value.length, 'élément')}</span>`;
-    const items = value.slice(0, 8).map((item) => `<li>${preview(item, depth + 1)}</li>`).join('');
+    const items = value.slice(0, 8).map((item) => `<li>${preview(item, depth + 1, '', role)}</li>`).join('');
     return `<ul class="merge-value-list">${items}</ul>${value.length > 8 ? `<span class="merge-muted">${value.length - 8} autre(s) élément(s) dans cette copie.</span>` : ''}`;
   }
   const entries = Object.entries(value).filter(([field]) => field !== 'id' && field !== 'dataUrl');
   if (!entries.length) return '<span class="merge-muted">Objet vide</span>';
   if (depth >= 3) return `<span>${countLabel(entries.length, 'propriété', 'propriétés')}</span>`;
-  const content = entries.slice(0, 8).map(([field, item]) => `<div><dt>${esc(labelFor(field))}</dt><dd>${preview(item, depth + 1, field)}</dd></div>`).join('');
+  const content = entries.slice(0, 8).map(([field, item]) => `<div><dt>${esc(labelFor(field, role))}</dt><dd>${preview(item, depth + 1, field, item && typeof item === 'object' ? childRole(role, field) : role)}</dd></div>`).join('');
   return `<dl class="merge-value-fields">${content}</dl>${entries.length > 8 ? `<span class="merge-muted">${entries.length - 8} autre(s) propriété(s) dans cette copie.</span>` : ''}`;
 }
 
@@ -99,7 +141,7 @@ function atomicChanges(difference) {
 function locationValue(location) {
   if (!location) return '';
   const metadata = location.metadata ?? {};
-  return `<div class="merge-location"><strong>${location.state === 'trash' ? 'Dans la corbeille' : 'Fiche active'}</strong>${Object.keys(metadata).length ? preview(metadata) : ''}</div>`;
+  return `<div class="merge-location"><strong>${location.state === 'trash' ? 'Dans la corbeille' : 'Fiche active'}</strong>${Object.keys(metadata).length ? preview(metadata, 0, '', 'trash') : ''}</div>`;
 }
 
 function differenceExcerpt(difference, side) {
@@ -117,9 +159,15 @@ function sideValue(difference, side, label, atomic) {
   const present = difference[`${side}Present`];
   const displayed = Object.hasOwn(difference, `display${side === 'local' ? 'Local' : 'Incoming'}`)
     ? difference[`display${side === 'local' ? 'Local' : 'Incoming'}`] : difference[side];
-  const atomicContent = atomic?.length ? `<dl class="merge-value-fields merge-atomic-fields">${atomic.map((item) => `<div><dt>${esc(item.path.map(labelFor).join(' · ') || difference.label)}</dt><dd>${item[`${side}Present`] ? preview(item[side]) : '<span class="merge-muted">Absent de cette copie</span>'}${differenceExcerpt(item, side)}</dd></div>`).join('')}</dl>` : null;
+  const key = difference.path?.at(-1) ?? '';
+  const owner = parentRole(difference.path ?? []);
+  const role = difference.entity ?? (displayed && typeof displayed === 'object' ? childRole(owner, key) : owner);
+  const atomicContent = atomic?.length ? `<dl class="merge-value-fields merge-atomic-fields">${atomic.map((item) => {
+    const field = atomicPath(item.path, role);
+    return `<div><dt>${esc(field.label || difference.label)}</dt><dd>${item[`${side}Present`] ? preview(item[side], 0, item.path.at(-1), field.role) : '<span class="merge-muted">Absent de cette copie</span>'}${differenceExcerpt(item, side)}</dd></div>`;
+  }).join('')}</dl>` : null;
   const content = difference.lifecycle ? locationValue(displayed) : difference.wrappedRecord && displayed
-    ? `${locationValue(displayed.location)}${preview(displayed.record)}` : atomicContent ?? preview(displayed);
+    ? `${locationValue(displayed.location)}${preview(displayed.record, 0, '', 'record')}` : atomicContent ?? preview(displayed, 0, key, role);
   return `<div class="merge-side"><p class="merge-source">${esc(label)}</p><div class="merge-value">${present ? content : '<span class="merge-muted">Absent de cette copie</span>'}</div>${present ? differenceExcerpt(difference, side) : ''}${contentDiffers(difference) ? '<p class="merge-binary-change">Le contenu du fichier diffère entre les copies.</p>' : ''}</div>`;
 }
 

@@ -113,6 +113,36 @@ test('merge consequences are visible and escaped next to the related choice', ()
   assert.match(html, /class="merge-consequence">L’échéance fictive exclue ne sera pas recréée. &lt;exemple&gt;/);
 });
 
+test('record previews translate known fields and enums without rounding exact amounts', () => {
+  const html = mergeComparisonMarkup({ differences: [{ ...incomingOnly, entity: 'record', wrappedRecord: true, incoming: {
+    location: { state: 'active' }, record: { id: 'fictif', title: 'Intervention fictive', type: 'revision', status: 'done', partsAmount: '199.9901', laborAmount: '20.005' },
+  } }] });
+  assert.match(html, /Montant des pièces/);
+  assert.match(html, /Main-d’œuvre \/ prestation/);
+  assert.match(html, />Révision</);
+  assert.match(html, />Réalisé</);
+  assert.match(html, /199\.9901/);
+  assert.match(html, /20\.005/);
+  assert.doesNotMatch(html, />partsAmount<|>laborAmount<|>done<|>revision</);
+});
+
+test('known scalar conflicts use domain vocabulary while extension values stay literal', () => {
+  const html = mergeComparisonMarkup({ differences: [
+    changed('state', { path: ['vehicles', 'v', 'records', 'r', 'status'], local: 'done', incoming: 'planned' }),
+    changed('line', { path: ['vehicles', 'v', 'records', 'r', 'lines', 'l', 'kind'], local: 'part', incoming: 'bundle' }),
+    changed('effect', { path: ['vehicles', 'v', 'records', 'r', 'lines', 'l', 'effect'], local: 'none', incoming: 'replace' }),
+    changed('extension', { path: ['vehicles', 'v', 'records', 'r', 'sourceProperties', 'status'], label: 'État de la source fictive', local: 'done', incoming: 'status-custom' }),
+  ] });
+  assert.match(html, />Réalisé</);
+  assert.match(html, />Prévu</);
+  assert.match(html, />Pièce \/ consommable</);
+  assert.match(html, />Forfait</);
+  assert.match(html, />Sans effet sur le suivi</);
+  assert.match(html, />Remplacement \/ renouvellement</);
+  assert.match(html, />done</);
+  assert.match(html, />status-custom</);
+});
+
 test('choices require explicit conflict resolution and reset for a new comparison', () => {
   const events = [], element = container();
   const view = new MergeComparisonView({ container: element, onChange: (state) => events.push(state) });
