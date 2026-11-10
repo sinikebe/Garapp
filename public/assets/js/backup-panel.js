@@ -56,6 +56,9 @@ export class BackupPanel {
     $('backup-auto').disabled = busy || this.picking;
     // Importing during an active write could silently change its source snapshot.
     $('import-confirm').disabled = busy || this.picking || !!$('import-confirm').dataset.importing;
+    $('import-merge').disabled = $('import-confirm').disabled || $('import-merge').dataset.ready !== 'true';
+    $('import-differences').querySelectorAll('select, button').forEach((control) => { control.disabled = !!$('import-confirm').dataset.importing; });
+    $('import-dialog').querySelectorAll('[data-close]').forEach((button) => { button.disabled = !!$('import-confirm').dataset.importing; });
   }
 
   async update(schedule = true) {

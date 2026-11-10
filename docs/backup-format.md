@@ -369,6 +369,46 @@ stockés dans IndexedDB. Les clés restent propres au chemin publié, donc `main
 et `dev` ont des garages distincts. Une erreur de quota laisse la copie ouverte
 exportable et affiche l’échec ; elle n’est pas annoncée comme un enregistrement réussi.
 
+## Comparaison et fusion de sauvegardes
+
+La comparaison et la fusion ne changent pas le format portable : le résultat reste
+un garage valide de version 2. La comparaison ne présente que les différences ; les
+champs identiques et la sélection locale du véhicule ne demandent aucun choix.
+
+- Les collections connues sont rapprochées par identifiant stable, dans leur contexte
+  parent : véhicules, composants, fiches, lignes, documents et contrats d'assurance.
+  Les noms ne sont pas utilisés pour dédupliquer des éléments distincts.
+- Un élément ou champ présent dans une seule copie est conservé par défaut. L'absence
+  dans l'autre copie n'est pas assimilée à une suppression ; une exclusion reste un
+  choix explicite soumis à la validation des relations.
+- Les champs communs différents exigent un choix explicite entre les deux valeurs.
+  Les objets complémentaires sont comparés par propriété ; les tableaux sans règle
+  d'identification connue sont choisis comme un tout, sans concaténation implicite.
+- Les fiches actives et celles de la corbeille sont rapprochées ensemble par identifiant.
+  Leur classement est résolu explicitement si nécessaire. Une fiche ne peut pas
+  figurer simultanément dans les deux collections.
+- L'exclusion explicite d'une échéance d'assurance ajoute son mois aux `skippedPeriods`
+  du contrat conservé, sauf si une autre fiche active ou à la corbeille couvre déjà
+  ce contrat et ce mois. Cela évite sa recréation lors du rattrapage des échéances.
+  Choisir explicitement `status: "planned"` pour une échéance générée fixe
+  `insurance.autoStatus: false` ; un choix explicite contraire de `autoStatus: true`
+  est refusé avant application.
+- Un document modifié est choisi comme un tout, métadonnées et données incluses,
+  pour ne pas produire un assemblage incohérent. Les octets ne sont ni recompressés
+  ni réencodés pendant la fusion. Les montants conservent leurs chaînes exactes.
+- Le résultat est validé avec les mêmes règles que tout import : identifiants uniques,
+  références existantes, documents valides et conservation des champs supplémentaires.
+  Un conflit non résolu ou un lien invalide empêche l'application de la fusion.
+
+Pour un fichier JSON, les deux sources sont archivées localement avant l'enregistrement
+du résultat. Le lien au fichier précédent est détaché et le fichier reçu n'est pas
+lié automatiquement après fusion. Sur Drive, les sources restent des révisions
+immuables ; le résultat est une nouvelle révision reliée à la version sélectionnée
+et à l'archive de la copie locale. Les autres branches concurrentes restent distinctes
+et doivent être comparées séparément. Une comparaison devenue obsolète doit être
+reprise avant confirmation. Aucun de ces mécanismes ne déduit une suppression ou une fusion automatique à partir d'un ancêtre
+commun supposé.
+
 ## Contrôle avant livraison d’une sauvegarde
 
 - Comparer les nombres d’entrées, de lignes et de documents avec la source.
@@ -387,7 +427,8 @@ ont un nom unique horodaté et les copies précédant un import portent `avant-i
 La liaison facultative à un fichier et le suivi des exports restent propres au navigateur
 et au chemin publié : ils n’ajoutent aucun champ au JSON portable. Le fichier lié est
 vérifié avant écriture et relu après écriture ; un changement externe détecté suspend
-sa mise à jour. Les modifications de plusieurs appareils ne sont pas fusionnées.
+sa mise à jour. Une fusion guidée peut réunir plusieurs copies selon les règles
+décrites plus haut ; les fichiers sources ne sont jamais écrasés par cette opération.
 Les archives locales de récupération sont distinctes du JSON portable. Avant la
 première écriture d'un garage dont la lecture a ajouté des valeurs par défaut ou
 migré la version, le contenu antérieur est archivé. IndexedDB enregistre cette

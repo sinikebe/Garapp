@@ -77,10 +77,31 @@ initialement en pause et peut ensuite être activé pour ce dossier.
 
 Sur le second appareil, ouvrir la même version publiée de Garapp, connecter le
 même compte Google et sélectionner le dossier existant. Une première liaison ne
-remplace rien : comparer une version, puis choisir **Sauvegarder puis utiliser la
-version Drive**. La copie locale initiale est archivée avant tout remplacement.
+remplace rien : comparer une version pour examiner uniquement ses différences avec
+le garage ouvert. Choisir **Fusionner les sauvegardes** pour réunir les deux copies,
+ou **Sauvegarder puis utiliser la version Drive** pour reprendre le garage distant
+complet. La copie locale initiale est archivée sur Drive avant tout remplacement.
 Activer ensuite la synchronisation automatique si nécessaire. Si les deux garages
 sont déjà identiques, une synchronisation les reconnaît après vérification.
+
+La fusion rapproche les éléments par identifiant et conserve par défaut les ajouts
+présents dans une seule copie. Pour chaque champ commun différent, choisir la valeur
+de cet appareil ou celle de Drive. Les choix groupés s'appliquent uniquement aux
+conflits. Les champs identiques ne sont pas affichés. Les documents conservent leurs
+octets d'origine et sont choisis comme un ensemble cohérent ; les champs complémentaires
+et les montants exacts sont conservés selon les choix effectués. Comme à l'import JSON,
+exclure explicitement une échéance d'assurance empêche sa recréation si aucune autre
+fiche ne couvre le même contrat et le même mois. Choisir **Prévu** pour une échéance
+générée désactive sa validation automatique ; des choix contradictoires bloquent la fusion.
+
+Une absence n'est pas interprétée comme une suppression et un nom identique ne suffit
+pas à réunir deux fiches. Le classement actif ou corbeille d'une même fiche est un
+choix explicite. Les conflits et les liens invalides doivent être résolus avant envoi.
+La fusion porte uniquement sur les deux copies présentées : le garage de cet appareil
+et la version Drive sélectionnée. Elle produit une nouvelle révision complète reliée
+à ces deux sources, sans les réécrire. S'il existe d'autres branches concurrentes,
+elles restent à comparer et à fusionner séparément. Ce choix guidé ne déduit pas
+automatiquement les intentions à partir d'un ancêtre commun.
 
 Les dossiers partagés, les Drives partagés et les dossiers appartenant à un autre
 compte sont refusés. Les fichiers restent visibles dans
@@ -105,11 +126,12 @@ explicite entre environnements.
   et vérifiée. Le stockage local est confirmé avant de changer le garage affiché.
   Les formulaires, imports et transferts de fichier ouverts retardent cette reprise.
   La sélection du véhicule est locale à chaque appareil et ne crée pas de conflit.
-- En cas de branches divergentes, comparer puis choisir un garage complet.
-  Garapp archive la copie locale, crée une révision de choix et garde les parents.
-  Une modification arrivée après la comparaison exige une nouvelle comparaison ;
-  une écriture simultanée pendant le choix reste une branche concurrente.
-  Les champs ne sont pas fusionnés automatiquement.
+- En cas de branches divergentes, comparer puis fusionner avec des choix explicites
+  par champ, ou choisir un garage complet. Garapp valide le résultat, archive la copie
+  locale sur Drive et crée une nouvelle révision reliée aux sources du choix. Une modification
+  arrivée après la comparaison exige une nouvelle comparaison ; une écriture simultanée
+  pendant le choix reste une branche concurrente. Si l'enregistrement local échoue,
+  la nouvelle révision reste sur Drive et la copie ouverte reste inchangée.
 - Un import JSON suspend l’automatisme Drive, même si l’import est ensuite annulé.
   Le lien reste disponible pour une comparaison avant réactivation.
 - Les contrôles SHA-256 vérifient les fichiers transférés et détectent les
