@@ -1,11 +1,13 @@
 import { escapeHtml as esc, formatNumber as number, formatMileage as mileage, formatDate as dateText, icon } from './ui-format.js';
 import { pill, remaining, empty, recordsMarkup, dashboardMarkup, expensesMarkup } from './overview-view.js';
-import { commitImport } from './workspace-transactions.js';
+import { commitImport, commitMerge } from './workspace-transactions.js';
+import { compareGarages, mergeGarages } from './backup-merge.js';
+import { MergeComparisonView } from './backup-merge-view.js';
 import { RecoveryPanel } from './recovery-panel.js';
 import { visualKind, validateVisualDocument, mountVehicleModel } from './vehicle-visual.js';
 import { initHelpTips } from './help-tips.js';
 import { componentLayout, ENGINE_POSITIONS, placementLabel } from './component-layout.js';
-import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, lineComponentIds, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, exampleGarage, parseGarage, storageKey, inventory, typeLabel, validateDocument } from './garage.js';
+import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, chronological, lineComponentIds, associatedComponentIds, replacementHistory, componentHistory, componentLife, recordCost, exampleGarage, parseGarage, storageKey, typeLabel, validateDocument } from './garage.js';
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
 import { suiteLinks } from './app-switcher.js';
@@ -86,6 +88,10 @@ const backups = new BackupPanel({
 });
 await backups.restore();
 const recoveries = new RecoveryPanel({ repository, download, showDialog });
+const importComparison = new MergeComparisonView({ container: $('import-differences'), incomingLabel: 'Fichier importé', onChange: ({ complete, hasDifferences }) => {
+  $('import-merge').dataset.ready = String(complete && hasDifferences);
+  backups.render();
+} });
 
 const canDriveSync = () => !unsaved && !saving && !localConflict && !repository.invalid && !backups.files.busy && !backups.picking && !$('import-confirm').dataset.importing && !openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog');
 const canDriveApply = (explicit = false) => canDriveSync() && document.hasFocus() && !openDialogs().some((dialog) => dialog.id === 'drive-preview-dialog' && !explicit);
@@ -946,12 +952,10 @@ async function prepareImport(file, handle = null) {
   drive.pauseForImport();
   const incoming = await readBackupFile(file);
   if (generation !== importGeneration) return;
-  pendingImport = { ...incoming, handle };
-  const before = inventory(garage), after = inventory(incoming.garage);
+  pendingImport = { ...incoming, handle, local: garage };
+  importComparison.setComparison(compareGarages(garage, incoming.garage));
   $('import-description').textContent = `${file.name} · ${number(Math.ceil(file.size / 1024))} Kio. Le contenu a été vérifié, y compris les documents intégrés et les relations entre les fiches.`;
-  $('import-counts').innerHTML = [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['insurances', 'Contrats d’assurance'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']].map(([field, label]) => `<tr><th scope="row">${label}</th><td>${number(before[field])}</td><td>${number(after[field])}</td></tr>`).join('');
-  $('import-vehicles').textContent = `Véhicules du fichier : ${incoming.garage.vehicles.map((one) => one.name).join(' · ') || 'aucun'}. Les champs complémentaires sont conservés.`;
-  $('import-link-note').textContent = handle ? 'Après confirmation, ce fichier sera lié au garage. L’écriture automatique restera désactivée.' : 'Toute liaison au fichier précédent sera détachée pour préserver son contenu.';
+  $('import-link-note').textContent = handle ? 'Une fusion détache les fichiers liés pour préserver les sources. Si vous choisissez de remplacer tout le garage, ce fichier sera lié avec l’écriture automatique désactivée.' : 'Toute liaison au fichier précédent sera détachée pour préserver son contenu.';
   $('import-error').hidden = true;
   showDialog('import-dialog');
 }
@@ -960,19 +964,32 @@ $('backup-file').addEventListener('change', async (event) => {
   try { await prepareImport(file); }
   catch (error) { backups.announce(`Import refusé. ${backupErrorMessage(error)}`); }
 });
-$('import-confirm').addEventListener('click', async () => {
+$('import-dialog').addEventListener('cancel', (event) => { if ($('import-confirm').dataset.importing) event.preventDefault(); });
+$('import-dialog').addEventListener('close', () => {
+  if ($('import-confirm').dataset.importing) return;
+  importGeneration++; pendingImport = null; importComparison.setComparison(null);
+});
+async function confirmImport(mode) {
   if (!pendingImport || saving || backups.files.busy || $('import-confirm').dataset.importing) return;
-  const button = $('import-confirm'); button.disabled = true;
+  if (mode === 'merge' && (!importComparison.complete || !importComparison.hasDifferences)) return;
+  const button = $('import-confirm');
   button.dataset.importing = 'true';
+  backups.render();
   $('import-error').hidden = true;
   try {
     const incoming = pendingImport;
+    const choices = importComparison.choices;
+    if (garage !== incoming.local || localConflict) throw Error('Le garage a changé depuis la comparaison. Exportez la copie ouverte si nécessaire, puis rouvrez le fichier pour comparer à nouveau.');
+    if (mode === 'merge') mergeGarages(importComparison.comparison, choices);
     if (incoming.handle && await fingerprint(await incoming.handle.getFile()) !== incoming.fileHash) throw Error('Le fichier a changé depuis sa vérification. Ouvrez-le à nouveau avant d’importer. Le garage actuel est conservé.');
+    if (garage !== incoming.local || localConflict) throw Error('Le garage a changé pendant la vérification. Rouvrez le fichier pour comparer à nouveau.');
     exportGarage({ beforeImport: true });
     backups.suspend();
     saving = true; applyingRemote = true;
     try {
-      const imported = await commitImport(repository, garage, incoming.garage);
+      const imported = mode === 'merge'
+        ? await commitMerge(repository, garage, incoming.garage, choices, incoming.raw)
+        : await commitImport(repository, garage, incoming.garage);
       garage = imported; unsaved = false; localConflict = false;
       $('storage-warning').hidden = true;
       $('save-status').textContent = 'Enregistré sur cet appareil';
@@ -981,13 +998,15 @@ $('import-confirm').addEventListener('click', async () => {
     let linkError = '';
     try {
       await backups.files.disconnect();
-      if (incoming.handle) await backups.files.link(incoming.handle, incoming);
+      if (mode !== 'merge' && incoming.handle) await backups.files.link(incoming.handle, incoming);
     } catch (error) { linkError = ` Le garage a été importé, mais la liaison au fichier n’a pas été mise à jour : ${backupErrorMessage(error)}`; }
     await backups.update(false);
-    announce(`Garage et documents importés. La copie précédente est disponible dans les copies de récupération.${linkError}`);
+    announce(`${mode === 'merge' ? 'Sauvegardes fusionnées. Les deux sources sont disponibles' : 'Garage et documents importés. La copie précédente est disponible'} dans les copies de récupération.${linkError}`);
   } catch (error) { $('import-error').textContent = backupErrorMessage(error); $('import-error').hidden = false; }
-  finally { delete button.dataset.importing; backups.render(); }
-});
+  finally { delete button.dataset.importing; if (!pendingImport) importComparison.setComparison(null); backups.render(); }
+}
+$('import-confirm').addEventListener('click', () => { void confirmImport('replace'); });
+$('import-merge').addEventListener('click', () => { void confirmImport('merge'); });
 const suite = suiteLinks(base);
 $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;

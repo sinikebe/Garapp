@@ -330,3 +330,138 @@ test('a malformed or truncated JSON is refused even if metadata claims a matchin
   const corrupted = { ...node, size: invalid.size, wire: await fingerprint(invalid) };
   await assert.rejects(readSnapshot(invalid, corrupted), /Version/);
 });
+
+function addSyntheticRecord(device, id) {
+  const next = structuredClone(device.model.garage);
+  next.vehicles[0].records.push({ ...structuredClone(next.vehicles[0].records[2]), id, title: 'Ajout fictif ' + id });
+  device.model.garage = parseGarage(JSON.stringify(next));
+}
+
+const savedGarages = async (api) => Promise.all([...api.files.values()].filter(({ blob }) => blob).map(async ({ blob }) => parseGarage(await blob.text())));
+
+test('a Drive merge combines independent additions, applies them locally and preserves both original copies', async () => {
+  const { api, a, b } = await pair();
+  addSyntheticRecord(a, 'remote-addition'); await a.sync.sync();
+  addSyntheticRecord(b, 'local-addition');
+  const localBefore = structuredClone(b.model.garage), remoteBefore = structuredClone(a.model.garage);
+  await b.sync.compare(a.sync.graph.heads[0].revision);
+  assert.equal(b.sync.preview.comparison.conflictCount, 0);
+  assert.equal(b.sync.preview.comparison.differences.length, 2);
+  assert.equal(await b.sync.resolve('merge'), true);
+  const ids = b.model.garage.vehicles[0].records.map((record) => record.id);
+  assert.ok(ids.includes('remote-addition')); assert.ok(ids.includes('local-addition'));
+  assert.equal(b.model.commits, 1); assert.equal(b.sync.graph.heads.length, 1);
+  const copies = await savedGarages(api);
+  assert.ok(copies.some((garage) => JSON.stringify(garage) === JSON.stringify(localBefore)));
+  assert.ok(copies.some((garage) => JSON.stringify(garage) === JSON.stringify(remoteBefore)));
+  assert.equal(b.sync.state.baseline.hash, await garageHash(b.model.garage));
+});
+
+test('Drive merge requires an explicit choice for differing amounts and retains exact decimal values', async () => {
+  const { api, a, b } = await pair();
+  a.model.garage = structuredClone(a.model.garage);
+  a.model.garage.vehicles[0].records[0].lines[0].amount = '22.99001'; await a.sync.sync();
+  b.model.garage = structuredClone(b.model.garage);
+  b.model.garage.vehicles[0].records[0].lines[0].amount = '18.750003';
+  await b.sync.compare(a.sync.graph.heads[0].revision);
+  const difference = b.sync.preview.comparison.differences.find((entry) => entry.path.includes('amount'));
+  assert.ok(difference?.conflict);
+  const writes = api.writes, before = b.model.garage;
+  assert.equal(await b.sync.resolve('merge'), false);
+  assert.equal(api.writes, writes); assert.equal(b.model.garage, before);
+  assert.equal(await b.sync.resolve('merge', { [difference.id]: 'both' }), false);
+  assert.equal(api.writes, writes);
+  assert.equal(await b.sync.resolve('unknown'), false);
+  assert.equal(api.writes, writes);
+  assert.equal(await b.sync.resolve('merge', { [difference.id]: 'incoming' }), true);
+  assert.equal(b.model.garage.vehicles[0].records[0].lines[0].amount, '22.99001');
+  const copies = await savedGarages(api);
+  for (const amount of ['18.750003', '22.99001']) assert.ok(copies.some((garage) => garage.vehicles[0].records[0].lines[0].amount === amount));
+});
+
+test('Drive rejects merge choices that leave dangling references before creating any remote copy', async () => {
+  const { api, a, b } = await pair();
+  addSyntheticRecord(b, 'linked-local-record');
+  b.model.garage.vehicles[0].components.push({ ...structuredClone(b.model.garage.vehicles[0].components[0]), id: 'local-extra-part', name: 'Composant fictif supplémentaire' });
+  b.model.garage.vehicles[0].records.at(-1).componentIds = ['local-extra-part'];
+  b.model.garage = parseGarage(JSON.stringify(b.model.garage));
+  await b.sync.compare(a.sync.graph.heads[0].revision);
+  const part = b.sync.preview.comparison.differences.find((entry) => entry.path.includes('local-extra-part'));
+  assert.equal(part?.kind, 'local-only');
+  const writes = api.writes, before = b.model.garage;
+  assert.equal(await b.sync.resolve('merge', { [part.id]: 'incoming' }), false);
+  assert.equal(api.writes, writes); assert.equal(b.model.garage, before); assert.equal(b.model.commits, 0);
+});
+
+test('a Drive merge refuses an outdated local or remote comparison without writing a snapshot', async () => {
+  for (const side of ['local', 'remote']) {
+    const { api, a, b } = await pair();
+    await b.sync.compare(a.sync.graph.heads[0].revision);
+    if (side === 'local') addSyntheticRecord(b, 'changed-after-preview');
+    else { addSyntheticRecord(a, 'changed-after-preview'); await a.sync.sync(); }
+    const writes = api.writes, before = b.model.garage;
+    assert.equal(await b.sync.resolve('merge'), false);
+    assert.equal(api.writes, writes); assert.equal(b.model.garage, before); assert.equal(b.model.commits, 0);
+  }
+});
+
+test('a merged Drive revision survives a failed local commit and can be applied on retry', async () => {
+  const { api, a, b } = await pair();
+  addSyntheticRecord(a, 'remote-retry-addition'); await a.sync.sync();
+  addSyntheticRecord(b, 'local-retry-addition');
+  const before = b.model.garage;
+  await b.sync.compare(a.sync.graph.heads[0].revision);
+  b.model.failCommit = true;
+  assert.equal(await b.sync.resolve('merge'), false);
+  assert.equal(b.model.garage, before);
+  assert.equal(b.sync.state.baseline.hash, await garageHash(before));
+  const writes = api.writes;
+  assert.ok((await savedGarages(api)).some((garage) => {
+    const ids = garage.vehicles[0].records.map((record) => record.id);
+    return ids.includes('remote-retry-addition') && ids.includes('local-retry-addition');
+  }));
+  b.model.failCommit = false;
+  assert.equal(await b.sync.sync(), true); assert.equal(api.writes, writes);
+  const ids = b.model.garage.vehicles[0].records.map((record) => record.id);
+  assert.ok(ids.includes('remote-retry-addition')); assert.ok(ids.includes('local-retry-addition'));
+});
+
+test('another device editing during a Drive merge remains a separate preserved branch', async () => {
+  const { api, a, b } = await pair();
+  addSyntheticRecord(a, 'remote-merge-addition'); await a.sync.sync();
+  addSyntheticRecord(b, 'local-merge-addition');
+  await b.sync.compare(a.sync.graph.heads[0].revision);
+  api.afterUpload = async () => {
+    api.afterUpload = null;
+    addSyntheticRecord(a, 'concurrent-merge-addition'); await a.sync.sync();
+  };
+  assert.equal(await b.sync.resolve('merge'), true);
+  assert.equal(b.sync.graph.heads.length, 2);
+  assert.match(b.sync.status, /versions restent à comparer/);
+  const copies = await savedGarages(api);
+  assert.ok(copies.some((garage) => garage.vehicles[0].records.some((record) => record.id === 'concurrent-merge-addition')));
+  for (const id of ['remote-merge-addition', 'local-merge-addition']) assert.ok(b.model.garage.vehicles[0].records.some((record) => record.id === id));
+});
+
+
+test('merging two of three Drive branches does not resolve the unreviewed third branch', async () => {
+  const { api, a, b } = await pair();
+  const c = await device(api);
+  await c.sync.bind(a.sync.state.binding.id); await c.sync.sync();
+  addSyntheticRecord(a, 'branch-a-record'); await a.sync.sync();
+  addSyntheticRecord(b, 'branch-b-record'); await b.sync.sync();
+  addSyntheticRecord(c, 'branch-c-record'); await c.sync.sync();
+  await b.sync.refresh(); assert.equal(b.sync.graph.heads.length, 3);
+  const chosen = b.sync.graph.heads.find((node) => node.hash === a.sync.state.baseline.hash);
+  const unreviewed = b.sync.graph.heads.find((node) => node.hash === c.sync.state.baseline.hash);
+  await b.sync.compare(chosen.revision);
+  assert.equal(await b.sync.resolve('merge'), true);
+  assert.equal(b.sync.graph.heads.length, 2);
+  assert.ok(b.sync.graph.heads.some((node) => node.revision === unreviewed.revision));
+  const merged = b.sync.graph.heads.find((node) => node.revision !== unreviewed.revision);
+  assert.equal(merged.parents.includes(unreviewed.revision), false);
+  const ids = b.model.garage.vehicles[0].records.map((record) => record.id);
+  assert.ok(ids.includes('branch-a-record')); assert.ok(ids.includes('branch-b-record'));
+  assert.equal(ids.includes('branch-c-record'), false);
+  assert.match(b.sync.status, /versions restent à comparer/);
+});

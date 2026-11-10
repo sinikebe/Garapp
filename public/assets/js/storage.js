@@ -108,9 +108,9 @@ export class WorkspaceStorage {
   }
 
   /** Archive the open model before replacement; previous archives are never removed. */
-  async checkpoint(garage) {
+  async checkpoint(garage, reason = 'import') {
     const raw = JSON.stringify(parseGarage(JSON.stringify(garage)));
-    return this.archiveRaw(raw, 'import');
+    return this.archiveRaw(raw, reason);
   }
 
   queueCheckpoint(store, raw, reason, point = { id: uid(), createdAt: new Date().toISOString(), reason }) {

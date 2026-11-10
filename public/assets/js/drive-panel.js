@@ -4,6 +4,7 @@ import { driveNamespace, revisionGraph } from './drive-format.js';
 import { DriveAPI } from './drive-api.js';
 import { DriveSync } from './drive-sync.js';
 import { DriveAuthorization, loadGoogleIdentity, validClientId } from './drive-auth.js';
+import { MergeComparisonView } from './backup-merge-view.js';
 
 const $ = (id) => document.getElementById(id);
 const date = (value) => { const result = new Date(value); return Number.isFinite(result.getTime()) ? result.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : 'Date inconnue'; };
@@ -18,6 +19,7 @@ export class DrivePanel {
     this.showDeveloperConfig = development && !validClientId(this.appClientId);
     if (this.showDeveloperConfig) { try { this.clientId = localStorage.getItem(this.configKey) || this.clientId; } catch { /* Optional local override until the app is configured. */ } }
     this.auth = null; this.loading = false; this.initialized = false; this.timer = null; this.poll = null; this.folders = []; this.problem = '';
+    this.comparison = new MergeComparisonView({ container: $('drive-differences'), incomingLabel: 'Version Drive', onChange: () => this.render() });
     $('drive-config').hidden = !this.showDeveloperConfig;
     $('drive-client-id').value = this.clientId;
     $('drive-origin').textContent = location.origin;
@@ -35,11 +37,12 @@ export class DrivePanel {
     $('drive-seed').addEventListener('click', () => { void this.engine?.seed(); });
     $('drive-keep-local').addEventListener('click', () => { void this.resolve('local'); });
     $('drive-use-remote').addEventListener('click', () => { void this.resolve('remote'); });
+    $('drive-merge').addEventListener('click', () => { void this.resolve('merge'); });
     $('drive-export-remote').addEventListener('click', () => {
       if (this.engine?.preview) this.download(backupBlob(this.engine.preview.incoming), backupFilename({ development }));
     });
     $('drive-export-local').addEventListener('click', () => this.download(backupBlob(this.getGarage()), backupFilename({ development })));
-    $('drive-preview-dialog').addEventListener('close', () => { if (!this.engine?.busy && this.engine) this.engine.preview = null; this.changed(false); });
+    $('drive-preview-dialog').addEventListener('close', () => { if (!this.engine?.busy && this.engine) { this.engine.preview = null; this.comparison.setComparison(null); } this.changed(false); });
     $('drive-preview-dialog').addEventListener('cancel', (event) => { if (this.engine?.busy) event.preventDefault(); });
     // The backup panel prepares the SDK; only the connection button opens OAuth.
     window.addEventListener('focus', () => this.wake());
@@ -83,6 +86,8 @@ export class DrivePanel {
     $('drive-seed').hidden = !engine?.state.binding || !!engine.graph.nodes.length || !!engine.state.baseline;
     $('drive-folders').disabled = busy;
     for (const id of ['drive-keep-local', 'drive-use-remote', 'drive-export-remote']) $(id).disabled = busy || !engine?.preview;
+    $('drive-merge').disabled = busy || !engine?.preview || !this.comparison.complete || !this.comparison.hasDifferences;
+    $('drive-differences').querySelectorAll('select, button').forEach((control) => { control.disabled = busy; });
     $('drive-preview-dialog').querySelectorAll('[data-close]').forEach((button) => { button.disabled = busy; });
     $('drive-preview-error').textContent = engine?.error ?? '';
     $('drive-preview-error').hidden = !engine?.error;
@@ -201,18 +206,12 @@ export class DrivePanel {
     if (!await this.engine.compare(revision) || !this.engine.preview) return;
     const preview = this.engine.preview;
     $('drive-preview-description').textContent = `Version Drive du ${date(preview.node.at)} · ${preview.node.revision.slice(0, 8)}. Le fichier et ses documents ont été vérifiés.`;
-    const tbody = $('drive-preview-counts'); tbody.replaceChildren();
-    for (const [field, label] of [['vehicles', 'Véhicules'], ['records', 'Fiches actives'], ['trashedRecords', 'Fiches dans la corbeille'], ['components', 'Composants'], ['insurances', 'Contrats d’assurance'], ['lines', 'Lignes détaillées'], ['documents', 'Documents']]) {
-      const row = document.createElement('tr'); const heading = document.createElement('th'); heading.scope = 'row'; heading.textContent = label; row.append(heading);
-      for (const counts of [preview.localCounts, preview.remoteCounts]) { const cell = document.createElement('td'); cell.textContent = counts[field]; row.append(cell); }
-      tbody.append(row);
-    }
-    $('drive-preview-vehicles').textContent = `Véhicules Drive : ${preview.incoming.vehicles.map((vehicle) => vehicle.name).join(' · ') || 'aucun'}. Les quantités seules ne décrivent pas les changements : télécharger les deux copies permet d’examiner tous les champs.`;
+    this.comparison.setComparison(preview.comparison);
     this.showDialog('drive-preview-dialog'); this.render();
   }
 
   async resolve(choice) {
-    if (await this.engine.resolve(choice)) {
+    if (await this.engine.resolve(choice, this.comparison.choices)) {
       $('drive-preview-dialog').close(); this.showDialog('backups-dialog'); this.announce(this.engine.status);
     }
     this.render();

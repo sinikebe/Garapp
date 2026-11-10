@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { DriveAuthorization, validClientId } from '../public/assets/js/drive-auth.js';
 import { DRIVE_SCOPE } from '../public/assets/js/drive-format.js';
+import { MergeComparisonView } from '../public/assets/js/backup-merge-view.js';
 
 const source = await readFile(new URL('../public/assets/js/drive-panel.js', import.meta.url), 'utf8');
 const clientId = '1234567890-synthetic-client.apps.googleusercontent.com';
@@ -31,7 +32,7 @@ async function frontend({ appClientId = clientId, localClientId = '', loader } =
   const context = {
     window, document, location: { origin: 'https://example.test' }, Date, URL,
     localStorage: { getItem() { calls.localReads++; return localClientId; }, setItem(_key, value) { localClientId = value; }, removeItem() { localClientId = ''; } },
-    DRIVE_CLIENT_IDS: { dev: appClientId, main: appClientId }, validClientId, DriveAuthorization,
+    DRIVE_CLIENT_IDS: { dev: appClientId, main: appClientId }, validClientId, DriveAuthorization, MergeComparisonView,
     BackupSettings: class {}, DriveSync: Engine, driveNamespace: async () => 'synthetic-namespace',
     async loadGoogleIdentity() { calls.loads++; return loader ? loader(oauth) : oauth; },
     setInterval() { return 1; }, setTimeout() { return 1; }, clearTimeout() {},

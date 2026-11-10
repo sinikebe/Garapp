@@ -3,6 +3,7 @@ import { inventory } from './garage.js';
 import { fingerprint } from './backups.js';
 import { DRIVE_FOLDER, assertFolder, garageHash, makeSnapshot, readSnapshot, revisionGraph, snapshotInfo } from './drive-format.js';
 import { propertyQuery } from './drive-api.js';
+import { compareGarages, mergeGarages } from './backup-merge.js';
 
 const pointer = (node) => ({ id: node.id, revision: node.revision, wire: node.wire, hash: node.hash });
 const headKey = (heads) => heads.map((node) => node.revision).sort().join(',');
@@ -202,16 +203,19 @@ export class DriveSync {
       if (!node) throw Error('Cette version n’est plus disponible. Actualiser l’historique.');
       const local = this.getGarage(), incoming = await this.loadNode(node);
       if (this.getGarage() !== local) throw Error('Le garage local a changé. Relancer la comparaison.');
-      this.preview = { node, incoming, local, heads: graph.heads.map(pointer), localCounts: inventory(local), remoteCounts: inventory(incoming) };
+      this.preview = { node, incoming, local, comparison: compareGarages(local, incoming), heads: graph.heads.map(pointer), localCounts: inventory(local), remoteCounts: inventory(incoming) };
     });
   }
 
   /** Explicitly selected content becomes a new revision; ancestors stay intact. */
-  async resolve(choice) {
+  async resolve(choice, choices = {}) {
     return this.run(async () => {
+      if (!['local', 'remote', 'merge'].includes(choice)) throw Error('Le choix de résolution est invalide.');
       const preview = this.preview;
       if (!preview || this.getGarage() !== preview.local) throw Error('Le garage local a changé. Relancer la comparaison.');
       if (!this.canApply(true)) throw Error('Terminer les modifications ou les transferts en cours avant de choisir une version.');
+      // Resolve every field and validate links before creating any remote archive.
+      const target = choice === 'merge' ? mergeGarages(preview.comparison, choices) : choice === 'remote' ? preview.incoming : preview.local;
       const graph = await this.inspect();
       if (headKey(graph.heads) !== headKey(preview.heads)) throw Error('Une nouvelle version Drive est arrivée. Relancer la comparaison avant de choisir.');
       await this.loadNode(preview.node);
@@ -222,15 +226,20 @@ export class DriveSync {
       // Record the local archive immediately, even if the later transfer fails.
       await this.acknowledge(localHash, [archive]);
       if (this.getGarage() !== preview.local) throw Error('Le garage a changé pendant sa sauvegarde. Relancer la comparaison.');
-      const target = choice === 'remote' ? preview.incoming : preview.local;
-      const resolved = await this.publish(target, [...preview.heads.map((node) => node.revision), archive.revision]);
-      if (choice === 'remote') {
+      // A merge only resolves the two copies actually compared. Other heads may
+      // contain unreviewed edits and must remain independent branches.
+      const parents = choice === 'merge' ? [preview.node.revision, archive.revision] : [...preview.heads.map((node) => node.revision), archive.revision];
+      const resolved = await this.publish(target, parents);
+      if (choice !== 'local') {
         if (this.getGarage() !== preview.local || !this.canApply(true)) throw Error('La version choisie est sauvegardée sur Drive. Le garage local reste inchangé ; relancer la synchronisation après fermeture des fiches.');
         await this.applyRemote(target, preview.local, true);
       }
       await this.acknowledge(resolved.hash, [resolved]); this.preview = null;
       const latest = await this.inspect();
-      this.status = latest.heads.some((head) => head.hash !== resolved.hash) ? 'Choix sauvegardé. Une autre modification est arrivée pendant le transfert ; comparer les versions restantes.' : 'Version choisie sauvegardée et vérifiée. Toutes les versions précédentes sont conservées.';
+      const remaining = latest.heads.some((head) => head.hash !== resolved.hash);
+      this.status = choice === 'merge'
+        ? remaining ? 'Fusion sauvegardée. D’autres versions restent à comparer ; elles sont conservées.' : 'Fusion sauvegardée et vérifiée. Les deux copies originales sont conservées.'
+        : remaining ? 'Choix sauvegardé. Une autre modification est arrivée pendant le transfert ; comparer les versions restantes.' : 'Version choisie sauvegardée et vérifiée. Toutes les versions précédentes sont conservées.';
     });
   }
 

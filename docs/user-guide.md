@@ -182,16 +182,44 @@ Le pied de page distingue l'enregistrement sur l'appareil et la copie externe.
 Un export reçoit un nom unique horodaté en UTC. Le navigateur ne confirme pas sa
 conservation sur disque : vérifier le fichier téléchargé.
 
-Avant remplacement, la comparaison d'import présente les véhicules, fiches,
-composants, lignes et documents. Le fichier est validé, le téléchargement d'une copie
-du garage ouvert est demandé, puis une copie de récupération locale est enregistrée.
-Le garage affiché n'est remplacé qu'après la réussite de cette copie et de
-l'enregistrement du garage importé. Une sauvegarde version 1 est migrée ; une version
-future inconnue est refusée. Les copies de plusieurs appareils ne sont pas fusionnées
-automatiquement.
+À l'ouverture d'un fichier, Garapp valide son contenu puis affiche uniquement les
+**différences** avec le garage ouvert, regroupées par véhicule, fiche ou composant.
+Les champs identiques sont masqués. Une sauvegarde version 1 est migrée ; une version
+future inconnue est refusée.
+
+**Fusionner les sauvegardes** permet de réunir les deux copies :
+
+1. Les éléments présents dans une seule copie sont conservés par défaut.
+2. Pour chaque champ commun dont les valeurs diffèrent, choisir la valeur de cet
+   appareil ou celle du fichier. Les commandes de choix groupé concernent seulement
+   ces conflits ; elles ne remplacent pas tout le garage.
+3. Vérifier les choix puis lancer la fusion. Garapp valide le résultat et ses liens,
+   conserve les deux sources dans les copies de récupération, puis enregistre le
+   garage fusionné. Un échec laisse le garage ouvert inchangé.
+
+Les éléments sont rapprochés par leurs identifiants, jamais par leur nom. Deux fiches
+homonymes avec des identifiants différents restent distinctes. Sans historique commun
+fiable, l'absence d'un élément ne prouve pas sa suppression : il est conservé, sauf
+choix explicite de l'exclure. Les valeurs liées d'un document sont choisies ensemble
+pour préserver son contenu original. Une fiche active dans une copie et à la corbeille
+dans l'autre demande un choix de classement ; elle ne peut pas apparaître dans les
+deux emplacements à la fois. Les liens incohérents doivent être résolus avant fusion.
+
+Pour une échéance d'assurance, l'exclusion explicite empêche sa recréation automatique
+pour ce mois, sauf si une autre fiche du même contrat et du même mois est conservée,
+active ou à la corbeille. Choisir explicitement **Prévu** pour une échéance générée
+la maintient prévisionnelle en désactivant sa validation automatique. Un choix qui
+réactive explicitement cette validation doit être corrigé avant de fusionner.
+
+**Importer et remplacer** reste disponible pour reprendre un garage complet. Le
+téléchargement d'une copie du garage ouvert est demandé, puis une copie de récupération
+locale est enregistrée. Le garage affiché ne change qu'après la réussite de cette
+copie et de l'enregistrement du garage importé. Si le garage ou un fichier lié change
+pendant la comparaison, rouvrir le fichier pour examiner les différences à jour.
 
 Les **Copies de récupération** permettent de télécharger les états conservés avant
-un import ou avant la première écriture d'un modèle migré. Pour revenir à l'un d'eux,
+un import, les deux sources d'une fusion ou l'état précédant la première écriture
+d'un modèle migré. Pour revenir à l'un d'eux,
 exporter la copie, puis l'ouvrir avec l'import habituel et sa comparaison. Ces archives
 sont conservées sur cet appareil, sans suppression automatique, et restent séparées
 du garage actif. Elles ne sont pas incluses dans un export courant du garage et ne
@@ -211,7 +239,10 @@ L'écriture automatique du fichier lié est facultative et doit être réactivé
 ouverture. Elle suit un enregistrement local réussi après une courte pause. Une erreur,
 un conflit, un import ou un changement de fichier la suspend. Elle ne fonctionne pas
 navigateur fermé. Un import ordinaire détache l'ancien fichier ; ouvrir un fichier
-existant le lie après import réussi, avec l'automatisme désactivé.
+existant puis choisir le remplacement complet le lie après import réussi, avec
+l'automatisme désactivé. Une fusion détache le fichier précédent et ne lie pas le
+fichier reçu : les fichiers sources restent intacts. Pour conserver le résultat,
+télécharger une nouvelle copie ou créer un nouveau fichier lié.
 
 Conserver plusieurs exports datés, dont un sur un autre support, permet de revenir à
 un état antérieur. Le stockage du navigateur peut être effacé, indisponible ou saturé.
@@ -221,8 +252,13 @@ Une erreur d'enregistrement est affichée et la copie ouverte reste exportable.
 
 La connexion facultative propose un dossier privé propre à cette version de Garapp.
 Chaque révision est un JSON complet avec ses documents ; les précédentes ne sont
-ni modifiées ni supprimées automatiquement. Les versions concurrentes sont conservées
-et comparées avant de choisir un garage complet, sans fusion automatique de champs.
+ni modifiées ni supprimées automatiquement. **Comparer** présente seulement les
+différences entre le garage ouvert et la version choisie. La fusion utilise les mêmes
+choix par champ que l'import JSON et crée une nouvelle révision Drive. Elle réunit
+uniquement les deux copies affichées ; les autres branches concurrentes restent à
+comparer séparément. Les deux sources et les anciennes versions restent conservées.
+Il est aussi possible de choisir un garage complet. Une nouvelle modification pendant
+la comparaison impose de la reprendre.
 
 L'automatisme contrôle les versions tant que la page est visible, au retour du réseau
 et après une modification enregistrée. Les jetons restent en mémoire et une reconnexion

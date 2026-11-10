@@ -22,8 +22,9 @@ export async function fingerprint(blob) {
 
 export async function readBackupFile(file) {
   if (file.size > MAX_BACKUP_BYTES) throw Error('La sauvegarde dépasse 512 Mio.');
-  const garage = parseGarage(await file.text());
-  return { garage, name: file.name, size: file.size, modified: file.lastModified, fileHash: globalThis.crypto?.subtle ? await fingerprint(file) : null };
+  const raw = await file.text();
+  const garage = parseGarage(raw);
+  return { garage, raw, name: file.name, size: file.size, modified: file.lastModified, fileHash: globalThis.crypto?.subtle ? await fingerprint(file) : null };
 }
 
 /** File handles stay local and are scoped to the published application path. */
