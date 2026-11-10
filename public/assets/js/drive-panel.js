@@ -229,6 +229,7 @@ export class DrivePanel {
     const preview = this.engine.preview;
     $('drive-preview-description').textContent = `Sauvegarde du ${date(preview.node.at)}`;
     this.comparison.setComparison(preview.comparison);
+    $('drive-preview-dialog').querySelector('.backup-comparison-options').open = false;
     this.showDialog('drive-preview-dialog'); this.render();
   }
 

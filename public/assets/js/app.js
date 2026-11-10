@@ -954,6 +954,7 @@ async function prepareImport(file, handle = null, isCurrent = () => true) {
   if (generation !== importGeneration || !isCurrent()) return;
   pendingImport = { ...incoming, handle, local: garage };
   importComparison.setComparison(compareGarages(garage, incoming.garage));
+  $('import-dialog').querySelector('.backup-comparison-options').open = false;
   $('import-description').textContent = file.name;
   $('import-link-note').hidden = !handle && !backups.files.handle;
   $('import-link-note').textContent = handle ? 'La fusion conserve le fichier source. Un remplacement complet lie ce fichier, sans écriture automatique.' : 'Le fichier précédemment lié sera détaché et conservé.';
