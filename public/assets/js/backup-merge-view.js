@@ -155,7 +155,7 @@ function differenceExcerpt(difference, side) {
   return `<p class="merge-difference-excerpt">Première différence au caractère ${index + 1} : <span>${start ? '…' : ''}${esc(excerpt)}${index >= value.length ? ' [fin du texte]' : index + 120 < value.length ? '…' : ''}</span></p>`;
 }
 
-function sideValue(difference, side, label, atomic) {
+function sideValue(difference, side, label, atomic, choice = null) {
   const present = difference[`${side}Present`];
   const displayed = Object.hasOwn(difference, `display${side === 'local' ? 'Local' : 'Incoming'}`)
     ? difference[`display${side === 'local' ? 'Local' : 'Incoming'}`] : difference[side];
@@ -168,20 +168,26 @@ function sideValue(difference, side, label, atomic) {
   }).join('')}</dl>` : null;
   const content = difference.lifecycle ? locationValue(displayed) : difference.wrappedRecord && displayed
     ? `${locationValue(displayed.location)}${preview(displayed.record, 0, '', 'record')}` : atomicContent ?? preview(displayed, 0, key, role);
-  return `<div class="merge-side"><p class="merge-source">${esc(label)}</p><div class="merge-value">${present ? content : '<span class="merge-muted">Absent de cette copie</span>'}</div>${present ? differenceExcerpt(difference, side) : ''}${contentDiffers(difference) ? '<p class="merge-binary-change">Le contenu du fichier diffère entre les copies.</p>' : ''}</div>`;
+  const selected = choice?.selected === side;
+  const button = choice ? `<button type="button" class="merge-pick" data-merge-choice="${esc(difference.id)}" data-merge-side="${side}" aria-pressed="${selected}" aria-label="${esc(`${choice.description} : garder ${label}`)}">${selected ? 'Valeur choisie' : 'Garder cette valeur'}</button>` : '';
+  return `<div class="merge-side"${choice ? ` data-merge-option="${side}" data-selected="${selected}"` : ''}><p class="merge-source">${esc(label)}</p><div class="merge-value">${present ? content : '<span class="merge-muted">Absent de cette copie</span>'}</div>${present ? differenceExcerpt(difference, side) : ''}${contentDiffers(difference) ? '<p class="merge-binary-change">Le contenu du fichier diffère entre les copies.</p>' : ''}${button}</div>`;
 }
 
-function differenceChoice(difference, choices, options) {
-  const { localLabel, incomingLabel, prefix } = options;
-  const current = choices[difference.id] ?? (difference.conflict ? '' : difference.localPresent ? 'local' : 'incoming');
-  const identifier = `${prefix}-${difference.id}`;
-  const context = Array.isArray(difference.context) ? difference.context.join(' · ') : difference.context || 'Garage';
-  const accessibleLabel = `${context} — ${difference.label} : ${difference.conflict ? 'valeur à conserver' : 'conserver ou exclure de la fusion'}`;
-  const selected = (side) => current === side ? ' selected' : '';
-  const choicesMarkup = difference.conflict
-    ? `<option value=""${selected('')}>Choisir la valeur à conserver</option><option value="local"${selected('local')}>${esc(localLabel)}</option><option value="incoming"${selected('incoming')}>${esc(incomingLabel)}</option>`
-    : `<option value="${difference.localPresent ? 'local' : 'incoming'}"${selected(difference.localPresent ? 'local' : 'incoming')}>Conserver dans la fusion</option><option value="${difference.localPresent ? 'incoming' : 'local'}"${selected(difference.localPresent ? 'incoming' : 'local')}>Exclure de la fusion</option>`;
-  return `<label class="merge-choice" for="${esc(identifier)}"><span>${difference.conflict ? 'Valeur à conserver' : 'Dans le garage fusionné'}</span><select id="${esc(identifier)}" aria-label="${esc(accessibleLabel)}" data-merge-choice="${esc(difference.id)}"${difference.conflict && !current ? ' aria-invalid="true"' : ''}>${choicesMarkup}</select></label>`;
+const shortName = (value) => String(value).replace(/^(?:Véhicule|Fiche|Composant|Contrat d['’]assurance|Ligne|Document) « ([\s\S]*) »$/, '$1');
+
+/** Short visible names, while vehicle and entity IDs keep unrelated records apart. */
+function description(difference) {
+  const context = (Array.isArray(difference.context) ? difference.context : [difference.context || 'Garage']).filter((item) => item !== 'Garage');
+  const path = difference.path ?? [];
+  const inVehicle = path[0] === 'vehicles';
+  const vehicle = inVehicle ? shortName(context[0] || 'Véhicule') : 'Garage';
+  const parts = inVehicle ? context.slice(1) : context;
+  const entity = shortName(parts[0] || (inVehicle ? 'Informations du véhicule' : 'Informations du garage'));
+  const field = [...parts.slice(1).map(shortName), shortName(difference.label)].join(' · ');
+  return { vehicle, entity, field, vehicleKey: inVehicle ? path[1] : 'garage',
+    entityKey: JSON.stringify(inVehicle && ['records', 'components', 'insurances'].includes(path[2]) ? path.slice(0, 4) : [path[0], path[1], ...parts]),
+    full: [vehicle, entity, field].join(' — '),
+  };
 }
 
 function resolution(comparison, choices) {
@@ -192,34 +198,54 @@ function resolution(comparison, choices) {
 
 function resolutionText(comparison, choices) {
   const { unresolvedCount, total } = resolution(comparison, choices);
-  return total ? `${countLabel(total - unresolvedCount, 'choix confirmé')} sur ${total}.${unresolvedCount ? ` Encore ${countLabel(unresolvedCount, 'choix à faire', 'choix à faire')}.` : ' Tous les conflits sont résolus.'}` : 'Aucun conflit à résoudre. Les ajouts des deux copies sont conservés par défaut.';
+  return unresolvedCount ? `${unresolvedCount} choix à faire` : total ? 'Tous les choix sont faits' : 'Prêt à appliquer';
+}
+
+function additionSummary(comparison, choices) {
+  const additions = comparison.differences.filter((item) => !item.conflict);
+  const excluded = additions.filter((item) => choices[item.id] === (item.localPresent ? 'incoming' : 'local')).length;
+  return excluded ? `${countLabel(additions.length - excluded, 'élément conservé', 'éléments conservés')} · ${countLabel(excluded, 'élément exclu', 'éléments exclus')}`
+    : `${countLabel(additions.length, 'élément ajouté', 'éléments ajoutés')} · ${additions.length === 1 ? 'conservé' : 'conservés'} automatiquement`;
+}
+
+function additionMarkup(difference, choices, options) {
+  const side = difference.localPresent ? 'local' : 'incoming', opposite = side === 'local' ? 'incoming' : 'local';
+  const selected = choices[difference.id] ?? side;
+  const source = side === 'local' ? options.localLabel : options.incomingLabel;
+  const context = description(difference);
+  const title = shortName(difference.label);
+  const identifier = `${options.prefix}-${difference.id}`;
+  const ancestors = (Array.isArray(difference.context) ? difference.context : [difference.context]).filter((value) => value && value !== 'Garage').map(shortName);
+  const origin = [...ancestors, source].join(' · ');
+  return `<article class="merge-addition" data-merge-difference="${esc(difference.id)}"><div class="merge-addition-heading"><div><h4>${esc(title)}</h4><p>${esc(origin)}</p></div><select id="${esc(identifier)}" class="merge-keep" aria-label="${esc(`${context.full} : conserver ou exclure`)}" data-merge-choice="${esc(difference.id)}"><option value="${side}"${selected === side ? ' selected' : ''}>Conserver</option><option value="${opposite}"${selected === opposite ? ' selected' : ''}>Exclure</option></select></div><details class="merge-addition-details"><summary>Voir le contenu</summary>${sideValue(difference, side, source, null)}</details>${difference.consequence ? `<p class="merge-consequence">${esc(difference.consequence)}</p>` : ''}</article>`;
 }
 
 /** Pure markup builder, also used to verify escaping and document privacy. */
 export function mergeComparisonMarkup(comparison, choices = {}, { localLabel = 'Cet appareil', incomingLabel = 'Sauvegarde', prefix = 'merge' } = {}) {
   if (!comparison) return '';
-  if (!comparison.differences.length) return '<div class="merge-empty"><strong>Aucune différence de contenu.</strong><p>Les deux copies contiennent les mêmes données. Le véhicule sélectionné et l’ordre des fiches ne nécessitent pas de fusion.</p></div>';
+  if (!comparison.differences.length) return '<div class="merge-empty"><strong>Les deux copies sont identiques.</strong><p>Il n’y a rien à ajouter ni à modifier.</p></div>';
   const options = { localLabel, incomingLabel, prefix };
-  const groups = new Map();
-  for (const difference of comparison.differences) {
-    const context = Array.isArray(difference.context) ? difference.context.join(' · ') : difference.context || 'Garage';
-    if (!groups.has(context)) groups.set(context, []);
-    groups.get(context).push(difference);
+  const conflicts = comparison.differences.filter((item) => item.conflict);
+  const additions = comparison.differences.filter((item) => !item.conflict);
+  const vehicles = new Map();
+  for (const difference of conflicts) {
+    const context = description(difference);
+    if (!vehicles.has(context.vehicleKey)) vehicles.set(context.vehicleKey, { label: context.vehicle, entities: new Map() });
+    const { entities } = vehicles.get(context.vehicleKey);
+    if (!entities.has(context.entityKey)) entities.set(context.entityKey, { label: context.entity, items: [] });
+    entities.get(context.entityKey).items.push({ difference, context });
   }
-  const conflictCount = comparison.differences.filter((item) => item.conflict).length;
-  const toolbar = `<div class="merge-overview"><p><strong>${countLabel(comparison.differences.length, 'différence')}</strong> · ${countLabel(conflictCount, 'conflit')}</p><p class="merge-explanation">Seules les différences sont affichées. Un élément absent d’une copie est conservé par défaut : cette absence ne prouve pas une suppression.</p>${conflictCount ? `<div class="merge-bulk"><span>Pour tous les conflits :</span><button type="button" class="ghost-button" data-merge-all="local">Utiliser ${esc(localLabel)}</button><button type="button" class="ghost-button" data-merge-all="incoming">Utiliser ${esc(incomingLabel)}</button></div>` : ''}<p class="merge-resolution-status" role="status" aria-live="polite">${esc(resolutionText(comparison, choices))}</p></div>`;
-  const body = [...groups].map(([context, differences]) => {
-    const open = groups.size <= 4 || differences.some((item) => item.conflict);
-    const items = differences.map((difference) => {
+  const toolbar = `<div class="merge-overview"><p class="merge-resolution-status" role="status" aria-live="polite">${esc(resolutionText(comparison, choices))}</p><p class="merge-explanation">${conflicts.length ? 'Choisissez la valeur à garder pour chaque différence.' : 'Les éléments présents dans une seule copie seront ajoutés au garage.'}</p>${conflicts.length > 1 ? `<details class="merge-bulk"><summary>Choisir la même copie partout</summary><div class="merge-bulk-actions"><button type="button" class="ghost-button" data-merge-all="local">Tout garder de ${esc(localLabel)}</button><button type="button" class="ghost-button" data-merge-all="incoming">Tout prendre de ${esc(incomingLabel)}</button></div></details>` : ''}</div>`;
+  const body = [...vehicles.values()].map((vehicle) => `<section class="merge-vehicle"><h3>${esc(vehicle.label)}</h3>${[...vehicle.entities.values()].map((entity) => `<section class="merge-group"><h4>${esc(entity.label)}</h4><div class="merge-group-body">${entity.items.map(({ difference, context }) => {
       const atomic = atomicChanges({ ...difference,
         local: Object.hasOwn(difference, 'displayLocal') ? difference.displayLocal : difference.local,
         incoming: Object.hasOwn(difference, 'displayIncoming') ? difference.displayIncoming : difference.incoming,
       });
-      return `<article class="merge-difference" data-merge-difference="${esc(difference.id)}"><div class="merge-field-heading"><h4>${esc(difference.label)}</h4><span class="merge-kind">${difference.conflict ? 'Valeurs différentes' : difference.localPresent ? `Présent uniquement dans ${esc(localLabel)}` : `Présent uniquement dans ${esc(incomingLabel)}`}</span></div><div class="merge-values">${sideValue(difference, 'local', localLabel, atomic)}${sideValue(difference, 'incoming', incomingLabel, atomic)}</div>${differenceChoice(difference, choices, options)}${difference.consequence ? `<p class="merge-consequence">${esc(difference.consequence)}</p>` : ''}</article>`;
-    }).join('');
-    return `<details class="merge-group"${open ? ' open' : ''}><summary><span>${esc(context)}</span><span class="merge-group-count">${countLabel(differences.length, 'différence')}</span></summary><div class="merge-group-body">${items}</div></details>`;
-  }).join('');
-  return `<div class="backup-merge">${toolbar}<div class="merge-groups">${body}</div></div>`;
+      const choice = { selected: choices[difference.id], description: context.full };
+      return `<article class="merge-difference" data-merge-difference="${esc(difference.id)}"><h5>${esc(context.field)}</h5><div class="merge-values">${sideValue(difference, 'local', localLabel, atomic, choice)}${sideValue(difference, 'incoming', incomingLabel, atomic, choice)}</div>${difference.consequence ? `<p class="merge-consequence">${esc(difference.consequence)}</p>` : ''}</article>`;
+    }).join('')}</div></section>`).join('')}</section>`).join('');
+  const extra = additions.length ? `<details class="merge-additions"><summary class="merge-additions-summary">${esc(additionSummary(comparison, choices))}</summary><p class="merge-explanation">Un élément absent d’une copie n’est pas supprimé. Vous pouvez l’exclure ci-dessous.</p><div>${additions.map((difference) => additionMarkup(difference, choices, options)).join('')}</div></details>` : '';
+  return `<div class="backup-merge">${toolbar}<div class="merge-groups">${body}</div>${extra}</div>`;
 }
 
 export class MergeComparisonView {
@@ -232,10 +258,10 @@ export class MergeComparisonView {
       const select = event.target.closest('[data-merge-choice]');
       if (!select || !container.contains(select)) return;
       this.choose(select.dataset.mergeChoice, select.value, false);
-      if (select.value) select.removeAttribute('aria-invalid');
-      else select.setAttribute('aria-invalid', 'true');
     });
     container.addEventListener('click', (event) => {
+      const choice = event.target.closest('button[data-merge-choice]');
+      if (choice && container.contains(choice)) { this.choose(choice.dataset.mergeChoice, choice.dataset.mergeSide, false); return; }
       const button = event.target.closest('[data-merge-all]');
       if (button && container.contains(button)) this.chooseAll(button.dataset.mergeAll);
     });
@@ -252,24 +278,40 @@ export class MergeComparisonView {
     this.render(); this.notify();
   }
 
-  choose(id, side, redraw = true) {
+  choose(id, side, redraw = false) {
     if (!this.comparison?.differences.some((item) => item.id === id)) return;
     if (SIDES.has(side)) this.selections[id] = side;
     else if (side === '') delete this.selections[id];
     else return;
     if (redraw) this.render();
-    else {
-      const status = this.container.querySelector('.merge-resolution-status');
-      if (status) status.textContent = resolutionText(this.comparison, this.selections);
-    }
+    else this.updateChoices();
     this.notify();
   }
 
   chooseAll(side) {
     if (!SIDES.has(side) || !this.comparison) return;
     for (const difference of this.comparison.differences) if (difference.conflict) this.selections[difference.id] = side;
-    this.render(); this.notify();
-    this.container.querySelector(`[data-merge-all="${side}"]`)?.focus?.();
+    this.updateChoices(); this.notify();
+  }
+
+  /** Preserve focus, scroll position and open details while updating selection state. */
+  updateChoices() {
+    for (const control of this.container.querySelectorAll('[data-merge-choice]')) {
+      const difference = this.comparison?.differences.find((item) => item.id === control.dataset.mergeChoice);
+      if (!difference) continue;
+      const selected = this.selections[difference.id] ?? (difference.conflict ? '' : difference.localPresent ? 'local' : 'incoming');
+      if (control.dataset.mergeSide) {
+        const active = selected === control.dataset.mergeSide;
+        control.setAttribute('aria-pressed', String(active));
+        control.textContent = active ? 'Valeur choisie' : 'Garder cette valeur';
+        const card = control.closest('[data-merge-option]');
+        if (card) card.dataset.selected = String(active);
+      } else control.value = selected;
+    }
+    const status = this.container.querySelector('.merge-resolution-status');
+    if (status) status.textContent = resolutionText(this.comparison, this.selections);
+    const additions = this.container.querySelector('.merge-additions-summary');
+    if (additions) additions.textContent = additionSummary(this.comparison, this.selections);
   }
 
   render() { this.container.innerHTML = mergeComparisonMarkup(this.comparison, this.selections, this); }

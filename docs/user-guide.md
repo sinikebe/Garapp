@@ -177,25 +177,31 @@ depuis celle-ci.
 
 ## Sauvegarder et importer
 
-**Outils → Gérer les sauvegardes** regroupe les exports, imports et fichiers liés.
-Le pied de page distingue l'enregistrement sur l'appareil et la copie externe.
-Un export reçoit un nom unique horodaté en UTC. Le navigateur ne confirme pas sa
-conservation sur disque : vérifier le fichier téléchargé.
+**Outils → Sauvegardes** réunit les copies dans un fichier et la synchronisation
+Google Drive. Le garage s'enregistre sur cet appareil ; une sauvegarde permet de le
+retrouver ailleurs ou après la perte du stockage du navigateur.
+
+- **Télécharger une sauvegarde** crée un fichier JSON complet, documents inclus.
+  Son nom est unique et daté. Vérifier sa présence dans les fichiers téléchargés.
+- **Importer une sauvegarde** ouvre un fichier et compare son contenu au garage
+  actuel avant toute modification.
+- Les fichiers liés sont dans **Options avancées**.
 
 À l'ouverture d'un fichier, Garapp valide son contenu puis affiche uniquement les
 **différences** avec le garage ouvert, regroupées par véhicule, fiche ou composant.
 Les champs identiques sont masqués. Une sauvegarde version 1 est migrée ; une version
 future inconnue est refusée.
 
-**Fusionner les sauvegardes** permet de réunir les deux copies :
+La comparaison présente les choix à faire en premier :
 
-1. Les éléments présents dans une seule copie sont conservés par défaut.
-2. Pour chaque champ commun dont les valeurs diffèrent, choisir la valeur de cet
-   appareil ou celle du fichier. Les commandes de choix groupé concernent seulement
-   ces conflits ; elles ne remplacent pas tout le garage.
-3. Vérifier les choix puis lancer la fusion. Garapp valide le résultat et ses liens,
-   conserve les deux sources dans les copies de récupération, puis enregistre le
-   garage fusionné. Un échec laisse le garage ouvert inchangé.
+1. Pour chaque valeur différente, sélectionner **Cet appareil** ou **Sauvegarde**.
+   Le choix est mis en évidence. Rien n'est sélectionné à l'avance pour ces conflits.
+2. Les éléments présents dans une seule copie sont conservés automatiquement.
+   Déplier leur liste pour les consulter ou en exclure un. Les commandes de choix
+   groupé sont facultatives et ne changent pas ces ajouts.
+3. Cliquer sur **Appliquer les choix**. Garapp vérifie le résultat, conserve les deux
+   sources dans les copies de récupération, puis enregistre le garage fusionné.
+   Un échec laisse le garage ouvert inchangé.
 
 Les éléments sont rapprochés par leurs identifiants, jamais par leur nom. Deux fiches
 homonymes avec des identifiants différents restent distinctes. Sans historique commun
@@ -211,25 +217,28 @@ active ou à la corbeille. Choisir explicitement **Prévu** pour une échéance 
 la maintient prévisionnelle en désactivant sa validation automatique. Un choix qui
 réactive explicitement cette validation doit être corrigé avant de fusionner.
 
-**Importer et remplacer** reste disponible pour reprendre un garage complet. Le
-téléchargement d'une copie du garage ouvert est demandé, puis une copie de récupération
-locale est enregistrée. Le garage affiché ne change qu'après la réussite de cette
-copie et de l'enregistrement du garage importé. Si le garage ou un fichier lié change
-pendant la comparaison, rouvrir le fichier pour examiner les différences à jour.
+Dans **Autres options**, **Remplacer tout le garage** permet de reprendre un garage
+complet. Le téléchargement d'une copie du garage ouvert est demandé, puis une copie
+de récupération locale est enregistrée. Le garage affiché ne change qu'après la
+réussite de cette copie et de l'enregistrement du garage importé. Si le garage ou un
+fichier lié change pendant la comparaison, rouvrir le fichier pour examiner les
+différences à jour.
 
-Les **Copies de récupération** permettent de télécharger les états conservés avant
-un import, les deux sources d'une fusion ou l'état précédant la première écriture
-d'un modèle migré. Pour revenir à l'un d'eux,
-exporter la copie, puis l'ouvrir avec l'import habituel et sa comparaison. Ces archives
-sont conservées sur cet appareil, sans suppression automatique, et restent séparées
-du garage actif. Elles ne sont pas incluses dans un export courant du garage et ne
-protègent pas contre l'effacement du stockage navigateur.
+**Récupérer une ancienne copie** ouvre les **Copies de récupération** : les états
+précédant un import, les deux sources d'une fusion ou l'état précédant la première
+écriture d'un modèle migré.
+**Ouvrir cette copie** lance la comparaison habituelle avant de choisir les données
+à reprendre. Le téléchargement reste disponible pour conserver une copie à part.
+Ces archives sont conservées sur cet appareil, sans suppression automatique, et
+restent séparées du garage actif. Elles ne sont pas incluses dans un export courant
+du garage et ne protègent pas contre l'effacement du stockage navigateur.
 
 Si les données enregistrées ne peuvent pas être ouvertes, **Exporter les données
 conservées** permet de récupérer leur JSON tel qu'il est stocké, sans migration ni
 réécriture. Conserver ce fichier avant toute tentative de réparation.
 
-Les navigateurs compatibles permettent de créer ou d'ouvrir un fichier JSON lié.
+Dans **Options avancées**, les navigateurs compatibles permettent de créer ou
+d'ouvrir un fichier JSON lié.
 Un fichier déjà rempli doit être comparé avant import. Sa liaison reste locale au
 navigateur, hors du JSON portable. Avant mise à jour, Garapp vérifie son empreinte,
 puis relit le résultat après écriture. Un changement externe détecté bloque l'écrasement.
@@ -250,15 +259,21 @@ Une erreur d'enregistrement est affichée et la copie ouverte reste exportable.
 
 ## Google Drive
 
-La connexion facultative propose un dossier privé propre à cette version de Garapp.
+Dans **Sauvegardes**, la connexion facultative à **Google Drive** permet de retrouver
+le garage sur plusieurs appareils. Choisir un dossier existant ou créer une première
+sauvegarde, puis utiliser **Synchroniser maintenant**. **Historique des sauvegardes**
+donne accès aux anciennes versions ; **Changer de sauvegarde Drive** permet de
+choisir un autre dossier.
+
+La connexion utilise un dossier privé propre à cette version de Garapp.
 Chaque révision est un JSON complet avec ses documents ; les précédentes ne sont
 ni modifiées ni supprimées automatiquement. **Comparer** présente seulement les
 différences entre le garage ouvert et la version choisie. La fusion utilise les mêmes
 choix par champ que l'import JSON et crée une nouvelle révision Drive. Elle réunit
 uniquement les deux copies affichées ; les autres branches concurrentes restent à
 comparer séparément. Les deux sources et les anciennes versions restent conservées.
-Il est aussi possible de choisir un garage complet. Une nouvelle modification pendant
-la comparaison impose de la reprendre.
+**Autres options** permet de choisir un garage complet. Une nouvelle modification
+pendant la comparaison impose de la reprendre.
 
 L'automatisme contrôle les versions tant que la page est visible, au retour du réseau
 et après une modification enregistrée. Les jetons restent en mémoire et une reconnexion

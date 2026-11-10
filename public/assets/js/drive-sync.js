@@ -62,7 +62,7 @@ export class DriveSync {
   pauseForImport() {
     this.pauseGeneration++;
     this.state.auto = false; this.preview = null;
-    this.notice = 'Synchronisation Drive en pause après ouverture d’un fichier. Comparer les versions avant de la réactiver.';
+    if (this.state.binding) this.notice = 'Synchronisation Drive en pause après ouverture d’un fichier. Comparer les versions avant de la réactiver.';
     void this.persist(); this.onChange();
   }
 

@@ -20,14 +20,14 @@ connecteur Google Drive employé par un outil de développement.
    entrée. Le flux popup par jeton n’utilise pas de redirection serveur.
 5. Copier uniquement l’identifiant public se terminant par
    `.apps.googleusercontent.com`. En dev, le panneau **Sauvegardes → Configuration
-   Google pour les essais en développement** permet de le mémoriser sur cet
+   de développement** permet de le mémoriser sur cet
    appareil. Ce réglage local est un dépannage pour les essais sans client
    d’application commun. Pour la connexion normale, configurer une seule fois
    le client de Garapp en renseignant l’entrée `dev` ou `main` de
    `public/assets/js/drive-config.js`, puis régénérer le bundle hors connexion avec
    `npm run build:pwa`. Un identifiant client n’est pas un secret ; un secret client,
    un jeton, un mot de passe ou un compte de service n’a aucune place dans ce dépôt.
-6. Ouvrir les sauvegardes dans Garapp. La connexion se prépare automatiquement,
+6. Ouvrir **Outils → Sauvegardes** dans Garapp. La connexion se prépare automatiquement,
    puis un seul bouton **Se connecter à Google Drive** ouvre la fenêtre Google
    depuis un geste explicite. Google peut demander le choix du compte, une
    authentification et le consentement. Aucun jeton n’est demandé en arrière-plan.
@@ -70,28 +70,36 @@ jetons, une requête copiée en cURL ou un export réseau complet.
 
 ## Utilisation sur deux appareils
 
-Sur le premier appareil, connecter Google puis **Créer un nouveau dossier de
-sauvegarde → Créer le dossier et sauvegarder ce garage**. L’envoi inclut tout le
-garage et ses documents, jusqu’aux limites du format portable. L’automatisme est
-initialement en pause et peut ensuite être activé pour ce dossier.
+Sur le premier appareil, ouvrir **Outils → Sauvegardes**, connecter Google et créer
+une première copie avec **Créer ma sauvegarde Drive**. L’envoi inclut tout le garage
+et ses documents, jusqu’aux limites du format portable. L’automatisme est initialement en pause et
+peut ensuite être activé pour ce dossier.
 
 Sur le second appareil, ouvrir la même version publiée de Garapp, connecter le
 même compte Google et sélectionner le dossier existant. Une première liaison ne
 remplace rien : comparer une version pour examiner uniquement ses différences avec
-le garage ouvert. Choisir **Fusionner les sauvegardes** pour réunir les deux copies,
-ou **Sauvegarder puis utiliser la version Drive** pour reprendre le garage distant
-complet. La copie locale initiale est archivée sur Drive avant tout remplacement.
+le garage ouvert. Sélectionner les valeurs à garder puis **Appliquer les choix**
+pour réunir les deux copies. **Autres options** permet de reprendre un garage
+complet ou de télécharger les sources. La copie locale initiale est archivée sur
+Drive avant tout remplacement.
 Activer ensuite la synchronisation automatique si nécessaire. Si les deux garages
 sont déjà identiques, une synchronisation les reconnaît après vérification.
 
-La fusion rapproche les éléments par identifiant et conserve par défaut les ajouts
-présents dans une seule copie. Pour chaque champ commun différent, choisir la valeur
-de cet appareil ou celle de Drive. Les choix groupés s'appliquent uniquement aux
-conflits. Les champs identiques ne sont pas affichés. Les documents conservent leurs
-octets d'origine et sont choisis comme un ensemble cohérent ; les champs complémentaires
-et les montants exacts sont conservés selon les choix effectués. Comme à l'import JSON,
-exclure explicitement une échéance d'assurance empêche sa recréation si aucune autre
-fiche ne couvre le même contrat et le même mois. Choisir **Prévu** pour une échéance
+Une fois le dossier choisi, **Synchroniser maintenant** lance une vérification.
+Les versions qui demandent une comparaison sont mises en avant ; les anciennes
+copies restent accessibles dans **Historique des sauvegardes**. **Changer de
+sauvegarde Drive** permet de choisir un autre dossier.
+
+La fusion rapproche les éléments par identifiant. La comparaison présente d'abord
+les valeurs différentes à choisir : **Cet appareil** ou **Google Drive**. Les ajouts
+présents dans une seule copie sont conservés et regroupés dans une liste repliée,
+à ouvrir pour les consulter ou en exclure un. Les choix groupés facultatifs ne
+s'appliquent qu'aux conflits. Les champs identiques ne sont pas affichés.
+Les documents conservent leurs octets d'origine et sont choisis comme un ensemble
+cohérent ; les champs complémentaires et les montants exacts sont conservés selon
+les choix effectués. Comme à l'import JSON, exclure explicitement une échéance
+d'assurance empêche sa recréation si aucune autre fiche ne couvre le même contrat
+et le même mois. Choisir **Prévu** pour une échéance
 générée désactive sa validation automatique ; des choix contradictoires bloquent la fusion.
 
 Une absence n'est pas interprétée comme une suppression et un nom identique ne suffit

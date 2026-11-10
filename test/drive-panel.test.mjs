@@ -11,9 +11,11 @@ const clientId = '1234567890-synthetic-client.apps.googleusercontent.com';
 const oldClientId = '1234567890-synthetic-previous-client.apps.googleusercontent.com';
 
 class Element extends EventTarget {
-  constructor() { super(); this.hidden = false; this.disabled = false; this.textContent = ''; this.value = ''; this.dataset = {}; }
-  replaceChildren() {}
-  querySelectorAll() { return []; }
+  constructor(tag = 'div') { super(); this.tag = tag; this.children = []; this.hidden = false; this.disabled = false; this.textContent = ''; this.value = ''; this.dataset = {}; this.attributes = {}; }
+  replaceChildren(...children) { this.children = children; }
+  append(...children) { this.children.push(...children); }
+  setAttribute(name, value) { this.attributes[name] = value; }
+  querySelectorAll(selector) { return this.children.flatMap((child) => [...(selector.split(',').map((value) => value.trim()).includes(child.tag) ? [child] : []), ...child.querySelectorAll(selector)]); }
 }
 
 async function frontend({ appClientId = clientId, localClientId = '', loader } = {}) {
@@ -25,6 +27,7 @@ async function frontend({ appClientId = clientId, localClientId = '', loader } =
   };
   const window = new EventTarget(), document = new EventTarget();
   document.getElementById = get;
+  document.createElement = (tag) => new Element(tag);
   class Engine {
     constructor() { this.state = { auto: false }; this.graph = { nodes: [], heads: [] }; this.api = null; this.busy = false; this.status = ''; }
     async restore() {}
@@ -91,4 +94,79 @@ test('a failed SDK load can be retried without ever opening an unsolicited login
   failed = false; await app.panel.prepare();
   assert.equal(app.calls.loads, 2); assert.equal(app.calls.popups, 0);
   app.click('drive-connect'); assert.equal(app.calls.popups, 1);
+});
+
+const savedVersion = (index, hash = 'same-content') => ({
+  id: `file-${index}`, revision: `revision-${index}`, wire: `wire-${index}`, hash,
+  at: new Date(Date.UTC(2026, 0, index + 1)).toISOString(), counts: [1, 2, 3, 0, 4], size: 1024,
+});
+
+async function connectedFrontend() {
+  const app = await frontend();
+  await app.panel.prepare(); app.click('drive-connect');
+  app.calls.options.callback({ access_token: 'synthetic-memory-token', scope: DRIVE_SCOPE, expires_in: 3600 });
+  return app;
+}
+
+test('Drive setup is explicit and collapses after a binding without hiding a later manual opening', async () => {
+  const app = await connectedFrontend();
+  assert.equal(app.get('drive-folder-settings').open, true);
+  assert.equal(app.get('drive-existing-folders').hidden, true);
+  assert.equal(app.get('drive-binding').hidden, true);
+  app.panel.folders = [{ id: 'folder', name: 'Garage fictif' }];
+  app.panel.engine.state.binding = { id: 'folder', name: 'Garage fictif' };
+  app.panel.render();
+  assert.equal(app.get('drive-existing-folders').hidden, false);
+  assert.equal(app.get('drive-binding').hidden, false);
+  assert.equal(app.get('drive-folder-settings').open, false);
+  app.get('drive-folder-settings').open = true;
+  app.panel.render();
+  assert.equal(app.get('drive-folder-settings').open, true);
+  assert.match(app.get('drive-folder-settings-label').textContent, /Changer/);
+});
+
+test('a first Drive binding exposes a comparison outside the collapsed history', async () => {
+  const app = await connectedFrontend(), version = savedVersion(0);
+  app.panel.engine.state.binding = { id: 'folder', name: 'Garage fictif' };
+  app.panel.engine.graph = { nodes: [version], heads: [version] };
+  app.panel.render();
+  assert.equal(app.get('drive-review').hidden, false);
+  assert.equal(app.get('drive-review-versions').children.length, 1);
+  assert.notEqual(app.get('drive-history').open, true);
+  let selected;
+  app.panel.compare = async (revision) => { selected = revision; };
+  app.get('drive-review-versions').querySelectorAll('button')[0].dispatchEvent(new Event('click'));
+  assert.equal(selected, version.revision);
+  app.panel.engine.state.baseline = { hash: version.hash };
+  app.panel.render();
+  assert.equal(app.get('drive-review').hidden, true);
+  assert.equal(app.get('drive-versions').children.length, 1);
+  const newer = savedVersion(1, 'new-content');
+  app.panel.engine.graph = { nodes: [version, newer], heads: [newer] };
+  app.panel.render();
+  assert.equal(app.get('drive-review').hidden, false);
+  assert.equal(app.get('drive-review-versions').children.length, 1);
+  app.get('drive-review-versions').querySelectorAll('button')[0].dispatchEvent(new Event('click'));
+  assert.equal(selected, newer.revision);
+});
+
+test('older concurrent Drive heads stay actionable and busy states lock both comparison lists', async () => {
+  const app = await connectedFrontend();
+  const nodes = Array.from({ length: 25 }, (_, index) => savedVersion(index, `hash-${index}`));
+  app.panel.engine.state.binding = { id: 'folder', name: 'Garage fictif' };
+  app.panel.engine.state.baseline = { hash: nodes.at(-1).hash };
+  app.panel.engine.graph = { nodes, heads: [nodes[0], nodes.at(-1)] };
+  app.panel.render();
+  assert.equal(app.get('drive-review').hidden, false);
+  assert.equal(app.get('drive-review-versions').children.length, 2);
+  assert.equal(app.get('drive-versions').children.length, 21);
+  assert.equal(app.get('drive-versions').children.some((row) => row.children[0].textContent.includes('revision-')), false);
+  app.panel.engine.busy = true; app.panel.render();
+  for (const id of ['drive-review-versions', 'drive-versions']) assert.ok(app.get(id).querySelectorAll('button').every((button) => button.disabled));
+  app.panel.engine.error = 'Erreur de transfert fictive'; app.panel.render();
+  assert.equal(app.get('drive-status').textContent, 'Erreur de transfert fictive');
+  app.panel.auth.clearToken(); app.panel.render();
+  assert.equal(app.get('drive-review').hidden, true);
+  assert.equal(app.get('drive-review-versions').children.length, 0);
+  assert.equal(app.get('drive-versions').children.length, 0);
 });
