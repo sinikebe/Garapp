@@ -23,8 +23,8 @@ export class RecoveryPanel {
         : 'Aucune copie de récupération pour le moment. Une copie est conservée avant chaque import ou migration des données.';
       this.list.innerHTML = points.map((point) => {
         const date = new Date(point.createdAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
-        const reason = point.reason === 'migration' ? 'une migration des données' : 'un import';
-        return `<article class="recovery-card"><div><h3>Copie du ${escapeHtml(date)}</h3><p class="hint">Garage et documents conservés avant ${reason}.</p></div><button type="button" class="ghost-button" data-recovery-export="${escapeHtml(point.id)}">Exporter cette copie</button></article>`;
+        const description = point.reason === 'merge-source' ? 'Sauvegarde source conservée lors d’une fusion.' : `Garage et documents conservés avant ${point.reason === 'migration' ? 'une migration des données' : point.reason === 'merge' ? 'une fusion' : 'un import'}.`;
+        return `<article class="recovery-card"><div><h3>Copie du ${escapeHtml(date)}</h3><p class="hint" data-help-keep>${escapeHtml(description)}</p></div><button type="button" class="ghost-button" data-recovery-export="${escapeHtml(point.id)}">Exporter cette copie</button></article>`;
       }).join('');
     } catch (error) {
       this.message.textContent = `Lecture impossible : ${error.message}`;

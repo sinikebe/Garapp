@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="./assets/css/help-tips.css">
   <link rel="stylesheet" href="./assets/css/insurance.css">
   <link rel="stylesheet" href="./assets/css/app-switcher.css">
+  <link rel="stylesheet" href="./assets/css/backup-merge.css">
   <script type="module" src="./assets/js/app.js"></script>
   <script type="module" src="./assets/js/app-switcher.js"></script>
   <script type="module" src="./assets/js/pwa.js"></script>
@@ -292,8 +293,26 @@
     </section>
     <p class="hint backup-guidance">Avec les fichiers seuls, transférer le dernier JSON puis l’importer sur l’autre appareil. Ces copies ne sont pas fusionnées automatiquement.</p>
   </dialog>
-  <dialog id="drive-preview-dialog" aria-labelledby="drive-preview-title"><div class="dialog-heading"><h2 id="drive-preview-title">Comparer avec Drive</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><p id="drive-preview-description" class="hint"></p><div class="import-comparison"><table><caption>Contenu des deux versions</caption><thead><tr><th scope="col">Éléments</th><th scope="col">Cet appareil</th><th scope="col">Version Drive</th></tr></thead><tbody id="drive-preview-counts"></tbody></table></div><p id="drive-preview-vehicles" class="hint backup-detail"></p><div class="backup-actions"><button id="drive-export-local" type="button" class="ghost-button">Télécharger le garage ouvert</button><button id="drive-export-remote" type="button" class="ghost-button">Télécharger la version Drive</button></div><p class="hint backup-guidance">Le choix porte sur le garage complet. Avant de le remplacer, Garapp sauvegarde sa copie actuelle sur Drive puis crée une nouvelle version avec le contenu choisi. Tous les états précédents sont conservés. Une modification arrivée pendant le choix reste une version séparée ; aucune fusion de champs n’est effectuée.</p><p id="drive-preview-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="drive-keep-local" type="button" class="ghost-button">Utiliser le garage de cet appareil</button><button id="drive-use-remote" type="button" class="primary-button">Sauvegarder puis utiliser la version Drive</button></div></dialog>
-  <dialog id="import-dialog" aria-labelledby="import-title"><div class="dialog-heading"><h2 id="import-title">Importer un garage</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><p id="import-description" class="backup-detail"></p><div class="import-comparison"><table><caption>Contenu avant remplacement</caption><thead><tr><th scope="col">Éléments</th><th scope="col">Garage actuel</th><th scope="col">Fichier</th></tr></thead><tbody id="import-counts"></tbody></table></div><p id="import-vehicles" class="hint backup-detail"></p><p id="import-link-note" class="hint"></p><p class="hint" data-help-summary="L’import remplace le garage complet.">Le fichier remplacera tout le garage ouvert ; aucune fusion n’est effectuée. Une copie du garage actuel sera proposée au téléchargement avant le remplacement. Les préférences d’apparence seront conservées.</p><p id="import-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-confirm" class="primary-button" type="button">Importer et remplacer</button></div></dialog>
+  <dialog id="drive-preview-dialog" class="backup-comparison-dialog" aria-labelledby="drive-preview-title">
+    <div class="dialog-heading"><h2 id="drive-preview-title">Comparer et fusionner avec Drive</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p id="drive-preview-description" class="backup-detail"></p>
+    <div id="drive-differences"></div>
+    <div class="backup-actions"><button id="drive-export-local" type="button" class="ghost-button">Télécharger le garage ouvert</button><button id="drive-export-remote" type="button" class="ghost-button">Télécharger la version Drive</button></div>
+    <p class="hint backup-guidance" data-help-keep>La fusion crée une nouvelle version. Les deux sources et l’historique restent conservés sur Drive. Si une version change pendant la comparaison, il faut la comparer à nouveau.</p>
+    <details class="supplemental"><summary>Utiliser une version complète</summary><p class="hint" data-help-keep>Ces choix utilisent tout le garage d’un côté, sans appliquer les choix de fusion ci-dessus.</p><div class="backup-actions"><button id="drive-keep-local" type="button" class="ghost-button">Utiliser le garage de cet appareil</button><button id="drive-use-remote" type="button" class="ghost-button">Sauvegarder puis utiliser la version Drive</button></div></details>
+    <p id="drive-preview-error" class="form-error" role="alert" hidden></p>
+    <div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="drive-merge" type="button" class="primary-button" disabled>Fusionner les sauvegardes</button></div>
+  </dialog>
+  <dialog id="import-dialog" class="backup-comparison-dialog" aria-labelledby="import-title">
+    <div class="dialog-heading"><h2 id="import-title">Comparer et fusionner une sauvegarde</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p id="import-description" class="backup-detail"></p>
+    <div id="import-differences"></div>
+    <p id="import-link-note" class="hint" data-help-keep></p>
+    <p class="hint backup-guidance" data-help-keep>Avant la fusion, les deux sauvegardes sont conservées dans les copies de récupération. Le fichier source n’est pas modifié.</p>
+    <details class="supplemental"><summary>Remplacer tout le garage</summary><p class="hint" data-help-keep>Remplace le garage complet par le fichier, sans appliquer les choix de fusion. Une copie du garage actuel est conservée avant remplacement.</p><button id="import-confirm" class="ghost-button" type="button">Importer et remplacer</button></details>
+    <p id="import-error" class="form-error" role="alert" hidden></p>
+    <div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-merge" class="primary-button" type="button" disabled>Fusionner les sauvegardes</button></div>
+  </dialog>
   <input id="backup-file" class="sr-only" type="file" accept=".json,application/json" tabindex="-1">
   <p id="toast" class="toast" role="status" hidden></p>
   <noscript><p>JavaScript est nécessaire pour utiliser le garage et ses sauvegardes.</p></noscript>
