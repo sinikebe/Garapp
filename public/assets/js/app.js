@@ -1,9 +1,10 @@
 import { escapeHtml as esc, formatNumber as number, formatMileage as mileage, formatDate as dateText, icon } from './ui-format.js';
 import { pill, remaining, empty, recordsMarkup, dashboardMarkup, expensesMarkup } from './overview-view.js';
-import { commitImport, commitMerge } from './workspace-transactions.js';
+import { commitImport, commitMerge, commitVehicleRemoval } from './workspace-transactions.js';
 import { compareGarages, mergeGarages } from './backup-merge.js';
 import { MergeComparisonView } from './backup-merge-view.js';
 import { RecoveryPanel } from './recovery-panel.js';
+import { VehicleRemovalPanel } from './vehicle-removal-panel.js';
 import { visualKind, validateVisualDocument, mountVehicleModel } from './vehicle-visual.js';
 import { initHelpTips } from './help-tips.js';
 import { componentLayout, ENGINE_POSITIONS, placementLabel } from './component-layout.js';
@@ -102,6 +103,32 @@ const drive = new DrivePanel({
 });
 try { await drive.restore(); }
 catch { drive.problem = 'La synchronisation Drive nécessite un navigateur récent, HTTPS et le stockage local. Les sauvegardes JSON restent disponibles.'; drive.render(); }
+
+const vehicleRemoval = new VehicleRemovalPanel({
+  dialog: $('vehicle-delete-dialog'), getGarage: () => garage, showDialog,
+  remove: removeVehicleFromGarage,
+  onRemoved: () => {
+    disposeComponentView?.(); disposeComponentView = null;
+    for (const id of sceneStates.keys()) if (!garage.vehicles.some((one) => one.id === id)) sceneStates.delete(id);
+    $('detail-content').replaceChildren();
+    if (!garage.vehicles.length) { section = 'garage'; location.hash = 'garage'; }
+    render(); void backups.update(); drive.changed();
+    $('view-title').focus({ preventScroll: true });
+    announce('Véhicule supprimé. Pour le récupérer : Sauvegardes → Récupérer une ancienne copie.');
+  },
+});
+
+/** Keep the visible garage intact until its recovery copy and removal are durable. */
+async function removeVehicleFromGarage(expected, vehicleId) {
+  if (garage !== expected || localConflict) throw Error('Le garage a changé. Rouvrez la fiche du véhicule avant de réessayer.');
+  if (unsaved || repository.invalid) throw Error('Le garage doit être enregistré sans erreur avant de supprimer un véhicule.');
+  if (saving || drive.busy() || backups.files.busy || backups.picking || $('import-confirm').dataset.importing) throw Error('Une sauvegarde est en cours. Attendez sa fin avant de réessayer.');
+  saving = true; applyingRemote = true;
+  try {
+    garage = await commitVehicleRemoval(repository, expected, vehicleId, () => garage === expected && !localConflict);
+    if (!localConflict) { $('storage-warning').hidden = true; $('save-status').textContent = 'Enregistré sur cet appareil'; }
+  } finally { saving = false; applyingRemote = false; }
+}
 
 /** Persist a verified remote copy before changing the garage visible in the UI. */
 async function applyDriveGarage(incoming, expected, explicit) {
@@ -247,8 +274,9 @@ function render() {
   $('view-description').textContent = views[section][1];
   for (const id of Object.keys(views)) $(`${id}-view`).hidden = id !== section;
   document.querySelectorAll('.workspace-nav a').forEach((link) => { if (link.hash === `#${section}`) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); });
-  $('vehicle-select').innerHTML = garage.vehicles.length ? garage.vehicles.map((one) => `<option value="${one.id}">${esc(one.name)}${one.example ? ' · exemple' : ''}</option>`).join('') : '<option>Aucun véhicule</option>';
-  $('vehicle-select').value = garage.activeId;
+  $('vehicle-select').innerHTML = garage.vehicles.length ? garage.vehicles.map((one) => `<option value="${one.id}">${esc(one.name)}${one.example ? ' · exemple' : ''}</option>`).join('') : '<option value="">Aucun véhicule</option>';
+  $('vehicle-select').value = garage.activeId ?? '';
+  $('vehicle-select').disabled = !garage.vehicles.length;
   $('example-banner').hidden = !current?.example;
   $('trash-open').textContent = `Corbeille (${current?.trashedRecords?.length ?? 0})`;
   if ($('trash-dialog').open) renderTrash();
@@ -428,7 +456,7 @@ function detailVehicle() {
   const current = vehicle(); if (!current) return openVehicle();
   $('detail-title').textContent = current.name;
   $('detail-eyebrow').textContent = 'VÉHICULE';
-  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
+  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="delete-vehicle">Supprimer le véhicule</button><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
   showDialog('detail-dialog');
 }
 
@@ -852,6 +880,7 @@ document.addEventListener('input', (event) => {
 });
 const actions = {
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
+  'delete-vehicle': () => vehicleRemoval.open(garage.activeId),
   'vehicle-layout': () => { openVehicle(true); $('vehicle-layout-options').open = true; $('vehicle-form').dataset.layoutEdited='true'; $('vehicle-form').elements.layoutWheelCount.focus(); },
   'new-record': () => openRecord(), 'new-component': () => openComponent(), 'garage-details': openGarage,
   trash: openTrash,
