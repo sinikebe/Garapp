@@ -24,10 +24,10 @@ export class RecoveryPanel {
       const points = await this.repository.recoveryPoints();
       this.message.textContent = points.length
         ? `${points.length} ${points.length === 1 ? 'copie disponible' : 'copies disponibles'}.`
-        : 'Aucune copie pour le moment. Elles sont créées avant les imports et les fusions.';
+        : 'Aucune copie pour le moment. Elles sont créées avant les imports, les fusions et les suppressions de véhicules.';
       this.list.innerHTML = points.map((point) => {
         const date = new Date(point.createdAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
-        const description = point.reason === 'merge-source' ? 'Sauvegarde utilisée pour une fusion' : point.reason === 'migration' ? 'Avant une mise à jour du format' : point.reason === 'merge' ? 'Avant une fusion' : 'Avant un import';
+        const description = point.reason === 'vehicle-delete' ? 'Avant la suppression d’un véhicule' : point.reason === 'merge-source' ? 'Sauvegarde utilisée pour une fusion' : point.reason === 'migration' ? 'Avant une mise à jour du format' : point.reason === 'merge' ? 'Avant une fusion' : 'Avant un import';
         return `<article class="recovery-card"><div><h3>${escapeHtml(date)}</h3><p class="hint" data-help-keep>${escapeHtml(description)}</p></div><div class="backup-actions"><button type="button" class="ghost-button" data-recovery-open="${escapeHtml(point.id)}">Ouvrir cette copie</button><button type="button" class="text-button" data-recovery-export="${escapeHtml(point.id)}">Télécharger</button></div></article>`;
       }).join('');
     } catch (error) {
