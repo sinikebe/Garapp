@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="./assets/css/insurance.css">
   <link rel="stylesheet" href="./assets/css/app-switcher.css">
   <link rel="stylesheet" href="./assets/css/backup-merge.css">
+  <link rel="stylesheet" href="./assets/css/backup-panel.css">
   <script type="module" src="./assets/js/app.js"></script>
   <script type="module" src="./assets/js/app-switcher.js"></script>
   <script type="module" src="./assets/js/pwa.js"></script>
@@ -63,7 +64,7 @@
       <button class="ghost-button appearance-trigger" id="theme-toggle" type="button" aria-label="Apparence : automatique. Passer au mode clair."><svg class="icon ui-icon" aria-hidden="true"><use href="#i-sun"/></svg><span><span class="appearance-name">Apparence</span><span id="appearance-value" aria-hidden="true">Auto</span></span></button>
       <details class="tools-menu" data-header-menu><summary class="ghost-button" aria-label="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg><span>Outils</span></summary><div class="tools-content">
         <div class="tools-group" role="group" aria-label="Garage"><p class="tools-heading">Garage</p><button type="button" data-action="garage-details">Documents et informations du garage</button><button type="button" data-action="trash">Corbeille des interventions</button></div>
-        <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="backups">Gérer les sauvegardes</button><button type="button" data-action="export">Télécharger une copie JSON</button><button type="button" data-action="import">Importer une sauvegarde</button><button type="button" data-action="recovery">Copies de récupération</button></div>
+        <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="backups">Sauvegardes</button></div>
         <div class="tools-group" role="group" aria-label="Application"><p class="tools-heading">Application</p><button type="button" data-pwa-open>Installation, hors connexion et mises à jour</button></div>
         <div class="tools-group" role="group" aria-label="Utilisation"><p class="tools-heading">Utilisation</p><button type="button" data-action="commands">Actions rapides <kbd>⌘ / Ctrl K</kbd></button><button type="button" data-action="print">Imprimer / PDF</button></div>
       </div></details>
@@ -241,7 +242,7 @@
     <p id="discard-description" class="hint"></p><p id="discard-error" class="form-error" role="alert" hidden></p>
     <div class="dialog-actions"><button id="discard-cancel" type="button" class="ghost-button" data-close>Annuler</button><button id="discard-confirm" type="submit" class="primary-button danger-button">Supprimer définitivement</button></div>
   </form></dialog>
-  <dialog id="commands-dialog" aria-labelledby="commands-title"><div class="dialog-heading"><h2 id="commands-title">Actions rapides</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><label class="command-search" for="command-search"><span class="sr-only">Rechercher une action</span><input id="command-search" type="search" autofocus placeholder="Rechercher une action…" autocomplete="off"></label><p id="command-empty" class="hint" hidden>Aucune action correspondante.</p><div class="command-list"><button type="button" data-action="new-record">Ajouter une intervention <span>Historique</span></button><button type="button" data-action="new-fuel">Ajouter du carburant <span>Litres et plein complet</span></button><button type="button" data-action="trash">Corbeille des interventions <span>Restaurer une fiche</span></button><button type="button" data-action="new-component">Ajouter un composant <span>Entretien</span></button><button type="button" data-action="new-vehicle">Ajouter un véhicule <span>Garage</span></button><button type="button" data-action="backups">Gérer les sauvegardes <span>Fichiers et suivi</span></button><button type="button" data-action="export">Télécharger une copie JSON <span>Garage et documents</span></button><button type="button" data-action="import">Importer une sauvegarde <span>Garage JSON</span></button></div></dialog>
+  <dialog id="commands-dialog" aria-labelledby="commands-title"><div class="dialog-heading"><h2 id="commands-title">Actions rapides</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div><label class="command-search" for="command-search"><span class="sr-only">Rechercher une action</span><input id="command-search" type="search" autofocus placeholder="Rechercher une action…" autocomplete="off"></label><p id="command-empty" class="hint" hidden>Aucune action correspondante.</p><div class="command-list"><button type="button" data-action="new-record">Ajouter une intervention <span>Historique</span></button><button type="button" data-action="new-fuel">Ajouter du carburant <span>Litres et plein complet</span></button><button type="button" data-action="trash">Corbeille des interventions <span>Restaurer une fiche</span></button><button type="button" data-action="new-component">Ajouter un composant <span>Entretien</span></button><button type="button" data-action="new-vehicle">Ajouter un véhicule <span>Garage</span></button><button type="button" data-action="backups">Gérer les sauvegardes <span>Fichiers et suivi</span></button><button type="button" data-action="export">Télécharger une sauvegarde <span>Garage et documents</span></button><button type="button" data-action="import">Importer une sauvegarde <span>Garage JSON</span></button></div></dialog>
   <dialog id="pwa-dialog" aria-labelledby="pwa-title">
     <div class="dialog-heading"><div><p class="eyebrow">PC, TÉLÉPHONE ET TABLETTE</p><h2 id="pwa-title">Garapp sur cet appareil</h2></div><button id="pwa-close" type="button" class="icon-button" aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <p class="hint">Installer Garapp ajoute une icône pour l’ouvrir comme une application. Le garage reste propre à cet appareil et à ce navigateur.</p>
@@ -253,65 +254,84 @@
     <p class="hint backup-guidance">Une copie JSON permet de retrouver le garage après un changement d’appareil, de navigateur ou une suppression des données. L’installation et le mode hors connexion ne remplacent pas cette sauvegarde.</p>
   </dialog>
   <dialog id="recovery-dialog" aria-labelledby="recovery-title" aria-describedby="recovery-description">
-    <div class="dialog-heading"><div><p class="eyebrow">SUR CET APPAREIL</p><h2 id="recovery-title">Copies de récupération</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
-    <p id="recovery-description" class="hint" data-help-keep>Les copies locales conservent le garage avant un remplacement ou une migration. Téléchargez une copie pour la conserver. Pour la restaurer, utilisez ensuite « Importer une sauvegarde » et vérifiez le contenu avant de confirmer.</p>
-    <p class="hint backup-guidance" data-help-keep>Ces copies restent dans ce navigateur. Elles ne remplacent pas une sauvegarde JSON conservée sur un autre appareil ou dans un emplacement sûr.</p>
-    <p id="recovery-message" class="hint backup-feedback" role="status"></p>
+    <div class="dialog-heading"><h2 id="recovery-title">Copies de récupération</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p id="recovery-description" class="hint" data-help-keep>Ouvrez une copie pour la comparer au garage actuel avant de la restaurer.</p>
+    <p class="hint" data-help-keep>Ces copies sont conservées uniquement dans ce navigateur.</p>
+    <p id="recovery-message" class="hint backup-feedback" role="status" data-help-keep></p>
     <div id="recovery-list" class="recovery-list"></div>
+    <div class="dialog-actions"><button type="button" class="ghost-button" data-action="backups">Retour aux sauvegardes</button></div>
   </dialog>
-  <dialog id="backups-dialog" aria-labelledby="backups-title">
-    <div class="dialog-heading"><div><p class="eyebrow">GARAGE ET DOCUMENTS</p><h2 id="backups-title">Sauvegardes</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
-    <p id="backup-current" class="hint"></p>
-    <p id="backup-action-message" class="hint backup-feedback" role="status"></p>
-    <section class="backup-section" aria-labelledby="backup-download-title">
-      <h3 id="backup-download-title">Conserver une copie</h3><p class="hint">Un fichier JSON complet, avec les documents et les informations complémentaires. Chaque téléchargement porte un nom distinct et horodaté.</p>
-      <div class="backup-actions"><button type="button" class="primary-button" data-action="export">Télécharger une copie JSON</button><button type="button" class="ghost-button" data-action="import">Importer une sauvegarde</button></div>
-      <p id="backup-download-status" class="hint backup-detail"></p><p class="hint">Le navigateur ne confirme pas la conservation du téléchargement : vérifier sa présence dans les fichiers.</p>
+  <dialog id="backups-dialog" class="backup-home" aria-labelledby="backups-title">
+    <div class="dialog-heading"><h2 id="backups-title">Sauvegardes</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p class="backup-intro">Votre garage est enregistré sur cet appareil. Gardez aussi une copie ailleurs.</p>
+    <p id="backup-current" class="backup-inventory"></p>
+    <p id="backup-action-message" class="hint backup-feedback" role="status" data-help-keep></p>
+    <section class="backup-card" aria-labelledby="backup-download-title">
+      <h3 id="backup-download-title">Fichier de sauvegarde</h3>
+      <p class="hint" data-help-keep>Une copie complète du garage, documents inclus.</p>
+      <div class="backup-actions"><button type="button" class="primary-button" data-action="export">Télécharger une sauvegarde</button><button type="button" class="ghost-button" data-action="import">Importer une sauvegarde</button></div>
+      <p id="backup-download-status" class="hint backup-detail" data-help-keep hidden></p>
     </section>
-    <section class="backup-section" aria-labelledby="backup-file-title">
-      <h3 id="backup-file-title">Travailler avec un fichier lié</h3><p class="hint">Choisir un fichier pour le mettre à jour sans multiplier les téléchargements. Des copies datées restent utiles pour revenir à une ancienne version.</p>
-      <p id="backup-file-support" class="hint" data-help-summary="Liaison directe indisponible." hidden>La liaison directe à un fichier n’est pas disponible dans ce navigateur. Le téléchargement et l’import JSON restent accessibles.</p>
-      <div id="backup-file-controls">
-        <div class="backup-actions"><button type="button" class="ghost-button" data-action="backup-create">Créer et lier un nouveau fichier</button><button type="button" class="ghost-button" data-action="backup-open">Ouvrir un fichier existant</button></div>
-        <div id="backup-linked" class="backup-linked" hidden><p id="backup-file-name" class="backup-file-name"></p><p id="backup-file-status" class="hint" role="status"></p><div class="backup-actions"><button type="button" class="primary-button" data-action="backup-write">Mettre à jour le fichier</button><button type="button" class="text-button" data-action="backup-unlink">Détacher le fichier</button></div><label class="backup-auto"><input id="backup-auto" type="checkbox"><span>Mettre à jour ce fichier après chaque modification, pendant cette session</span></label><p class="hint">L’écriture automatique s’arrête à la fermeture de la page ou en cas d’erreur. Elle doit être réactivée à la prochaine ouverture.</p></div>
+    <section class="backup-card drive-section" aria-labelledby="drive-title">
+      <div class="panel-heading"><h3 id="drive-title">Google Drive</h3><span class="backup-optional">Facultatif</span></div>
+      <p class="hint" data-help-keep>Retrouvez votre garage sur vos appareils avec le même compte Google.</p>
+      <p id="drive-setup-note" class="hint" data-help-keep>Google Drive n’est pas encore disponible dans cette version.</p>
+      <div class="backup-actions drive-connection-actions"><button id="drive-connect" type="button" class="primary-button" disabled>Se connecter à Google Drive</button><button id="drive-disconnect" type="button" class="text-button" hidden>Se déconnecter</button></div>
+      <p id="drive-status" class="hint backup-feedback" role="status" data-help-keep></p>
+      <p id="drive-notice" class="hint" data-help-keep></p>
+      <div id="drive-binding" hidden>
+        <p id="drive-folder-name" class="backup-file-name"></p>
+        <p id="drive-last-check" class="hint" data-help-keep></p>
+        <div class="backup-actions"><button id="drive-sync" type="button" class="primary-button">Synchroniser maintenant</button><button id="drive-seed" type="button" class="ghost-button" hidden>Sauvegarder ce garage dans ce dossier</button></div>
+        <label class="backup-auto"><input id="drive-auto" type="checkbox"><span>Synchroniser automatiquement quand Garapp est ouvert</span></label>
+        <div id="drive-review" class="drive-review" hidden><p id="drive-review-label"></p><ul id="drive-review-versions" class="drive-versions" aria-label="Sauvegardes à comparer"></ul></div>
+        <details id="drive-history" class="backup-disclosure"><summary>Historique des sauvegardes</summary><ul id="drive-versions" class="drive-versions" aria-label="Versions sauvegardées sur Drive"></ul><p id="drive-history-note" class="hint" data-help-keep></p></details>
       </div>
-      <p id="backup-file-notice" class="hint" role="status" hidden></p>
-    </section>
-    <section class="backup-section drive-section" aria-labelledby="drive-title">
-      <div class="panel-heading"><h3 id="drive-title">Synchroniser avec Google Drive</h3><span class="hero-tag">Facultatif · Versionné</span></div>
-      <p class="hint">Retrouver le garage sur plusieurs appareils avec le même compte Google. Chaque version est un fichier JSON complet, avec les documents et les informations complémentaires, dans un dossier privé de Mon Drive.</p>
-      <p id="drive-setup-note" class="hint backup-guidance" data-help-summary="Connexion Drive à configurer.">La connexion Drive attend sa configuration pour Garapp. Ce réglage est effectué une seule fois pour l’application ; chaque utilisateur peut ensuite se connecter avec son compte Google. Les sauvegardes JSON restent disponibles.</p>
-      <details id="drive-config" class="drive-config" hidden><summary>Configuration Google pour les essais en développement</summary><p class="hint">Renseigner l’identifiant public d’un client OAuth de type Web. Le projet Google doit activer l’API Drive et autoriser cette origine : <code id="drive-origin"></code>. Ce réglage est propre à cet appareil et à la version dev.</p><label for="drive-client-id">Identifiant du client OAuth Web</label><input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="…apps.googleusercontent.com"><button id="drive-config-save" type="button" class="ghost-button">Enregistrer la configuration</button><p class="hint">Aucun secret client, jeton ou mot de passe ne doit être saisi ici.</p></details>
-      <div class="backup-actions"><button id="drive-connect" type="button" class="primary-button" disabled>Se connecter à Google Drive</button><button id="drive-disconnect" type="button" class="text-button" hidden>Déconnecter Google Drive</button></div>
-      <p id="drive-status" class="hint backup-feedback" role="status"></p><p id="drive-notice" class="hint"></p>
       <div id="drive-connected" hidden>
-        <div class="drive-folder-picker"><label for="drive-folders">Dossier Garapp existant</label><select id="drive-folders"><option value="">Choisir un dossier Garapp privé</option></select><div class="backup-actions"><button id="drive-list" type="button" class="ghost-button">Actualiser les dossiers</button><button id="drive-use" type="button" class="ghost-button">Utiliser ce dossier</button></div><p class="hint">Seuls les dossiers privés créés par cette application et cette version sont proposés. Choisir un dossier ne remplace pas le garage ouvert.</p></div>
-        <details class="drive-new-folder"><summary>Créer un nouveau dossier de sauvegarde</summary><label for="drive-new-name">Nom du nouveau dossier</label><input id="drive-new-name" type="text" maxlength="120" placeholder="Garapp dev — Garage"><p class="hint">La création enverra le garage complet affiché ci-dessus, documents inclus, sur le compte Google connecté.</p><button id="drive-create" type="button" class="primary-button">Créer le dossier et sauvegarder ce garage</button></details>
+        <details id="drive-folder-settings" class="backup-disclosure"><summary id="drive-folder-settings-label">Configurer la sauvegarde Drive</summary>
+          <div id="drive-existing-folders" class="drive-folder-picker"><label for="drive-folders">Reprendre une sauvegarde existante</label><select id="drive-folders"><option value="">Choisir une sauvegarde</option></select><button id="drive-use" type="button" class="ghost-button">Utiliser cette sauvegarde</button><p class="hint" data-help-keep>Vous pourrez comparer les données avant de les récupérer.</p></div>
+          <div class="drive-new-folder"><h4>Créer une nouvelle sauvegarde</h4><details class="backup-name-option"><summary>Nom du dossier (facultatif)</summary><label for="drive-new-name">Nom du dossier</label><input id="drive-new-name" type="text" maxlength="120" placeholder="Garapp — Garage"></details><p class="hint" data-help-keep>Votre garage et ses documents seront envoyés dans un dossier privé de votre compte Google.</p><button id="drive-create" type="button" class="primary-button">Créer ma sauvegarde Drive</button></div>
+          <button id="drive-list" type="button" class="text-button">Actualiser les sauvegardes disponibles</button>
+        </details>
       </div>
-      <div id="drive-binding" class="backup-linked" hidden><p id="drive-folder-name" class="backup-file-name"></p><p id="drive-last-check" class="hint"></p><div class="backup-actions"><button id="drive-sync" type="button" class="primary-button">Synchroniser maintenant</button><button id="drive-seed" type="button" class="ghost-button" hidden>Sauvegarder ce garage dans ce dossier</button></div><label class="backup-auto"><input id="drive-auto" type="checkbox"><span>Synchroniser automatiquement quand Garapp est ouvert et connecté</span></label><p class="hint">Vérification toutes les 15 secondes, au retour dans l’application et après une modification enregistrée. La fermeture de Garapp et l’expiration de la connexion Google interrompent les transferts ; une reconnexion explicite est nécessaire. Dev et main utilisent des dossiers distincts.</p><ul id="drive-versions" class="drive-versions" aria-label="Versions sauvegardées sur Drive"></ul><p id="drive-history-note" class="hint"></p></div>
-      <p class="hint backup-guidance">Les modifications concurrentes sont conservées comme des versions séparées, à comparer avant tout choix. Chaque version complète utilise de l’espace Drive ; aucune suppression automatique n’est effectuée. Ces fichiers sont privés sur Drive, sans chiffrement supplémentaire par Garapp. Conserver aussi une copie JSON sur un autre support protège des suppressions ou erreurs de compte.</p>
+      <details id="drive-config" class="drive-config backup-disclosure" hidden><summary>Configuration de développement</summary><p class="hint" data-help-keep>Client OAuth Web autorisé pour <code id="drive-origin"></code>.</p><label for="drive-client-id">Identifiant du client OAuth Web</label><input id="drive-client-id" type="text" autocomplete="off" spellcheck="false" placeholder="…apps.googleusercontent.com"><button id="drive-config-save" type="button" class="ghost-button">Enregistrer la configuration</button><p class="hint" data-help-keep>Utiliser uniquement l’identifiant public, sans secret ni mot de passe.</p></details>
     </section>
-    <p class="hint backup-guidance">Avec les fichiers seuls, transférer le dernier JSON puis l’importer sur l’autre appareil. Ces copies ne sont pas fusionnées automatiquement.</p>
+    <div class="backup-recovery-action"><button type="button" class="text-button" data-action="recovery">Récupérer une ancienne copie</button></div>
+    <p id="backup-file-notice" class="hint backup-feedback" role="status" data-help-keep hidden></p>
+    <details id="backup-advanced" class="backup-disclosure"><summary id="backup-advanced-label">Options avancées</summary>
+      <section aria-labelledby="backup-file-title">
+        <h3 id="backup-file-title">Mettre à jour un fichier existant</h3>
+        <p class="hint" data-help-keep>Liez un fichier sur cet appareil pour le réutiliser à chaque sauvegarde.</p>
+        <p id="backup-file-support" class="hint" data-help-keep hidden>Ce navigateur permet uniquement le téléchargement et l’import de sauvegardes.</p>
+        <div id="backup-file-controls">
+          <div class="backup-actions"><button type="button" class="ghost-button" data-action="backup-create">Créer un fichier lié</button><button type="button" class="ghost-button" data-action="backup-open">Lier un fichier existant</button></div>
+          <div id="backup-linked" class="backup-linked" hidden><p id="backup-file-name" class="backup-file-name"></p><p id="backup-file-status" class="hint" role="status" data-help-keep></p><div class="backup-actions"><button type="button" class="primary-button" data-action="backup-write">Mettre à jour le fichier</button><button type="button" class="text-button" data-action="backup-unlink">Détacher le fichier</button></div><label class="backup-auto"><input id="backup-auto" type="checkbox"><span>Écrire les modifications automatiquement pendant cette session</span></label><p class="hint" data-help-keep>À réactiver après chaque ouverture de Garapp.</p></div>
+        </div>
+      </section>
+      <p class="hint" data-help-keep>Les téléchargements sont des fichiers JSON complets. Vérifiez qu’ils sont bien présents dans vos fichiers. Les anciennes versions Drive restent conservées.</p>
+    </details>
   </dialog>
   <dialog id="drive-preview-dialog" class="backup-comparison-dialog" aria-labelledby="drive-preview-title">
-    <div class="dialog-heading"><h2 id="drive-preview-title">Comparer et fusionner avec Drive</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="dialog-heading"><h2 id="drive-preview-title">Comparer avec Google Drive</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <p id="drive-preview-description" class="backup-detail"></p>
     <div id="drive-differences"></div>
-    <div class="backup-actions"><button id="drive-export-local" type="button" class="ghost-button">Télécharger le garage ouvert</button><button id="drive-export-remote" type="button" class="ghost-button">Télécharger la version Drive</button></div>
-    <p class="hint backup-guidance" data-help-keep>La fusion crée une nouvelle version. Les deux sources et l’historique restent conservés sur Drive. Si une version change pendant la comparaison, il faut la comparer à nouveau.</p>
-    <details class="supplemental"><summary>Utiliser une version complète</summary><p class="hint" data-help-keep>Ces choix utilisent tout le garage d’un côté, sans appliquer les choix de fusion ci-dessus.</p><div class="backup-actions"><button id="drive-keep-local" type="button" class="ghost-button">Utiliser le garage de cet appareil</button><button id="drive-use-remote" type="button" class="ghost-button">Sauvegarder puis utiliser la version Drive</button></div></details>
+    <p class="hint backup-preservation" data-help-keep>Les deux copies d’origine restent disponibles sur Google Drive.</p>
+    <details class="backup-disclosure backup-comparison-options"><summary>Autres options</summary>
+      <div class="backup-actions"><button id="drive-export-local" type="button" class="ghost-button">Télécharger la copie de cet appareil</button><button id="drive-export-remote" type="button" class="ghost-button">Télécharger la copie Google Drive</button></div>
+      <p class="hint" data-help-keep>Pour utiliser une copie entière, sans appliquer les choix ci-dessus :</p>
+      <div class="backup-actions"><button id="drive-keep-local" type="button" class="ghost-button">Garder tout cet appareil</button><button id="drive-use-remote" type="button" class="ghost-button">Tout récupérer depuis Google Drive</button></div>
+    </details>
     <p id="drive-preview-error" class="form-error" role="alert" hidden></p>
-    <div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="drive-merge" type="button" class="primary-button" disabled>Fusionner les sauvegardes</button></div>
+    <div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="drive-merge" type="button" class="primary-button" disabled>Appliquer les choix</button></div>
   </dialog>
   <dialog id="import-dialog" class="backup-comparison-dialog" aria-labelledby="import-title">
-    <div class="dialog-heading"><h2 id="import-title">Comparer et fusionner une sauvegarde</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div class="dialog-heading"><h2 id="import-title">Importer une sauvegarde</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <p id="import-description" class="backup-detail"></p>
     <div id="import-differences"></div>
-    <p id="import-link-note" class="hint" data-help-keep></p>
-    <p class="hint backup-guidance" data-help-keep>Avant la fusion, les deux sauvegardes sont conservées dans les copies de récupération. Le fichier source n’est pas modifié.</p>
-    <details class="supplemental"><summary>Remplacer tout le garage</summary><p class="hint" data-help-keep>Remplace le garage complet par le fichier, sans appliquer les choix de fusion. Une copie du garage actuel est conservée avant remplacement.</p><button id="import-confirm" class="ghost-button" type="button">Importer et remplacer</button></details>
+    <p class="hint backup-preservation" data-help-keep>Après fusion, les deux copies d’origine restent disponibles dans les copies de récupération.</p>
+    <details class="backup-disclosure backup-comparison-options"><summary>Autres options</summary><p id="import-link-note" class="hint" data-help-keep hidden></p><p class="hint" data-help-keep>Pour remplacer tout le garage par cette sauvegarde, sans appliquer les choix ci-dessus :</p><button id="import-confirm" class="ghost-button" type="button">Remplacer tout le garage</button></details>
     <p id="import-error" class="form-error" role="alert" hidden></p>
-    <div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-merge" class="primary-button" type="button" disabled>Fusionner les sauvegardes</button></div>
+    <div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button id="import-merge" class="primary-button" type="button" disabled>Appliquer les choix</button></div>
   </dialog>
   <input id="backup-file" class="sr-only" type="file" accept=".json,application/json" tabindex="-1">
   <p id="toast" class="toast" role="status" hidden></p>

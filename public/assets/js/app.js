@@ -87,8 +87,8 @@ const backups = new BackupPanel({
   download, announce, showDialog, openFile: prepareImport,
 });
 await backups.restore();
-const recoveries = new RecoveryPanel({ repository, download, showDialog });
-const importComparison = new MergeComparisonView({ container: $('import-differences'), incomingLabel: 'Fichier importé', onChange: ({ complete, hasDifferences }) => {
+const recoveries = new RecoveryPanel({ repository, download, showDialog, openFile: (file, isCurrent) => prepareImport(file, null, isCurrent) });
+const importComparison = new MergeComparisonView({ container: $('import-differences'), incomingLabel: 'Sauvegarde', onChange: ({ complete, hasDifferences }) => {
   $('import-merge').dataset.ready = String(complete && hasDifferences);
   backups.render();
 } });
@@ -944,18 +944,19 @@ repository.subscribe(async () => {
   try { garage = await repository.load() ?? exampleGarage(); render(); void backups.update(); drive.changed(); }
   catch { storageWarning('Une modification provenant d’un autre onglet est illisible. La copie ouverte est conservée.'); $('storage-export-original').hidden = false; }
 });
-async function prepareImport(file, handle = null) {
+async function prepareImport(file, handle = null, isCurrent = () => true) {
   if ($('import-confirm').dataset.importing) throw Error('Un import est déjà en cours.');
   const generation = ++importGeneration;
   pendingImport = null;
   backups.suspend();
   drive.pauseForImport();
   const incoming = await readBackupFile(file);
-  if (generation !== importGeneration) return;
+  if (generation !== importGeneration || !isCurrent()) return;
   pendingImport = { ...incoming, handle, local: garage };
   importComparison.setComparison(compareGarages(garage, incoming.garage));
-  $('import-description').textContent = `${file.name} · ${number(Math.ceil(file.size / 1024))} Kio. Le contenu a été vérifié, y compris les documents intégrés et les relations entre les fiches.`;
-  $('import-link-note').textContent = handle ? 'Une fusion détache les fichiers liés pour préserver les sources. Si vous choisissez de remplacer tout le garage, ce fichier sera lié avec l’écriture automatique désactivée.' : 'Toute liaison au fichier précédent sera détachée pour préserver son contenu.';
+  $('import-description').textContent = file.name;
+  $('import-link-note').hidden = !handle && !backups.files.handle;
+  $('import-link-note').textContent = handle ? 'La fusion conserve le fichier source. Un remplacement complet lie ce fichier, sans écriture automatique.' : 'Le fichier précédemment lié sera détaché et conservé.';
   $('import-error').hidden = true;
   showDialog('import-dialog');
 }

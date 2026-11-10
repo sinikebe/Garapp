@@ -7,21 +7,32 @@ const incomingOnly = { id: 'addition', kind: 'incoming-only', context: ['Véhicu
 const comparison = () => ({ differences: [changed('amount'), incomingOnly] });
 
 function container() {
-  const handlers = {}, status = { textContent: '' };
-  return { innerHTML: '', handlers, status, addEventListener: (type, fn) => { handlers[type] = fn; }, contains: () => true, querySelector: () => status };
+  const handlers = {}, status = { textContent: '' }, additions = { textContent: '' }, controls = [];
+  return { innerHTML: '', handlers, status, additions, controls, addEventListener: (type, fn) => { handlers[type] = fn; }, contains: () => true,
+    querySelector: (selector) => selector === '.merge-resolution-status' ? status : selector === '.merge-additions-summary' ? additions : null,
+    querySelectorAll: () => controls,
+  };
+}
+
+function choiceButton(id, side) {
+  const card = { dataset: { selected: 'false' } }, attributes = {};
+  return { card, attributes, dataset: { mergeChoice: id, mergeSide: side }, textContent: '',
+    setAttribute: (name, value) => { attributes[name] = value; }, closest(selector) { return selector === '[data-merge-option]' ? card : this; },
+  };
 }
 
 test('comparison shows only supplied differences with exact values and unresolved choices', () => {
   const source = comparison(), before = structuredClone(source);
   const html = mergeComparisonMarkup(source, {}, { incomingLabel: 'Version Drive' });
-  assert.match(html, /2 différences/);
-  assert.match(html, /1 conflit/);
+  assert.match(html, /1 choix à faire/);
   assert.match(html, /199\.9901/);
   assert.match(html, /205\.001/);
-  assert.match(html, /data-merge-choice="amount" aria-invalid="true"/);
-  assert.match(html, /value="" selected>Choisir/);
+  assert.match(html, /data-merge-choice="amount" data-merge-side="local" aria-pressed="false"/);
+  assert.match(html, /data-merge-choice="amount" data-merge-side="incoming" aria-pressed="false"/);
   assert.match(html, /data-merge-choice="addition"><option value="incoming" selected>Conserver/);
-  assert.match(html, /Absent de cette copie/);
+  assert.match(html, /<details class="merge-additions">/);
+  assert.match(html, /1 élément ajouté · conservé automatiquement/);
+  assert.doesNotMatch(html, /<select[^>]+data-merge-choice="amount"|Absent de cette copie/);
   assert.match(html, /Version Drive/);
   assert.doesNotMatch(html, /Kilométrage|Fiches identiques/);
   assert.deepEqual(source, before);
@@ -29,7 +40,7 @@ test('comparison shows only supplied differences with exact values and unresolve
 
 test('identical copies have no comparison rows or choice controls', () => {
   const html = mergeComparisonMarkup({ differences: [] });
-  assert.match(html, /Aucune différence de contenu/);
+  assert.match(html, /Les deux copies sont identiques/);
   assert.doesNotMatch(html, /data-merge-choice|data-merge-all|<select/);
   assert.equal(mergeComparisonMarkup(null), '');
 });
@@ -169,12 +180,15 @@ test('choices require explicit conflict resolution and reset for a new compariso
 });
 
 test('bulk selection resolves only conflicts and preserves an explicit addition exclusion', () => {
-  const view = new MergeComparisonView({ container: container() });
+  const element = container(), view = new MergeComparisonView({ container: element });
   view.setComparison({ differences: [changed('one'), changed('two'), incomingOnly] });
+  const before = element.innerHTML;
   view.choose('addition', 'local');
+  assert.equal(element.additions.textContent, '0 éléments conservés · 1 élément exclu');
   view.chooseAll('incoming');
   assert.deepEqual(view.choices, { addition: 'local', one: 'incoming', two: 'incoming' });
   assert.equal(view.complete, true);
+  assert.equal(element.innerHTML, before);
   view.choose('one', '');
   assert.equal(view.complete, false);
   assert.equal(view.unresolvedCount, 1);
@@ -182,13 +196,60 @@ test('bulk selection resolves only conflicts and preserves an explicit addition 
   assert.deepEqual(view.choices, { addition: 'local', two: 'incoming' });
 });
 
-test('delegated selection updates status without replacing controls or losing focus', () => {
+test('direct choices update cards and status without replacing controls or collapsing details', () => {
   const element = container(), view = new MergeComparisonView({ container: element });
   view.setComparison(comparison());
   const before = element.innerHTML;
-  const select = { dataset: { mergeChoice: 'amount' }, value: 'local', closest() { return this; }, removeAttribute() {}, setAttribute() {} };
-  element.handlers.change({ target: select });
+  const local = choiceButton('amount', 'local'), incoming = choiceButton('amount', 'incoming');
+  element.controls.push(local, incoming);
+  element.handlers.click({ target: local });
   assert.equal(view.complete, true);
   assert.equal(element.innerHTML, before);
-  assert.match(element.status.textContent, /Tous les conflits sont résolus/);
+  assert.match(element.status.textContent, /Tous les choix sont faits/);
+  assert.equal(local.attributes['aria-pressed'], 'true');
+  assert.equal(local.card.dataset.selected, 'true');
+  assert.equal(local.textContent, 'Valeur choisie');
+  assert.equal(incoming.attributes['aria-pressed'], 'false');
+  element.handlers.click({ target: incoming });
+  assert.deepEqual(view.choices, { amount: 'incoming' });
+  assert.equal(local.card.dataset.selected, 'false');
+  assert.equal(incoming.card.dataset.selected, 'true');
+  assert.equal(element.innerHTML, before);
+});
+
+test('conflicts lead the comparison and independent additions remain closed and optional', () => {
+  const html = mergeComparisonMarkup({ differences: [incomingOnly, changed('first'), changed('second')] });
+  assert.ok(html.indexOf('data-merge-difference="first"') < html.indexOf('data-merge-difference="addition"'));
+  assert.match(html, /<details class="merge-additions">/);
+  assert.match(html, /<details class="merge-addition-details"><summary>Voir le contenu/);
+  assert.match(html, /<details class="merge-bulk"><summary>Choisir la même copie partout/);
+  const additionsOnly = mergeComparisonMarkup({ differences: [incomingOnly] });
+  assert.match(additionsOnly, /Prêt à appliquer/);
+  assert.doesNotMatch(additionsOnly, /data-merge-side|data-merge-all/);
+});
+
+test('short entity headings retain vehicle identity and group line fields with their intervention', () => {
+  const html = mergeComparisonMarkup({ differences: [
+    changed('amount', { context: ['Garage', 'Véhicule « Démo A »', 'Fiche « Révision »'], path: ['vehicles', 'a', 'records', 'r', 'totalAmount'] }),
+    changed('line', { context: ['Garage', 'Véhicule « Démo A »', 'Fiche « Révision »', 'Ligne « Forfait »'], path: ['vehicles', 'a', 'records', 'r', 'lines', 'l', 'amount'], label: 'Montant' }),
+    changed('other', { context: ['Garage', 'Véhicule « Démo B »', 'Fiche « Révision »'], path: ['vehicles', 'b', 'records', 'r', 'totalAmount'] }),
+  ] });
+  assert.equal((html.match(/<h3>Démo A<\/h3>/g) ?? []).length, 1);
+  assert.equal((html.match(/<h3>Démo B<\/h3>/g) ?? []).length, 1);
+  assert.equal((html.match(/<h4>Révision<\/h4>/g) ?? []).length, 2);
+  assert.match(html, /<h5>Forfait · Montant<\/h5>/);
+  assert.doesNotMatch(html, /Garage · Véhicule|Fiche «|Ligne «/);
+  assert.match(html, /aria-label="Démo B — Révision — Montant total : garder Cet appareil"/);
+});
+
+test('addition exclusions keep their native control and update the retained count', () => {
+  const element = container(), view = new MergeComparisonView({ container: element });
+  view.setComparison(comparison());
+  const select = { dataset: { mergeChoice: 'addition' }, value: 'local', closest() { return this; } };
+  element.controls.push(select);
+  element.handlers.change({ target: select });
+  assert.deepEqual(view.choices, { addition: 'local' });
+  assert.equal(view.complete, false);
+  assert.equal(element.additions.textContent, '0 éléments conservés · 1 élément exclu');
+  assert.equal(select.value, 'local');
 });
