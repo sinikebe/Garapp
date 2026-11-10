@@ -1,0 +1,47 @@
+/* Backup actions first; optional storage controls stay within disclosures. */
+.backup-home { width: min(660px, calc(100vw - 32px)); }
+.backup-home .dialog-heading { margin-bottom: var(--space-lg); }
+.backup-intro { margin: 0; color: var(--text-secondary); font-size: var(--type-sm); }
+.backup-inventory { margin: var(--space-sm) 0 var(--space-xl); color: var(--text-secondary); font-size: var(--type-xs); }
+.backup-home .backup-feedback:empty, .backup-home .hint:empty { display: none; }
+.backup-card { min-width: 0; margin-block: var(--space-lg); padding: var(--space-xl); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-1); }
+.backup-card h3 { margin: 0; font-size: var(--type-md); }
+.backup-card > .hint { margin-block: var(--space-sm); }
+.backup-card .backup-actions { margin-block: var(--space-lg) 0; gap: var(--space-sm); }
+.backup-card .backup-actions + .hint { margin-top: var(--space-md); }
+.backup-card .backup-actions button { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.backup-card .panel-heading { margin: 0; }
+.backup-optional { color: var(--text-secondary); font-size: var(--type-xs); font-weight: 400; }
+.backup-card .drive-connection-actions:has(> [hidden]):not(:has(> :not([hidden]))) { display: none; }
+.backup-home #drive-status:empty, .backup-home #drive-notice:empty { display: none; }
+.backup-home #drive-status:not(:empty) { margin-block: var(--space-md); }
+.backup-home #drive-binding > .backup-file-name { margin: var(--space-md) 0 var(--space-xs); font-size: var(--type-sm); font-weight: 600; }
+.backup-home #drive-last-check { margin-top: 0; }
+.backup-home .backup-auto { margin-top: var(--space-lg); margin-bottom: 0; }
+.backup-recovery-action { margin-block: var(--space-lg); }
+.backup-recovery-action button { font-size: var(--type-sm); }
+.backup-disclosure { min-width: 0; border-top: 1px solid var(--border); margin-top: var(--space-lg); padding-top: var(--space-lg); }
+.backup-disclosure > summary, .backup-name-option > summary { cursor: pointer; font-size: var(--type-sm); color: var(--text-secondary); overflow-wrap: anywhere; }
+.backup-disclosure[open] > summary { margin-bottom: var(--space-lg); }
+.backup-disclosure h3, .backup-disclosure h4 { font-size: var(--type-sm); margin-block: var(--space-lg) var(--space-sm); }
+.backup-disclosure button, .backup-disclosure input, .backup-disclosure select { max-width: 100%; min-width: 0; }
+.backup-disclosure .hint { font-size: var(--type-xs); }
+.backup-name-option { margin-block: var(--space-md); }
+.drive-new-folder { margin-block: var(--space-lg); }
+.drive-folder-picker:not([hidden]) + .drive-new-folder { padding-top: var(--space-lg); border-top: 1px solid var(--border); }
+.backup-home .drive-versions { margin-block: var(--space-lg) 0; gap: var(--space-md); }
+.backup-home .drive-versions li { padding-bottom: var(--space-md); gap: var(--space-md); }
+.backup-home .drive-versions li:last-child { border-bottom: 0; }
+.backup-home .drive-versions li > span { font-size: var(--type-xs); }
+.drive-review { margin-top: var(--space-lg); padding: var(--space-lg); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.drive-review > p { margin: 0; font-size: var(--type-sm); font-weight: 600; }
+.backup-preservation { font-size: var(--type-xs); }
+.backup-comparison-options .backup-actions { margin-block: var(--space-lg); }
+.backup-comparison-options .backup-actions button { flex: 1 1 auto; min-width: 0; }
+@media (max-width: 520px) {
+  .backup-card { padding: var(--space-lg); }
+  .backup-card .backup-actions { flex-direction: column; align-items: stretch; }
+  .backup-card .backup-actions button { width: 100%; }
+  .backup-comparison-options .backup-actions { flex-direction: column; align-items: stretch; }
+  .backup-home .drive-versions li { flex-direction: column; align-items: stretch; }
+}

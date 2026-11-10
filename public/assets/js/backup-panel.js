@@ -39,17 +39,20 @@ export class BackupPanel {
     $('backup-status').textContent = error ? 'Fichier de sauvegarde à vérifier' : busy ? 'Écriture du fichier…' : this.updating ? 'Vérification de la sauvegarde…' : handle ? sameFile && verified ? 'Fichier de sauvegarde à jour' : 'Fichier de sauvegarde à actualiser' : state.download ? sameDownload ? 'Export demandé pour cette version' : 'Modifications depuis le dernier export' : 'Sauvegarder le garage';
     $('backup-current').textContent = (() => {
       const count = inventory(this.getGarage());
-      return `${count.vehicles} véhicule(s) · ${count.records} fiche(s) active(s) · ${count.trashedRecords} dans la corbeille · ${count.components} composant(s) · ${count.insurances} contrat(s) d’assurance · ${count.lines} ligne(s) · ${count.documents} document(s)`;
+      const label = (value, name) => `${value} ${name}${value > 1 ? 's' : ''}`;
+      return [label(count.vehicles, 'véhicule'), label(count.records, 'fiche'), label(count.documents, 'document')].join(' · ');
     })();
-    $('backup-download-status').textContent = state.download ? `Dernier téléchargement demandé le ${dateTime(state.download.at)} : ${state.download.name}. ${sameDownload ? 'Il correspond à cette version du garage.' : 'Le garage a changé ou la correspondance reste à vérifier.'}` : 'Aucun téléchargement demandé depuis ce navigateur.';
+    $('backup-download-status').hidden = !state.download;
+    $('backup-download-status').textContent = state.download ? `Téléchargement demandé le ${dateTime(state.download.at)}. ${sameDownload ? 'Vérifiez sa présence dans vos fichiers.' : 'Des modifications restent à sauvegarder.'}` : '';
     $('backup-file-support').hidden = this.supported;
     $('backup-file-controls').hidden = !this.supported;
     $('backup-linked').hidden = !handle;
     $('backup-file-name').textContent = handle?.name ?? '';
     $('backup-file-status').textContent = busy ? 'Écriture en cours. Garder cette page ouverte jusqu’à la confirmation.' : error || (sameFile && verified ? `Le contenu du fichier correspond au garage ouvert.${state.at ? ` Dernière écriture vérifiée le ${dateTime(state.at)}.` : ''}` : 'Des modifications restent à écrire ou le fichier doit être vérifié avant la prochaine écriture.');
     $('backup-auto').checked = auto;
-    $('backup-file-notice').textContent = notice;
-    $('backup-file-notice').hidden = !notice;
+    $('backup-file-notice').textContent = error || notice;
+    $('backup-file-notice').hidden = !error && !notice;
+    $('backup-advanced-label').textContent = error ? 'Options avancées · fichier à vérifier' : handle ? 'Options avancées · fichier lié' : 'Options avancées';
     for (const action of ['backup-create', 'backup-open', 'backup-write', 'backup-unlink']) {
       document.querySelectorAll(`[data-action="${action}"]`).forEach((button) => { button.disabled = busy || this.picking; });
     }
