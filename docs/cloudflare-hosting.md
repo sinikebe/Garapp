@@ -1,76 +1,92 @@
-# Static hosting and migration
+# Cloudflare Workers hosting
 
-Garapp can be deployed on a private source repository with a public static
-Cloudflare Pages site. The published HTML, JavaScript and CSS remain public:
-keep records, attachments, API secrets and Cloudflare credentials out of them.
-The production suite addresses are `garapp.siniverse.cc` and
-`finapp.siniverse.cc`.
+Garapp is a static, offline-capable application hosted at
+`https://garapp.siniverse.cc`. The static site is published by a Worker using
+Cloudflare Static Assets; Google Drive authorization uses a separate suite
+Worker at `https://api.siniverse.cc`. Vehicle records and attachments remain in
+the browser and in the user's own Drive. Source code and deployed assets are
+public, including when the source repository is private: no personal data,
+client secret, session cookie or refresh token belongs in the repository.
 
 ## Build and publish
 
-Cloudflare Pages connects to the GitHub repository and builds the production
-branch (`main`) directly. Run the same build locally with Node.js 22 or newer:
+Connect the Garapp repository to **Workers Builds** in Cloudflare. Create a
+Worker named `siniverse-garapp-site` (the exact name in `wrangler.jsonc`), with
+`main` as its production branch. Use the repository root, Node.js 22 or later,
+the build command `npm run build:cloudflare`, and the deploy command
+`npx wrangler deploy`. These commands run inside Cloudflare; local development
+can use `node scripts/build-cloudflare-worker.mjs` without npm or Wrangler.
+Disable preview branch builds for this production-only Worker.
 
-```sh
-npm run build:cloudflare
-```
+The build checks the preceding Git revision's immutable backup fixtures and
+historical Drive metadata, checks the source and PWA cache, runs all tests, and
+only then writes `dist/`. A shallow checkout may fetch the exact preceding
+revision; failure to verify history stops deployment. Workers Builds supplies
+`WORKERS_CI_BRANCH`, and the build refuses a branch other than `main`. To rerun
+locally, remove only the generated `dist/` directory before rebuilding.
+`wrangler.jsonc` serves this directory as Static Assets and preserves the
+previous Pages SPA fallback for unknown routes. The published service worker
+is generated from final assets and retains its offline scope.
 
-The command checks that previous backup fixtures and their historical Drive
-metadata have not changed, runs the source, PWA and application tests, then
-creates `dist/` for Pages. It needs access to the preceding Git revision; on
-a shallow checkout it tries fetching that revision and fails the build if it
-cannot verify history. It will not publish a branch other than `main`.
-The offline worker is rebuilt from the final published files. The builder
-refuses to overwrite an existing `dist/`, publish symlinks or copy a
-`public/dev` folder. For a fresh local run, remove only your generated `dist/`
-directory first.
+GitHub Actions validates both the application and the Worker asset package.
+It does **not** deploy either Cloudflare project. The former Pages deployment
+job has been removed so enabling an old deployment variable cannot publish
+the Pages project again.
 
-The older GitHub Actions Cloudflare workflow still checks its packaging step,
-but its direct-upload deployment remains disabled while the repository
-variable `CLOUDFLARE_DEPLOY_ENABLED` is absent. Keep it disabled to avoid two
-publishers for the same project. The GitHub Pages workflow remains active until
-the migration is verified.
+## Rollout
 
-## One-time configuration
+1. Deploy the shared authorization Worker on `api.siniverse.cc`. In the
+   existing Garapp Google Cloud project, add the exact OAuth Web redirect
+   `https://api.siniverse.cc/v1/garapp/callback` to its existing client.
+   Store the client secret and encryption key
+   only as Worker secrets. Keep the existing OAuth project and its Drive
+   permissions to retain access to historical backups.
+2. Deploy `siniverse-garapp-site` through Workers Builds and inspect its
+   `workers.dev` deployment before moving the domain. The initial
+   `wrangler.jsonc` intentionally has no `routes`, so Pages can continue to
+   serve `garapp.siniverse.cc` during this preview. An alias outside the
+   production hostname still uses the manual Google connection.
+3. At cutover, delete the Pages CNAME for `garapp.siniverse.cc` under the
+   Cloudflare zone's DNS Records, then remove that hostname from the Pages
+   project's **Custom domains**. A Worker Custom Domain cannot be created
+   while the Pages CNAME exists. Add the `routes` property to `wrangler.jsonc`
+   and merge the change to `main` to trigger Workers Builds. The final
+   configuration is:
 
-1. In Cloudflare **Workers & Pages > Create application > Continue to Pages >
-   Connect to Git**, authorize GitHub for the Garapp repository. Name the
-   project `siniverse-garapp`, choose `main` as its production branch, leave
-   the framework preset empty, and use repository root as the build directory.
-2. Set the build command to `npm run build:cloudflare`, the output directory to
-   `dist`, and the build environment variable `NODE_VERSION` to `22`. Build
-   failures stop deployment. Disable preview branch deployments in the Pages
-   project settings: this project is currently production-only.
-3. After a successful production deployment, open the project's **Custom
-   domains** page, select **Set up a domain** and enter
-   `garapp.siniverse.cc`. Cloudflare manages the DNS record for a zone on the
-   same account. Add this exact origin to the Google OAuth client's authorized
-   JavaScript origins before testing Google Drive sign-in.
-4. Verify the page, PWA installation, offline updates, JSON import/export
-   including document attachments, and Google Drive account selection on the
-   new production hostname. Garapp dev does not have a default Drive client ID.
+   ```json
+   {
+     "name": "siniverse-garapp-site",
+     "compatibility_date": "2026-11-12",
+     "assets": {
+       "directory": "./dist",
+       "not_found_handling": "single-page-application"
+     },
+     "routes": [{ "pattern": "garapp.siniverse.cc", "custom_domain": true }]
+   }
+   ```
 
-Cloudflare's `pages.dev` alias is public. Pages Git projects automatically
-publish changes to `main` after the build succeeds, independent of GitHub
-Actions; require GitHub CI on pull requests and avoid direct pushes to
-production. A Git-integrated Pages project cannot be converted into a Direct
-Upload project later without recreating it.
+   Keep the `routes` entry in source for subsequent deployments. Cloudflare
+   will manage the Worker's DNS and certificate. Do not change the hostname
+   or PWA scope: browser storage and installed app data stay attached to
+   their existing origin.
+4. Confirm that an existing Drive folder and its complete revision history
+   remain visible; compare and restore a copy, then test large transfers and
+   reconnection after closing the app. Google OAuth projects in **Testing**
+   expire Drive authorization after seven days; switch to **In production**
+   before expecting persistent connections.
+5. Disable automatic deployments on the old Pages project after the Worker
+   takes over the hostname. Retain legacy GitHub Pages recovery options until
+   browsers containing old-origin data have been migrated.
 
-## Existing data
+If the shared authorization Worker is unreachable, Garapp retains its
+existing manual, memory-only Google connection. It never stores a Google token
+in local storage. Its Drive backups remain immutable JSON files with the same
+namespace and original revision graph. A host change never deletes Drive
+files or moves local data between origins.
 
-The old GitHub Pages installation stores vehicle data in the browser on
-`sinikebe.github.io`. A new hostname cannot read that browser storage. Export
-the complete garage and any separate recovery copies in the original browser,
-then import and verify them on the new site. Keep an export-only recovery page
-on the original origin for browsers that have not yet migrated.
+The historical `sinikebe.github.io` origin is separate browser storage.
+Export a complete garage and recovery copies there, then import and verify
+them on `garapp.siniverse.cc`. The existing Google Drive namespace maps to the
+old publication URL by design; keep it unchanged for both environments.
 
-Google Drive folders and their revision histories also remain available: the
-new build derives the **same** Drive namespace for each environment from the
-old publication URL. Never remove or overwrite a Drive revision during a host
-migration. The source tree still uses `/Garapp/` and `/Garapp/dev/` paths for
-GitHub Pages. Production and development local workspaces remain separate.
-
-Before making the source repository private, verify import/export on a
-browser containing existing local data, test its current Drive folder from
-the new hostname, and check links between Finapp and Garapp in both
-environments. A private repository does not hide published JavaScript.
+Cloudflare references: [Migrate from Pages to Workers](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/), [remove a Pages custom domain](https://developers.cloudflare.com/pages/configuration/custom-domains/#delete-a-custom-domain), [configure a Worker Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/#set-up-a-custom-domain-in-your-wrangler-configuration-file).

@@ -1,4 +1,4 @@
-/** Build production Pages assets only after the same compatibility checks as CI. */
+/** Build production Worker assets only after the same compatibility checks as CI. */
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,12 +19,12 @@ function backupBaseline() {
     git(['cat-file', '-e', `${parent}^{commit}`]);
     return parent;
   } catch {
-    // Git-integrated Pages can provide a shallow checkout. Fetch only the
+    // Git-integrated Workers Builds can provide a shallow checkout. Fetch only the
     // parent of the exact revision being built, not a moving branch tip.
     try {
       run('git', ['fetch', '--quiet', '--no-tags', '--depth=2', 'origin', git(['rev-parse', 'HEAD'])]);
     } catch {
-      throw Error('Historical backup checks need the previous Git revision. Check repository history access in Pages.');
+      throw Error('Historical backup checks need the previous Git revision. Check repository history access in Workers Builds.');
     }
     try {
       const parent = git(['rev-parse', '--verify', 'HEAD^']);
@@ -36,8 +36,9 @@ function backupBaseline() {
   }
 }
 
-const branch = process.env.CF_PAGES_BRANCH ?? 'main';
-if (branch !== 'main') throw Error(`This Pages project only publishes main; received ${branch}.`);
+const branch = process.env.WORKERS_CI_BRANCH ?? 'main';
+if (process.env.WORKERS_CI && !process.env.WORKERS_CI_BRANCH) throw Error('Workers Builds must supply WORKERS_CI_BRANCH.');
+if (branch !== 'main') throw Error(`This Worker only publishes main; received ${branch}.`);
 
 run('node', ['tools/check-backup-fixtures.mjs'], {
   ...process.env, BACKUP_BASE_SHA: backupBaseline(),

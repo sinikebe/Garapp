@@ -297,8 +297,11 @@ comparer séparément. Les deux sources et les anciennes versions restent conser
 pendant la comparaison impose de la reprendre.
 
 L'automatisme contrôle les versions tant que la page est visible, au retour du réseau
-et après une modification enregistrée. Les jetons restent en mémoire et une reconnexion
-demande un clic. La fermeture de l'application arrête la synchronisation.
+et après une modification enregistrée. Les jetons d'accès restent en mémoire ; sur
+`garapp.siniverse.cc`, la session sécurisée du Worker permet de les renouveler
+après la réouverture de l'application. Si cette session expire ou si l'accès est
+révoqué, une nouvelle connexion demande un clic. La fermeture de l'application
+arrête la synchronisation jusqu'à la prochaine ouverture.
 
 Les conditions de configuration, les transferts entre appareils, les protections et
 les limites sont détaillés dans le [guide Google Drive](google-drive.md).

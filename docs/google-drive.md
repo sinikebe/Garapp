@@ -4,41 +4,50 @@
 
 ## Activer la connexion Web
 
-Le site statique utilise Google Identity Services et l’API Drive v3 directement
-depuis le navigateur. La connexion Google du navigateur est indépendante de tout
-connecteur Google Drive employé par un outil de développement.
+Sur `garapp.siniverse.cc`, un Worker commun à la suite conserve la session et
+renouvelle l'autorisation Google. Le navigateur reçoit uniquement un jeton
+d'accès court, conservé en mémoire, puis utilise l'API Drive v3 directement.
+Sur les installations historiques et quand le Worker est inaccessible,
+Google Identity Services garde la connexion manuelle actuelle, également
+limitée à un jeton en mémoire. Aucun jeton Google n'est placé dans le stockage
+persistant du navigateur ou dans les sauvegardes.
 
-1. Créer un projet Google Cloud dédié à Garapp, puis activer **Google Drive API**.
+1. Utiliser le projet Google Cloud dédié à Garapp et vérifier que **Google Drive API** est activée.
 2. Configurer Google Auth Platform : identité de l’application, audience et écran
    de consentement. En mode test, ajouter les comptes destinés aux essais.
 3. Déclarer le seul scope demandé :
    `https://www.googleapis.com/auth/drive.file`.
-4. Créer un client OAuth de type **Application Web**. Ajouter les origines JavaScript
-   autorisées, sans chemin : `https://sinikebe.github.io` pour la publication GitHub
-   Pages et, pour le serveur local, `http://localhost:4173` (ou l’origine réellement
-   utilisée). Les origines de prévisualisation temporaires nécessitent leur propre
-   entrée. Le flux popup par jeton n’utilise pas de redirection serveur.
-5. Copier uniquement l’identifiant public se terminant par
+4. Conserver le client OAuth **Application Web** existant pour conserver l'accès
+   aux sauvegardes. Ajouter l'URI de redirection HTTPS du Worker
+   `https://api.siniverse.cc/v1/garapp/callback`, sans supprimer les origines JavaScript autorisées
+   (`https://garapp.siniverse.cc`, et les anciennes origines qui utilisent
+   encore la connexion manuelle). Tester la lecture des dossiers et de leurs
+   propriétés privées avant toute modification du client OAuth.
+5. Conserver uniquement l’identifiant public se terminant par
    `.apps.googleusercontent.com`. En dev, le panneau **Sauvegardes → Configuration
    de développement** permet de le mémoriser sur cet
    appareil. Ce réglage local est un dépannage pour les essais sans client
    d’application commun. Pour la connexion normale, configurer une seule fois
    le client de Garapp en renseignant l’entrée `dev` ou `main` de
    `public/assets/js/drive-config.js`, puis régénérer le bundle hors connexion avec
-   `npm run build:pwa`. Un identifiant client n’est pas un secret ; un secret client,
-   un jeton, un mot de passe ou un compte de service n’a aucune place dans ce dépôt.
-6. Ouvrir **Outils → Sauvegardes** dans Garapp. La connexion se prépare automatiquement,
-   puis un seul bouton **Se connecter à Google Drive** ouvre la fenêtre Google
-   depuis un geste explicite. Google peut demander le choix du compte, une
-   authentification et le consentement. Aucun jeton n’est demandé en arrière-plan.
+   `npm run build:pwa`. Un identifiant client n’est pas un secret ; le secret client
+   et la clé de chiffrement doivent rester exclusivement dans les secrets du Worker.
+6. Ouvrir **Outils → Sauvegardes** dans Garapp et cliquer sur
+   **Se connecter à Google Drive**. Sur le domaine de production, ce clic
+   déclenche la redirection OAuth du Worker. Celui-ci demande l'accès hors ligne,
+   puis crée une session protégée par cookie. Aux ouvertures suivantes, Garapp
+   vérifie cette session et obtient un jeton de courte durée sans fenêtre Google.
+   Un autre appareil doit s'authentifier une première fois. Le mode manuel
+   historique conserve son choix de compte Google au clic.
 
 Le client OAuth identifie l’application, pas une personne. Une fois l’identifiant
 commun publié, les utilisateurs n’ont aucun projet Google Cloud ni identifiant
 technique à saisir sur leurs appareils. Le réglage local de développement est
 alors masqué et ses anciennes valeurs ne remplacent pas le client de l’application.
 
-Aucune clé API, aucun backend, aucun compte de service et aucun refresh token
-ne sont nécessaires. Un identifiant OAuth vide laisse l’option inactive ; les
+Aucune clé API ni compte de service n'est nécessaire. Le Worker garde un
+**refresh token** chiffré côté serveur ; il n'est jamais publié ni envoyé au
+navigateur. Un identifiant OAuth vide laisse l’option manuelle inactive ; les
 sauvegardes locales restent utilisables. Les autorisations d’origines, l’activation
 de l’API et les réglages d’audience doivent être effectués dans le projet Google.
 Un identifiant client provenant d’un autre projet ne donne pas accès aux propriétés
@@ -122,10 +131,12 @@ explicite entre environnements.
 - Contrôle toutes les 15 secondes pendant que la page est visible, au retour de
   focus ou du réseau, et après une pause de 1,5 seconde suivant un enregistrement.
   Ce n’est pas une connexion push ni une tâche exécutée quand la PWA est fermée.
-- Le jeton d’accès ne vit qu’en mémoire. L’expiration, la révocation ou un changement
-  de compte suspendent les transferts. La reconnexion nécessite un clic ; aucune
-  popup ne s’ouvre automatiquement. Déconnecter Garapp conserve les fichiers,
-  le lien au dossier et le consentement Google des autres appareils.
+- Le jeton d’accès ne vit qu’en mémoire. Sur le domaine de production, la session
+  du Worker peut renouveler le jeton automatiquement au retour dans Garapp.
+  Un consentement révoqué, une session expirée ou un changement de compte
+  suspend les transferts et demande une nouvelle connexion. Le mode manuel
+  demande toujours un clic. Déconnecter Garapp conserve les fichiers et le
+  lien au dossier ; les autres appareils gardent leurs propres sessions.
 - Une modification locale est enregistrée comme une nouvelle révision issue de
   la dernière version confirmée. Les écritures concurrentes ne remplacent aucun
   fichier existant : leurs branches restent séparées. Les anciennes versions
@@ -164,9 +175,12 @@ disponibles. Les petits fichiers utilisent un envoi multipart.
 
 ## Confidentialité et limites
 
-La bibliothèque Google est chargée à l’ouverture du panneau de sauvegardes si
-un client OAuth est configuré, ou après sa configuration en développement. Le
-chargement seul n’ouvre aucune fenêtre et n’autorise aucun accès Drive. Les jetons
+La bibliothèque Google est chargée en mode manuel si un client OAuth est
+configuré, ou après sa configuration en développement. Le chargement seul
+n’ouvre aucune fenêtre et n’autorise aucun accès Drive. En production,
+Garapp demande une session au Worker uniquement depuis son domaine officiel ;
+les requêtes utilisent un cookie protégé et ne mettent pas les réponses en cache.
+Le Worker ne transmet au navigateur qu'un jeton d'accès court. Les jetons
 sont envoyés dans l’en-tête Authorization aux seuls
 endpoints HTTPS Drive autorisés, sans cache navigateur. Ils ne sont jamais ajoutés
 aux JSON, aux préférences persistantes ni au cache du service worker. Les appels
@@ -196,6 +210,7 @@ la reprise après fermeture, les documents et le comportement hors connexion.
 Références officielles :
 
 - [Google Identity Services — modèle par jeton](https://developers.google.com/identity/oauth2/web/guides/use-token-model)
+- [OAuth pour les applications Web avec accès hors ligne](https://developers.google.com/identity/protocols/oauth2/web-server)
 - [Configurer un client Web et sa politique CSP](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid)
 - [Autorisations Drive et scope drive.file](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)
 - [Transferts multipart et reprenables](https://developers.google.com/workspace/drive/api/guides/manage-uploads)
