@@ -90,6 +90,13 @@ export class DriveAPI {
     return this.json(await this.request(`${API}files/${encodeURIComponent(id)}?${new URLSearchParams({ fields: FIELDS })}`));
   }
 
+  /** Identify the connected Drive account without requesting additional scopes. */
+  async getAccount() {
+    const about = await this.json(await this.request(`${API}about?fields=user(displayName,emailAddress)`));
+    const safe = (value, limit) => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, limit) : '';
+    return { name: safe(about?.user?.displayName, 200), email: safe(about?.user?.emailAddress, 320) };
+  }
+
   async list(query) {
     const files = [], tokens = new Set(); let pageToken = '';
     do {

@@ -99,7 +99,7 @@ const canDriveApply = (explicit = false) => canDriveSync() && document.hasFocus(
 const drive = new DrivePanel({
   key, base, development: suiteLinks(base).preview, getGarage: () => garage,
   canSync: canDriveSync, canApply: canDriveApply, applyRemote: applyDriveGarage,
-  download, announce, showDialog,
+  download, announce, showDialog, openBackups: () => backups.open(),
 });
 try { await drive.restore(); }
 catch { drive.problem = 'La synchronisation Drive nécessite un navigateur récent, HTTPS et le stockage local. Les sauvegardes JSON restent disponibles.'; drive.render(); }
