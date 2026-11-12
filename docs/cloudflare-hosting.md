@@ -3,60 +3,58 @@
 Garapp can be deployed on a private source repository with a public static
 Cloudflare Pages site. The published HTML, JavaScript and CSS remain public:
 keep records, attachments, API secrets and Cloudflare credentials out of them.
-The intended suite addresses are `garapp.suite.example`,
-`finapp.suite.example` and separate `dev` subdomains; these are examples.
+The production suite addresses are `garapp.siniverse.cc` and
+`finapp.siniverse.cc`.
 
 ## Build and publish
 
-The Cloudflare workflow builds a **non-published** preview on pull requests and
-pushes to `main` or `dev`, even before obtaining a domain or Cloudflare account.
-Deployment is disabled until the repository variable
-`CLOUDFLARE_DEPLOY_ENABLED` is set to `true`. When enabled, a deployment uses
-the current branch tip only after a successful push CI run for that exact
-revision. Manual redeploys follow the same gate. The GitHub Pages workflow
-remains active until the migration is verified.
-
-To check locally and build the **exact tested branch**:
+Cloudflare Pages connects to the GitHub repository and builds the production
+branch (`main`) directly. Run the same build locally with Node.js 22 or newer:
 
 ```sh
-npm run check
-node scripts/prepare_cloudflare.mjs --source . --output ./_site --branch main --domain suite.example
+npm run build:cloudflare
 ```
 
-For a `dev` checkout, use `--branch dev` and a fresh output directory. The
-output holds explicit branch identity and inter-app links, and its offline
-worker is rebuilt from the final published files. Pass only the domain name;
-the build rejects a scheme, port or path. It also refuses to overwrite output,
-publish symlinks or copy a `public/dev` folder.
+The command checks that previous backup fixtures and their historical Drive
+metadata have not changed, runs the source, PWA and application tests, then
+creates `dist/` for Pages. It needs access to the preceding Git revision; on
+a shallow checkout it tries fetching that revision and fails the build if it
+cannot verify history. It will not publish a branch other than `main`.
+The offline worker is rebuilt from the final published files. The builder
+refuses to overwrite an existing `dist/`, publish symlinks or copy a
+`public/dev` folder. For a fresh local run, remove only your generated `dist/`
+directory first.
 
-GitHub runs `workflow_run` and `workflow_dispatch` workflows only when their
-file exists on the default branch (`main`). First merge the builder and dormant
-workflow into `dev`, verify its PR and push checks, then promote the tested
-changes to `main` while the deployment variable is unset. Merely leaving the
-workflow in `dev` does not enable deployment.
+The older GitHub Actions Cloudflare workflow still checks its packaging step,
+but its direct-upload deployment remains disabled while the repository
+variable `CLOUDFLARE_DEPLOY_ENABLED` is absent. Keep it disabled to avoid two
+publishers for the same project. The GitHub Pages workflow remains active until
+the migration is verified.
 
 ## One-time configuration
 
-1. Obtain a suite domain, configure its DNS zone in Cloudflare, and create a
-   Cloudflare Pages **Direct Upload** project for Garapp with `main` as its
-   production branch.
-2. In GitHub repository Settings, create variables `SUITE_DOMAIN` (domain
-   only, without `https://`) and `CLOUDFLARE_PROJECT` (exact project name).
-   Add secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`. Limit the
-   token to **Account / Cloudflare Pages / Edit** for the intended account.
-3. Add `garapp.<domain>` to the production Pages project. Once `dev` has a
-   deployment, route `dev.garapp.<domain>` to the stable
-   `dev.<project>.pages.dev` branch alias through proxied Cloudflare DNS.
-4. After the build and checks pass on **both** branches, set
-   `CLOUDFLARE_DEPLOY_ENABLED=true`; manually dispatch the Cloudflare workflow
-   once for `dev` and once for `main`. Verify the pages, PWA installation,
-   offline updates, JSON import/export including document attachments, and
-   Google Drive account selection in **production**. Garapp dev does not have
-   a default Google Drive client ID.
+1. In Cloudflare **Workers & Pages > Create application > Continue to Pages >
+   Connect to Git**, authorize GitHub for the Garapp repository. Name the
+   project `siniverse-garapp`, choose `main` as its production branch, leave
+   the framework preset empty, and use repository root as the build directory.
+2. Set the build command to `npm run build:cloudflare`, the output directory to
+   `dist`, and the build environment variable `NODE_VERSION` to `22`. Build
+   failures stop deployment. Disable preview branch deployments in the Pages
+   project settings: this project is currently production-only.
+3. After a successful production deployment, open the project's **Custom
+   domains** page, select **Set up a domain** and enter
+   `garapp.siniverse.cc`. Cloudflare manages the DNS record for a zone on the
+   same account. Add this exact origin to the Google OAuth client's authorized
+   JavaScript origins before testing Google Drive sign-in.
+4. Verify the page, PWA installation, offline updates, JSON import/export
+   including document attachments, and Google Drive account selection on the
+   new production hostname. Garapp dev does not have a default Drive client ID.
 
-Cloudflare preview URLs and `pages.dev` aliases are public by default. Keep
-preview fixtures synthetic and restrict previews if needed. A Direct Upload
-Pages project cannot be switched to Git integration without recreating it.
+Cloudflare's `pages.dev` alias is public. Pages Git projects automatically
+publish changes to `main` after the build succeeds, independent of GitHub
+Actions; require GitHub CI on pull requests and avoid direct pushes to
+production. A Git-integrated Pages project cannot be converted into a Direct
+Upload project later without recreating it.
 
 ## Existing data
 
