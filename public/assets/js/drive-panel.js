@@ -11,19 +11,28 @@ const date = (value) => { const result = new Date(value); return Number.isFinite
 const summary = (counts) => `${counts[1]} fiche${counts[1] > 1 ? 's' : ''} · ${counts[4]} document${counts[4] > 1 ? 's' : ''}`;
 
 export class DrivePanel {
-  constructor({ key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog }) {
-    Object.assign(this, { key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog });
+  constructor({ key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog, openBackups }) {
+    Object.assign(this, { key, base, development, getGarage, canSync, canApply, applyRemote, download, announce, showDialog, openBackups });
     this.configKey = key.replace('workspace', 'drive-client');
+    this.previousConnectionKey = key.replace('workspace', 'drive-connected-before');
     this.appClientId = DRIVE_CLIENT_IDS[development ? 'dev' : 'main'];
     this.clientId = this.appClientId;
     this.showDeveloperConfig = development && !validClientId(this.appClientId);
     if (this.showDeveloperConfig) { try { this.clientId = localStorage.getItem(this.configKey) || this.clientId; } catch { /* Optional local override until the app is configured. */ } }
-    this.auth = null; this.loading = false; this.initialized = false; this.timer = null; this.poll = null; this.folders = []; this.problem = '';
+    this.auth = null; this.account = null; this.loading = false; this.initialized = false; this.profileConnectRequested = false; this.timer = null; this.poll = null; this.folders = []; this.problem = '';
     this.comparison = new MergeComparisonView({ container: $('drive-differences'), incomingLabel: 'Google Drive', onChange: () => this.render() });
     $('drive-config').hidden = !this.showDeveloperConfig;
     $('drive-client-id').value = this.clientId;
     $('drive-origin').textContent = location.origin;
     $('drive-connect').addEventListener('click', () => {
+      if (this.auth) { this.problem = ''; this.auth.connect(); this.render(); }
+      else void this.prepare();
+    });
+    $('drive-profile').addEventListener('click', () => {
+      this.openBackups?.();
+      if (!this.initialized) { this.profileConnectRequested = true; return; }
+      if (this.connected() || this.auth?.pending || this.engine?.busy) return;
+      // OAuth must begin in this click handler. Loading the SDK cannot open a popup.
       if (this.auth) { this.problem = ''; this.auth.connect(); this.render(); }
       else void this.prepare();
     });
@@ -44,7 +53,7 @@ export class DrivePanel {
     $('drive-export-local').addEventListener('click', () => this.download(backupBlob(this.getGarage()), backupFilename({ development })));
     $('drive-preview-dialog').addEventListener('close', () => { if (!this.engine?.busy && this.engine) { this.engine.preview = null; this.comparison.setComparison(null); } this.changed(false); });
     $('drive-preview-dialog').addEventListener('cancel', (event) => { if (this.engine?.busy) event.preventDefault(); });
-    // The backup panel prepares the SDK; only the connection button opens OAuth.
+    // Only an explicit click opens OAuth; a previously connected browser preloads its SDK.
     window.addEventListener('focus', () => this.wake());
     window.addEventListener('online', () => this.wake());
     document.addEventListener('visibilitychange', () => this.wake());
@@ -52,10 +61,13 @@ export class DrivePanel {
   }
 
   async restore() {
-    this.engine = new DriveSync({ namespace: await driveNamespace(this.base), settings: new BackupSettings(this.key.replace('workspace', 'drive')), development: this.development,
+    this.engine = new DriveSync({ namespace: await driveNamespace(this.base, this.development), settings: new BackupSettings(this.key.replace('workspace', 'drive')), development: this.development,
       getGarage: this.getGarage, canSync: this.canSync, canApply: this.canApply, applyRemote: this.applyRemote, onChange: () => this.render(),
     });
     await this.engine.restore(); this.initialized = true; this.render();
+    if (this.profileConnectRequested) { this.profileConnectRequested = false; void this.prepare(); }
+    try { if (validClientId(this.clientId) && localStorage.getItem(this.previousConnectionKey) === '1') void this.prepare(); }
+    catch { /* Browser storage is optional; the profile button still works. */ }
     this.poll = setInterval(() => this.wake(), 15000);
   }
 
@@ -73,6 +85,17 @@ export class DrivePanel {
     $('drive-config-save').disabled = connected || busy || this.loading || !!this.auth?.pending;
     $('drive-client-id').disabled = connected || busy || this.loading || !!this.auth?.pending;
     $('drive-connected').hidden = !connected;
+    const profile = $('drive-profile');
+    profile.hidden = !validClientId(this.clientId);
+    profile.dataset.state = connected ? 'connected' : 'disconnected';
+    $('drive-profile-badge').textContent = connected ? '✓' : '!';
+    const accountName = this.account?.name || this.account?.email || 'Google Drive';
+    profile.setAttribute('aria-label', connected ? `Compte Google Drive : ${this.account?.name ? `${this.account.name}, ` : ''}${this.account?.email || 'connecté'}. Ouvrir les sauvegardes.` : 'Google Drive déconnecté. Se connecter.');
+    profile.title = connected ? `${this.account?.name || 'Google Drive'}${this.account?.email ? ` · ${this.account.email}` : ''}` : 'Se connecter à Google Drive';
+    $('drive-profile-name').textContent = accountName;
+    $('drive-profile-name').hidden = !connected;
+    $('drive-account').textContent = connected ? `Compte Google : ${this.account?.name || this.account?.email || 'connecté'}${this.account?.name && this.account.email ? ` · ${this.account.email}` : ''}` : '';
+    $('drive-account').hidden = !connected;
     $('drive-binding').hidden = !engine?.state.binding;
     $('drive-folder-name').textContent = engine?.state.binding?.name ?? '';
     const bindingId = engine?.state.binding?.id ?? null;
@@ -147,7 +170,10 @@ export class DrivePanel {
     try {
       const oauth = await loadGoogleIdentity();
       this.auth = new DriveAuthorization({ clientId: this.clientId, oauth,
-        onToken: () => { void this.onConnected(); }, onError: (message) => { this.problem = message; this.render(); },
+        onToken: () => {
+          try { localStorage.setItem(this.previousConnectionKey, '1'); } catch { /* The token remains in memory only. */ }
+          void this.onConnected();
+        }, onError: (message) => { this.problem = message; this.render(); },
       });
     } catch (error) { this.problem = error.message; }
     finally { this.loading = false; this.render(); }
@@ -161,6 +187,7 @@ export class DrivePanel {
     try {
       if (value) localStorage.setItem(this.configKey, value); else localStorage.removeItem(this.configKey);
       this.clientId = value || this.appClientId;
+      this.account = null;
       this.problem = '';
       this.engine.notice = 'Configuration enregistrée pour cette version de développement, sur cet appareil. Aucun secret OAuth n’est nécessaire.';
     } catch { this.problem = 'La configuration ne peut pas être mémorisée dans ce navigateur.'; }
@@ -169,12 +196,13 @@ export class DrivePanel {
   }
 
   async onConnected() {
-    this.problem = '';
+    this.problem = ''; this.account = null;
     this.engine.api?.close();
     this.engine.graph = revisionGraph([]);
-    this.engine.api = new DriveAPI({ token: () => this.auth?.token(), onExpired: () => { this.auth?.clearToken(); this.problem = 'La connexion Google a expiré. Se reconnecter pour poursuivre.'; this.render(); },
+    this.engine.api = new DriveAPI({ token: () => this.auth?.token(), onExpired: () => { this.auth?.clearToken(); this.account = null; this.problem = 'La connexion Google a expiré. Se reconnecter pour poursuivre.'; this.render(); },
       onProgress: (fraction) => { this.engine.status = `Envoi de la sauvegarde : ${Math.round(fraction * 100)} %…`; this.render(); },
     });
+    void this.loadAccount(this.engine.api);
     this.engine.status = 'Google Drive connecté.'; this.render();
     await this.listFolders();
     if (this.engine.state.binding) {
@@ -183,7 +211,18 @@ export class DrivePanel {
     this.render();
   }
 
-  disconnect() { clearTimeout(this.timer); this.auth?.disconnect(); this.engine?.disconnect(); this.problem = ''; this.folders = []; $('drive-folders').replaceChildren(); this.render(); }
+  async loadAccount(api) {
+    try {
+      const account = await api.getAccount();
+      if (api === this.engine?.api && this.connected()) { this.account = account; this.render(); }
+    } catch { /* Account details are optional; keep the Drive connection available. */ }
+  }
+
+  disconnect() {
+    clearTimeout(this.timer); this.auth?.disconnect(); this.engine?.disconnect(); this.account = null; this.problem = ''; this.folders = [];
+    try { localStorage.removeItem(this.previousConnectionKey); } catch { /* Browser storage may be unavailable. */ }
+    $('drive-folders').replaceChildren(); this.render();
+  }
 
   async listFolders() {
     if (!this.connected()) return;

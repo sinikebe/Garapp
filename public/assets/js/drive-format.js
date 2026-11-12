@@ -1,6 +1,7 @@
 /** Immutable, independently importable JSON snapshots and their revision graph. */
 import { MAX_BACKUP_BYTES, inventory, parseGarage } from './garage.js';
 import { backupBlob, fingerprint } from './backups.js';
+import { DEPLOYMENT } from './deployment-config.js';
 
 export const DRIVE_FOLDER = 'application/vnd.google-apps.folder';
 export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -22,8 +23,11 @@ export async function garageHash(garage) {
   return fingerprint(new Blob([canonical(content)]));
 }
 
-export async function driveNamespace(base) {
-  return (await fingerprint(new Blob([new URL('./', base).href]))).slice(0, 32);
+/** Preserve the exact old Drive folder namespace when published at a new origin. */
+export async function driveNamespace(base, development = DEPLOYMENT.environment === 'dev', config = DEPLOYMENT) {
+  const canonical = config.environment === 'legacy' ? new URL('./', base).href
+    : `https://sinikebe.github.io/Garapp/${development ? 'dev/' : ''}`;
+  return (await fingerprint(new Blob([canonical]))).slice(0, 32);
 }
 
 export function assertPrivate(file) {

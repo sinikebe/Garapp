@@ -1,6 +1,7 @@
 /** Local UI context only. No route, filter or business value is sent to another app. */
+import { DEPLOYMENT, deploymentStoragePath } from './deployment-config.js';
 export const SECTIONS = Object.freeze(['garage', 'interventions', 'composants', 'assurance', 'depenses', 'statistiques']);
-export const navigationKey = (base) => `garapp.navigation.v1:${new URL('./', base).pathname}`;
+export const navigationKey = (base, config = DEPLOYMENT) => `garapp.navigation.v1:${deploymentStoragePath(base, config)}`;
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const validId = (value) => /^[\w-]{1,128}$/.test(value);
 export const defaultFilters = (year) => ({ recordSearch: '', recordType: 'all', componentSearch: '', componentStatus: 'all', componentView: 'exploded', expenseYear: String(year), expenseScope: 'maintenance', insuranceYear: String(year), statisticsPeriod: 'all', statisticsScope: 'maintenance' });

@@ -18,8 +18,13 @@ class Element extends EventTarget {
   querySelectorAll(selector) { return this.children.flatMap((child) => [...(selector.split(',').map((value) => value.trim()).includes(child.tag) ? [child] : []), ...child.querySelectorAll(selector)]); }
 }
 
-async function frontend({ appClientId = clientId, localClientId = '', loader } = {}) {
-  const elements = new Map(), calls = { loads: 0, popups: 0, connected: 0, localReads: 0 };
+async function frontend({ appClientId = clientId, localClientId = '', connectedBefore = false, development = true, loader, restoreGate } = {}) {
+  const elements = new Map(), calls = { loads: 0, popups: 0, connected: 0, localReads: 0, opened: 0 };
+  const path = development ? '/Garapp/dev/' : '/Garapp/';
+  const key = `garapp.workspace.v1:${path}`;
+  const storage = new Map();
+  if (localClientId) storage.set(key.replace('workspace', 'drive-client'), localClientId);
+  if (connectedBefore) storage.set(key.replace('workspace', 'drive-connected-before'), '1');
   const get = (id) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const oauth = {
     initTokenClient(options) { calls.options = options; return { requestAccessToken() { calls.popups++; } }; },
@@ -30,22 +35,76 @@ async function frontend({ appClientId = clientId, localClientId = '', loader } =
   document.createElement = (tag) => new Element(tag);
   class Engine {
     constructor() { this.state = { auto: false }; this.graph = { nodes: [], heads: [] }; this.api = null; this.busy = false; this.status = ''; }
-    async restore() {}
+    async restore() { if (restoreGate) await restoreGate; }
+    disconnect() { this.api = null; }
   }
   const context = {
     window, document, location: { origin: 'https://example.test' }, Date, URL,
-    localStorage: { getItem() { calls.localReads++; return localClientId; }, setItem(_key, value) { localClientId = value; }, removeItem() { localClientId = ''; } },
+    localStorage: { getItem(name) { if (name.includes('drive-client')) calls.localReads++; return storage.get(name) ?? null; }, setItem(name, value) { storage.set(name, value); }, removeItem(name) { storage.delete(name); } },
     DRIVE_CLIENT_IDS: { dev: appClientId, main: appClientId }, validClientId, DriveAuthorization, MergeComparisonView,
     BackupSettings: class {}, DriveSync: Engine, driveNamespace: async () => 'synthetic-namespace',
     async loadGoogleIdentity() { calls.loads++; return loader ? loader(oauth) : oauth; },
     setInterval() { return 1; }, setTimeout() { return 1; }, clearTimeout() {},
   };
   vm.runInNewContext(source.replace(/^import .*\n/gm, '').replace('export class DrivePanel', 'class DrivePanel') + '\nglobalThis.TestDrivePanel = DrivePanel;', context);
-  const panel = new context.TestDrivePanel({ key: 'garapp.workspace.v1:/Garapp/dev/', base: 'https://example.test/Garapp/dev/', development: true, getGarage: () => ({ vehicles: [] }), canSync: () => true, canApply: () => true });
+  const panel = new context.TestDrivePanel({ key, base: `https://example.test${path}`, development, getGarage: () => ({ vehicles: [] }), canSync: () => true, canApply: () => true, openBackups: () => { calls.opened++; } });
   panel.onConnected = () => { calls.connected++; panel.engine.api = {}; panel.render(); };
-  await panel.restore();
-  return { panel, calls, get, click(id) { get(id).dispatchEvent(new Event('click')); } };
+  const ready = panel.restore();
+  if (!restoreGate) await ready;
+  return { panel, calls, storage, ready, get, click(id) { get(id).dispatchEvent(new Event('click')); } };
 }
+
+test('clicking the profile while Drive settings restore waits for readiness, then prepares OAuth', async () => {
+  let finishRestore;
+  const restoreGate = new Promise((resolve) => { finishRestore = resolve; });
+  const app = await frontend({ restoreGate });
+  assert.equal(app.panel.initialized, false);
+  app.click('drive-profile');
+  assert.equal(app.calls.opened, 1); assert.equal(app.calls.loads, 0); assert.equal(app.calls.popups, 0);
+  finishRestore(); await app.ready;
+  await app.panel.prepare();
+  assert.equal(app.calls.loads, 1); assert.equal(app.calls.popups, 0);
+  app.click('drive-profile');
+  assert.equal(app.calls.popups, 1);
+});
+
+test('the profile opens backups and reconnects from a click without storing the access token', async () => {
+  const app = await frontend();
+  assert.equal(app.get('drive-profile').hidden, false);
+  assert.equal(app.get('drive-profile').dataset.state, 'disconnected');
+  assert.equal(app.get('drive-profile-badge').textContent, '!');
+  assert.match(app.get('drive-profile').attributes['aria-label'], /déconnecté/);
+  app.click('drive-profile');
+  assert.equal(app.calls.opened, 1); assert.equal(app.calls.popups, 0);
+  await app.panel.prepare();
+  app.click('drive-profile');
+  assert.equal(app.calls.opened, 2); assert.equal(app.calls.popups, 1);
+  app.calls.options.callback({ access_token: 'synthetic-memory-token', scope: DRIVE_SCOPE, expires_in: 3600 });
+  assert.equal(app.storage.get(app.panel.previousConnectionKey), '1');
+  assert.equal([...app.storage.values()].includes('synthetic-memory-token'), false);
+  assert.equal(app.get('drive-profile').dataset.state, 'connected');
+  assert.equal(app.get('drive-profile-badge').textContent, '✓');
+  assert.equal(app.get('drive-account').hidden, false);
+  const api = { async getAccount() { return { name: 'Compte fictif', email: 'example@example.test' }; } };
+  app.panel.engine.api = api;
+  await app.panel.loadAccount(api);
+  assert.equal(app.get('drive-profile-name').textContent, 'Compte fictif');
+  assert.match(app.get('drive-account').textContent, /example@example\.test/);
+  app.panel.disconnect();
+  assert.equal(app.get('drive-profile').dataset.state, 'disconnected');
+  assert.equal(app.get('drive-profile-badge').textContent, '!');
+  assert.equal(app.get('drive-account').hidden, true);
+  assert.equal(app.storage.has(app.panel.previousConnectionKey), false);
+});
+
+test('a previous connection only preloads Google and never opens its chooser without a click', async () => {
+  const app = await frontend({ connectedBefore: true, development: false });
+  await app.panel.prepare();
+  assert.equal(app.calls.loads, 1);
+  assert.equal(app.calls.popups, 0);
+  app.click('drive-profile');
+  assert.equal(app.calls.popups, 1);
+});
 
 test('opening backups prepares Google without a popup; one connection click requests OAuth synchronously', async () => {
   const app = await frontend();
@@ -74,6 +133,7 @@ test('the application client replaces old device overrides and hides technical c
 
 test('an unconfigured application opens no Google connection and the dev fallback prepares automatically after configuration', async () => {
   const app = await frontend({ appClientId: '' });
+  assert.equal(app.get('drive-profile').hidden, true);
   await app.panel.prepare();
   assert.equal(app.calls.loads, 0); assert.equal(app.get('drive-connect').disabled, true);
   assert.equal(app.get('drive-config').hidden, false);
@@ -81,6 +141,7 @@ test('an unconfigured application opens no Google connection and the dev fallbac
   await app.panel.configure();
   assert.equal(app.calls.loads, 1); assert.equal(app.calls.popups, 0);
   assert.equal(app.get('drive-connect').disabled, false);
+  assert.equal(app.get('drive-profile').hidden, false);
   app.click('drive-connect'); assert.equal(app.calls.popups, 1);
 });
 
