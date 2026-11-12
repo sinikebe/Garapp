@@ -61,7 +61,7 @@ export class DrivePanel {
   }
 
   async restore() {
-    this.engine = new DriveSync({ namespace: await driveNamespace(this.base), settings: new BackupSettings(this.key.replace('workspace', 'drive')), development: this.development,
+    this.engine = new DriveSync({ namespace: await driveNamespace(this.base, this.development), settings: new BackupSettings(this.key.replace('workspace', 'drive')), development: this.development,
       getGarage: this.getGarage, canSync: this.canSync, canApply: this.canApply, applyRemote: this.applyRemote, onChange: () => this.render(),
     });
     await this.engine.restore(); this.initialized = true; this.render();
