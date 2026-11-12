@@ -4,6 +4,7 @@ import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES } from './component-c
 import { validateVisualDocument } from './vehicle-visual.js';
 import { validateComponentLayout } from './component-layout.js';
 import { validateInsuranceContract, validateInsurancePayment } from './insurance-schema.js';
+import { DEPLOYMENT, deploymentStoragePath } from './deployment-config.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
@@ -272,7 +273,7 @@ export function inventory(garage) {
 }
 
 /** The original storage key remains stable so earlier local garages can be recovered. */
-export const storageKey = (base) => `garapp.workspace.v1:${new URL('./', base).pathname}`;
+export const storageKey = (base, config = DEPLOYMENT) => `garapp.workspace.v1:${deploymentStoragePath(base, config)}`;
 
 /** Entirely fictional records for exploring the interface. */
 export function exampleGarage(date = today()) {

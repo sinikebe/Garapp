@@ -12,6 +12,7 @@ import { TYPES, LINE_TYPES, EFFECTS, VERSION, MAX_DOCUMENT_BYTES, today, uid, ch
 import { amountInput, formatAmount as euros, formatExactAmount, sumAmounts, cents } from './amounts.js';
 import { WorkspaceStorage } from './storage.js';
 import { suiteLinks } from './app-switcher.js';
+import { deploymentFor } from './deployment-config.js';
 import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
 import { initHeaderMenus } from './header-menus.js';
 import { BackupPanel } from './backup-panel.js';
@@ -28,6 +29,7 @@ import { lineComponentPicker, newLineComponentEditor, readLineComponentIds } fro
 
 const $ = (id) => document.getElementById(id);
 const base = new URL('../../', import.meta.url);
+const development = deploymentFor(base).development;
 const key = storageKey(base);
 const preferenceKey = key.replace('workspace', 'preferences');
 const navigationStorageKey = navigationKey(base);
@@ -83,7 +85,7 @@ try {
 } catch { /* Appearance preferences are independent of garage data. */ }
 
 const backups = new BackupPanel({
-  key, development: suiteLinks(base).preview, getGarage: () => garage,
+  key, development, getGarage: () => garage,
   canAutoSave: () => !unsaved && !saving && !localConflict && !repository.invalid,
   download, announce, showDialog, openFile: prepareImport,
 });
@@ -97,7 +99,7 @@ const importComparison = new MergeComparisonView({ container: $('import-differen
 const canDriveSync = () => !unsaved && !saving && !localConflict && !repository.invalid && !backups.files.busy && !backups.picking && !$('import-confirm').dataset.importing && !openDialogs().some((dialog) => dialog.querySelector('form') || dialog.id === 'import-dialog');
 const canDriveApply = (explicit = false) => canDriveSync() && document.hasFocus() && !openDialogs().some((dialog) => dialog.id === 'drive-preview-dialog' && !explicit);
 const drive = new DrivePanel({
-  key, base, development: suiteLinks(base).preview, getGarage: () => garage,
+  key, base, development, getGarage: () => garage,
   canSync: canDriveSync, canApply: canDriveApply, applyRemote: applyDriveGarage,
   download, announce, showDialog, openBackups: () => backups.open(),
 });

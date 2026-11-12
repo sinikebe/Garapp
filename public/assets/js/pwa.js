@@ -1,7 +1,8 @@
 /** Installation and offline readiness; garage data stays in its existing storage. */
+import { deploymentFor } from './deployment-config.js';
 const $ = (id) => document.getElementById(id);
 const base = new URL('../../', import.meta.url);
-const development = base.pathname.endsWith('/dev/');
+const development = deploymentFor(base).development;
 const nativeApp = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 let installOffer = null;
 let installed = false;

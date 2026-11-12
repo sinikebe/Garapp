@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { MessageChannel } from 'node:worker_threads';
+import { deploymentFor } from '../public/assets/js/deployment-config.js';
 
 const source = await readFile(new URL('../public/assets/js/pwa.js', import.meta.url), 'utf8');
 const flush = async () => { for (let index = 0; index < 8; index++) await new Promise(setImmediate); };
@@ -13,7 +14,7 @@ class Element extends EventTarget {
   close() { this.open = false; }
 }
 
-function frontend({ waiting = true, controlled = true, ready = true } = {}) {
+function frontend({ waiting = true, controlled = true, ready = true, baseUrl = 'https://example.test/Garapp/dev/', environment = 'legacy' } = {}) {
   const elements = new Map();
   const get = (id) => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
   const window = new EventTarget();
@@ -26,7 +27,7 @@ function frontend({ waiting = true, controlled = true, ready = true } = {}) {
   });
   const serviceWorker = new EventTarget();
   const makeWorker = (state) => Object.assign(new EventTarget(), {
-    state, scriptURL: 'https://example.test/Garapp/dev/sw.js', messages: [],
+    state, scriptURL: `${baseUrl}sw.js`, messages: [],
     postMessage(message, ports) {
       this.messages.push(message);
       if (ports?.[0]) { ports[0].postMessage({ ok: true, ready: true, release: 'synthetic-release' }); ports[0].close(); }
@@ -41,12 +42,14 @@ function frontend({ waiting = true, controlled = true, ready = true } = {}) {
   const timers = new Set();
   const context = {
     window, document, navigator, URL, Event, MessageChannel,
+    deploymentFor: (base) => deploymentFor(base, { environment }),
     location: { reload() { calls.reloads++; } },
     setTimeout(callback, delay) { const timer = setTimeout(callback, delay); timer.unref(); timers.add(timer); return timer; },
     clearTimeout(timer) { clearTimeout(timer); timers.delete(timer); },
   };
   for (const name of ['indexedDB', 'localStorage']) Object.defineProperty(context, name, { get() { throw Error('The installation interface must not change garage storage.'); } });
-  vm.runInNewContext(source.replace('import.meta.url', JSON.stringify('https://example.test/Garapp/dev/assets/js/pwa.js')), context);
+  vm.runInNewContext(source.replace("import { deploymentFor } from './deployment-config.js';", '')
+    .replace('import.meta.url', JSON.stringify(`${baseUrl}assets/js/pwa.js`)), context);
   return {
     window, document, get, navigator, registration, active, next, calls,
     click(id) { get(id).dispatchEvent(new Event('click')); },
@@ -65,6 +68,14 @@ test('the installation interface registers only its own publication scope and se
   assert.equal(app.get('app-manifest').href, 'https://example.test/Garapp/dev/manifest-dev.webmanifest');
   assert.match(app.get('pwa-offline').textContent, /prêt à être rouvert sans connexion/);
   assert.equal(app.get('pwa-update-banner').hidden, true);
+});
+
+test('a dev branch served at a distinct hostname root keeps its dev manifest and worker scope', async (t) => {
+  const app = frontend({ baseUrl: 'https://dev.garapp.example.test/', environment: 'dev', waiting: false });
+  t.after(() => app.close()); await flush();
+  assert.equal(app.calls.registrations[0].url, 'https://dev.garapp.example.test/sw.js');
+  assert.equal(app.calls.registrations[0].scope, 'https://dev.garapp.example.test/');
+  assert.equal(app.get('app-manifest').href, 'https://dev.garapp.example.test/manifest-dev.webmanifest');
 });
 
 test('an update blocked by a garage edit or pending save neither activates nor reloads', async (t) => {
