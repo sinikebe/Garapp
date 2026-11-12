@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { DriveAuthorization, validClientId } from '../public/assets/js/drive-auth.js';
+import { consumeWorkerFailure } from '../public/assets/js/drive-worker-auth.js';
 import { DRIVE_SCOPE } from '../public/assets/js/drive-format.js';
 import { MergeComparisonView } from '../public/assets/js/backup-merge-view.js';
 
@@ -18,7 +19,7 @@ class Element extends EventTarget {
   querySelectorAll(selector) { return this.children.flatMap((child) => [...(selector.split(',').map((value) => value.trim()).includes(child.tag) ? [child] : []), ...child.querySelectorAll(selector)]); }
 }
 
-async function frontend({ appClientId = clientId, localClientId = '', connectedBefore = false, development = true, loader, restoreGate } = {}) {
+async function frontend({ appClientId = clientId, localClientId = '', connectedBefore = false, development = true, loader, restoreGate, origin = 'https://example.test', workerClass, search = '', hash = '' } = {}) {
   const elements = new Map(), calls = { loads: 0, popups: 0, connected: 0, localReads: 0, opened: 0 };
   const path = development ? '/Garapp/dev/' : '/Garapp/';
   const key = `garapp.workspace.v1:${path}`;
@@ -33,13 +34,15 @@ async function frontend({ appClientId = clientId, localClientId = '', connectedB
   const window = new EventTarget(), document = new EventTarget();
   document.getElementById = get;
   document.createElement = (tag) => new Element(tag);
+  const location = { origin, pathname: path, search, hash, href: `${origin}${path}${search}${hash}` };
+  const history = { state: { route: 'synthetic' }, replaceState(state, _title, url) { calls.replaced = { state, url }; } };
   class Engine {
     constructor() { this.state = { auto: false }; this.graph = { nodes: [], heads: [] }; this.api = null; this.busy = false; this.status = ''; }
     async restore() { if (restoreGate) await restoreGate; }
     disconnect() { this.api = null; }
   }
   const context = {
-    window, document, location: { origin: 'https://example.test' }, Date, URL,
+    window, document, location, history, Date, URL, WorkerDriveAuthorization: workerClass, consumeWorkerFailure,
     localStorage: { getItem(name) { if (name.includes('drive-client')) calls.localReads++; return storage.get(name) ?? null; }, setItem(name, value) { storage.set(name, value); }, removeItem(name) { storage.delete(name); } },
     DRIVE_CLIENT_IDS: { dev: appClientId, main: appClientId }, validClientId, DriveAuthorization, MergeComparisonView,
     BackupSettings: class {}, DriveSync: Engine, driveNamespace: async () => 'synthetic-namespace',
@@ -47,7 +50,7 @@ async function frontend({ appClientId = clientId, localClientId = '', connectedB
     setInterval() { return 1; }, setTimeout() { return 1; }, clearTimeout() {},
   };
   vm.runInNewContext(source.replace(/^import .*\n/gm, '').replace('export class DrivePanel', 'class DrivePanel') + '\nglobalThis.TestDrivePanel = DrivePanel;', context);
-  const panel = new context.TestDrivePanel({ key, base: `https://example.test${path}`, development, getGarage: () => ({ vehicles: [] }), canSync: () => true, canApply: () => true, openBackups: () => { calls.opened++; } });
+  const panel = new context.TestDrivePanel({ key, base: `${origin}${path}`, development, getGarage: () => ({ vehicles: [] }), canSync: () => true, canApply: () => true, openBackups: () => { calls.opened++; } });
   panel.onConnected = () => { calls.connected++; panel.engine.api = {}; panel.render(); };
   const ready = panel.restore();
   if (!restoreGate) await ready;
@@ -104,6 +107,58 @@ test('a previous connection only preloads Google and never opens its chooser wit
   assert.equal(app.calls.popups, 0);
   app.click('drive-profile');
   assert.equal(app.calls.popups, 1);
+});
+
+test('the production hostname resumes its Worker session without a Google popup', async () => {
+  const redirects = [];
+  class WorkerAuth {
+    constructor() { this.kind = 'worker'; this.connected = true; this.pending = false; }
+    async restore() { return true; }
+    connect(url) { redirects.push(url); }
+  }
+  const app = await frontend({ development: false, origin: 'https://garapp.siniverse.cc', workerClass: WorkerAuth });
+  assert.equal(app.panel.useWorker, true);
+  assert.equal(app.calls.connected, 1);
+  assert.equal(app.calls.loads, 0);
+  assert.equal(app.calls.popups, 0);
+  assert.equal(app.get('drive-profile').dataset.state, 'connected');
+  assert.deepEqual(redirects, []);
+});
+
+test('a signed-out Worker needs a click, and an unavailable Worker keeps the manual flow', async () => {
+  const redirects = [];
+  class SignedOutAuth {
+    constructor() { this.kind = 'worker'; this.connected = false; this.pending = false; }
+    async restore() { return false; }
+    connect(url) { redirects.push(url); }
+  }
+  const app = await frontend({ development: false, origin: 'https://garapp.siniverse.cc', workerClass: SignedOutAuth });
+  assert.equal(app.calls.loads, 0);
+  assert.equal(app.calls.popups, 0);
+  app.click('drive-connect');
+  assert.deepEqual(redirects, ['https://garapp.siniverse.cc/Garapp/']);
+
+  class OfflineWorker { constructor() { this.kind = 'worker'; } async restore() { throw Error('Unreachable'); } }
+  const fallback = await frontend({ development: false, origin: 'https://garapp.siniverse.cc', workerClass: OfflineWorker });
+  await fallback.panel.prepare();
+  assert.equal(fallback.panel.workerUnavailable, true);
+  assert.equal(fallback.calls.loads, 1);
+  assert.equal(fallback.calls.popups, 0);
+  fallback.click('drive-connect');
+  assert.equal(fallback.calls.popups, 1);
+});
+
+test('an OAuth cancellation clears the Worker marker, preserves the route and shows a neutral message', async () => {
+  class SignedOutAuth {
+    constructor() { this.kind = 'worker'; this.connected = false; this.pending = false; }
+    async restore() { return false; }
+  }
+  const app = await frontend({ development: false, origin: 'https://garapp.siniverse.cc', workerClass: SignedOutAuth,
+    search: '?drive_auth=failed&view=synthetic', hash: '#garage' });
+  assert.equal(app.calls.replaced.url, '/Garapp/?view=synthetic#garage');
+  assert.equal(app.calls.replaced.state.route, 'synthetic');
+  assert.equal(app.get('drive-status').textContent, 'Connexion Google non terminée.');
+  assert.equal(app.calls.popups, 0);
 });
 
 test('opening backups prepares Google without a popup; one connection click requests OAuth synchronously', async () => {

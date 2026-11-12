@@ -70,3 +70,19 @@ test('build rejects ambiguous hosts and never overwrites an existing deployment'
   t.after(() => rm(work, { recursive: true, force: true }));
   await assert.rejects(prepareCloudflare({ output: work, branch: 'main', domain: 'brand.example' }), /already exists/);
 });
+
+test('Workers Builds publishes only tested static assets and cannot redeploy the old Pages project', async () => {
+  const config = JSON.parse(await readFile(join(root, 'wrangler.jsonc'), 'utf8'));
+  assert.equal(config.name, 'siniverse-garapp-site');
+  assert.equal(config.assets.directory, './dist');
+  assert.equal(config.assets.not_found_handling, 'single-page-application');
+  assert.equal(config.main, undefined, 'this site needs only Static Assets; auth runs in a separate Worker');
+  const builder = await readFile(join(root, 'scripts/build-cloudflare-worker.mjs'), 'utf8');
+  assert.match(builder, /WORKERS_CI_BRANCH/);
+  assert.match(builder, /check-backup-fixtures/);
+  const workflow = await readFile(join(root, '.github/workflows/cloudflare.yml'), 'utf8');
+  assert.doesNotMatch(workflow, /pages deploy|CLOUDFLARE_DEPLOY_ENABLED|cloudflare\/wrangler-action/);
+  const html = await readFile(join(root, 'public/index.html'), 'utf8');
+  assert.match(html, /connect-src [^"\n]*https:\/\/api\.siniverse\.cc/);
+  assert.match(html, /https:\/\/siniverse\.cc\/confidentialite\.html/);
+});
