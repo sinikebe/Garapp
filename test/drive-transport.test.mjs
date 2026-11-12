@@ -11,6 +11,29 @@ import { fingerprint } from '../public/assets/js/backups.js';
 const clientId = '1234567890-synthetic-client.apps.googleusercontent.com';
 const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 
+test('connected account details use Drive about without new scopes or persistent identity', async () => {
+  const requests = [];
+  const api = new DriveAPI({ token: () => 'synthetic-token', fetcher: async (url, options) => {
+    requests.push({ url, options });
+    return json({ user: { displayName: 'Compte fictif', emailAddress: 'example@example.test' } });
+  } });
+  assert.deepEqual(await api.getAccount(), { name: 'Compte fictif', email: 'example@example.test' });
+  assert.equal(requests[0].url, 'https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)');
+  assert.equal(requests[0].options.credentials, 'omit');
+  assert.equal(requests[0].options.cache, 'no-store');
+});
+
+test('Drive account fields are bounded and malformed identity cannot enter the interface', async () => {
+  const api = new DriveAPI({ token: () => 'synthetic-token', fetcher: async () => json({ user: {
+    displayName: `  ${'N'.repeat(250)}\n`, emailAddress: { private: 'ignored' },
+  } }) });
+  const account = await api.getAccount();
+  assert.equal(account.name.length, 200);
+  assert.equal(account.email, '');
+  api.fetcher = async () => json(null);
+  assert.deepEqual(await api.getAccount(), { name: '', email: '' });
+});
+
 test('OAuth requests only drive.file, from a gesture, and keeps access tokens in memory until expiry', () => {
   let config, requested, connected = 0, now = 1000;
   const oauth = { initTokenClient(value) { config = value; return { requestAccessToken(options) { requested = options; } }; }, hasGrantedAllScopes(response, scope) { return response.scope === scope; } };

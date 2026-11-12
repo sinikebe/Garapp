@@ -43,6 +43,7 @@
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></symbol>
     <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Zm-4 9 3 3 5-6"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></symbol>
   </defs></svg>
   <a class="skip-link" href="#main">Aller au contenu</a>
   <header class="app-bar">
@@ -62,12 +63,15 @@
       <label class="layout-picker" for="layout-select"><span>Présentation</span><select id="layout-select" aria-label="Présentation" aria-describedby="presentation-description"><option value="horizon">Horizon</option><option value="atelier">Atelier</option><option value="parcours">Panorama</option></select></label>
       <button class="ghost-button command-trigger" id="commands-open" type="button"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-search"/></svg> Actions rapides <kbd>⌘ / Ctrl K</kbd></button>
       <button class="ghost-button appearance-trigger" id="theme-toggle" type="button" aria-label="Apparence : automatique. Passer au mode clair."><svg class="icon ui-icon" aria-hidden="true"><use href="#i-sun"/></svg><span><span class="appearance-name">Apparence</span><span id="appearance-value" aria-hidden="true">Auto</span></span></button>
-      <details class="tools-menu" data-header-menu><summary class="ghost-button" aria-label="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg><span>Outils</span></summary><div class="tools-content">
-        <div class="tools-group" role="group" aria-label="Garage"><p class="tools-heading">Garage</p><button type="button" data-action="garage-details">Documents et informations du garage</button><button type="button" data-action="trash">Corbeille des interventions</button></div>
-        <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="backups">Sauvegardes</button></div>
-        <div class="tools-group" role="group" aria-label="Application"><p class="tools-heading">Application</p><button type="button" data-pwa-open>Installation, hors connexion et mises à jour</button></div>
-        <div class="tools-group" role="group" aria-label="Utilisation"><p class="tools-heading">Utilisation</p><button type="button" data-action="commands">Actions rapides <kbd>⌘ / Ctrl K</kbd></button><button type="button" data-action="print">Imprimer / PDF</button></div>
-      </div></details>
+      <div class="app-bar-right">
+        <details class="tools-menu" data-header-menu><summary class="ghost-button" aria-label="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg><span>Outils</span></summary><div class="tools-content">
+          <div class="tools-group" role="group" aria-label="Garage"><p class="tools-heading">Garage</p><button type="button" data-action="garage-details">Documents et informations du garage</button><button type="button" data-action="trash">Corbeille des interventions</button></div>
+          <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="backups">Sauvegardes</button></div>
+          <div class="tools-group" role="group" aria-label="Application"><p class="tools-heading">Application</p><button type="button" data-pwa-open>Installation, hors connexion et mises à jour</button></div>
+          <div class="tools-group" role="group" aria-label="Utilisation"><p class="tools-heading">Utilisation</p><button type="button" data-action="commands">Actions rapides <kbd>⌘ / Ctrl K</kbd></button><button type="button" data-action="print">Imprimer / PDF</button></div>
+        </div></details>
+        <button id="drive-profile" type="button" class="ghost-button drive-profile" aria-label="Se connecter à Google Drive" hidden><svg class="icon ui-icon" aria-hidden="true"><use href="#i-profile"/></svg><span id="drive-profile-name" class="drive-profile-name" hidden></span><span id="drive-profile-badge" class="drive-profile-badge" aria-hidden="true">!</span></button>
+      </div>
     </div>
   </header>
   <div class="workspace-shell">
@@ -284,6 +288,7 @@
       <p class="hint" data-help-keep>Retrouvez votre garage sur vos appareils avec le même compte Google.</p>
       <p id="drive-setup-note" class="hint" data-help-keep>Google Drive n’est pas encore disponible dans cette version.</p>
       <div class="backup-actions drive-connection-actions"><button id="drive-connect" type="button" class="primary-button" disabled>Se connecter à Google Drive</button><button id="drive-disconnect" type="button" class="text-button" hidden>Se déconnecter</button></div>
+      <p id="drive-account" class="hint drive-account" hidden></p>
       <p id="drive-status" class="hint backup-feedback" role="status" data-help-keep></p>
       <p id="drive-notice" class="hint" data-help-keep></p>
       <div id="drive-binding" hidden>
