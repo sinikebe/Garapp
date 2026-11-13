@@ -18,12 +18,26 @@ permissions:
   contents: read
 
 jobs:
-  ci:
-    if: github.event_name != 'pull_request' || github.event.action != 'closed'
-    uses: sinikebe/siniverse/.github/workflows/reusable-ci.yml@306bb650829b7d910345b5218095a18f344d2b28
+  version:
+    if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy)) && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: sinikebe/siniverse/.github/workflows/reusable-version.yml@4d782b2dde87ba6ae61475305b0e32e53ae19c7b
     with:
-      automation_ref: 306bb650829b7d910345b5218095a18f344d2b28
+      automation_ref: 4d782b2dde87ba6ae61475305b0e32e53ae19c7b
       deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
+  ci:
+    needs: version
+    if: always() && !cancelled() && (github.event_name != 'pull_request' || github.event.action != 'closed') && (needs.version.result == 'skipped' || (needs.version.result == 'success' && needs.version.outputs.current == 'true'))
+    permissions:
+      contents: read
+    uses: sinikebe/siniverse/.github/workflows/reusable-ci.yml@4d782b2dde87ba6ae61475305b0e32e53ae19c7b
+    with:
+      automation_ref: 4d782b2dde87ba6ae61475305b0e32e53ae19c7b
+      deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
+      version: ${{ needs.version.outputs.version }}
+      version_tag: ${{ needs.version.outputs.tag }}
     secrets:
       CLOUDFLARE_ACCOUNT_ID: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy)) && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && secrets.CLOUDFLARE_ACCOUNT_ID || '' }}
       CLOUDFLARE_API_TOKEN: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy)) && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && secrets.CLOUDFLARE_API_TOKEN || '' }}
@@ -32,6 +46,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: sinikebe/siniverse/.github/workflows/reusable-cleanup.yml@306bb650829b7d910345b5218095a18f344d2b28
+    uses: sinikebe/siniverse/.github/workflows/reusable-cleanup.yml@4d782b2dde87ba6ae61475305b0e32e53ae19c7b
     with:
-      automation_ref: 306bb650829b7d910345b5218095a18f344d2b28
+      automation_ref: 4d782b2dde87ba6ae61475305b0e32e53ae19c7b

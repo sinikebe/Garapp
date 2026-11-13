@@ -15,6 +15,6 @@ permissions:
 
 jobs:
   pages:
-    uses: sinikebe/siniverse/.github/workflows/reusable-pages.yml@306bb650829b7d910345b5218095a18f344d2b28
+    uses: sinikebe/siniverse/.github/workflows/reusable-pages.yml@4d782b2dde87ba6ae61475305b0e32e53ae19c7b
     with:
-      automation_ref: 306bb650829b7d910345b5218095a18f344d2b28
+      automation_ref: 4d782b2dde87ba6ae61475305b0e32e53ae19c7b
