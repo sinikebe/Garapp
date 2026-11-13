@@ -8,7 +8,7 @@ applicatif, gestionnaire d'état externe ou compilation de l'interface n'est né
 
 ## Exécuter le projet
 
-Prérequis : Node.js 22.12 ou plus récent. Python 3.10 ou plus récent sert uniquement
+Prérequis : Node.js 24.22.2 et npm 11.19.1. Python 3.10 ou plus récent sert uniquement
 à préparer la publication GitHub Pages.
 
 ```sh
@@ -46,6 +46,8 @@ les empreintes périmées.
 | `npm run check:backups` | Compatibilité historique, stockage, fichiers liés et Drive |
 | `npm test` | Ensemble des tests Node |
 | `npm run check` | Sources, compatibilité et ensemble des tests |
+| `npm run ci:check` | Contrôles précédents, immutabilité des fixtures historiques et tests Python Pages |
+| `npm run ci:build` | Paquet statique pour le contexte `SINIVERSE_*` validé par le contrôleur commun |
 
 ## Organisation du code
 
@@ -121,12 +123,13 @@ les quotas et l'installation PWA dépendent du navigateur utilisé.
 
 ## CI et publication
 
-La publication Workers utilise maintenant les runners GitHub hébergés, un
-Wrangler local verrouillé et des gardes de branche/révision. Les PR sont
-vérifiées sans secrets ; seuls main et dev peuvent être publiés après CI ou
-demande manuelle explicite. Le [guide Cloudflare](cloudflare-hosting.md)
-décrit les secrets, les commandes et la Preview nommée dev. Les Builds
-Cloudflare précédents doivent rester désactivés pour éviter deux pipelines.
+Le caller `CI` appelle le workflow commun de Siniverse à un commit immuable.
+Un seul job GitHub hébergé vérifie les sources, construit `dist/`, contrôle le
+paquet Wrangler, puis publie et sonde la révision si le contexte l'autorise.
+Les PR sont vérifiées sans secrets ; seuls main et dev peuvent être publiés
+après push ou demande manuelle explicite. Le [guide Cloudflare](cloudflare-hosting.md)
+décrit les adaptateurs, les secrets et la Preview nommée dev. Les Builds
+Cloudflare précédents restent désactivés pour éviter deux pipelines.
 
 La [CI](../.github/workflows/ci.yml) s'exécute sur les pushes `main` et `dev`, sur
 les pull requests visant ces branches et lors d'un lancement manuel. Une pull request
@@ -149,8 +152,9 @@ d'origine, le retrait des anciens service workers et la promotion nécessaire de
 l'outillage vers `main`. Le build Cloudflare reste indépendant de cet artefact.
 
 Les publications sont sérialisées. Le workflow récupère les branches après sa mise
-en attente, exige une CI réussie pour chacun des deux commits récupérés, puis valide
-ces révisions avant l'envoi de l'artefact. Une branche devenue invalide depuis le
+en attente, exige une CI de push réussie pour chacun des deux commits récupérés,
+puis revérifie leurs HEAD avant l'envoi de l'artefact sans répéter les tests.
+Une branche devenue invalide depuis le
 déclenchement bloque la publication ; une CI encore en cours doit d'abord se terminer.
 La CI refuse également la modification ou la suppression d'une fixture historique
 existante par rapport à la base du changement. Les droits `pages`

@@ -1,94 +1,94 @@
 # Cloudflare Workers hosting
 
-Garapp is served at `https://garapp.siniverse.cc` by the existing
-`siniverse-garapp-site` Worker and Cloudflare Static Assets. Authorization remains
-on the separate suite Worker at `https://api.siniverse.cc`. Vehicle records,
-attachments, exports, browser storage and PWA scopes are unaffected by the CI
-pipeline. No account secret belongs in source or generated assets.
+Garapp uses the existing `siniverse-garapp-site` Worker at
+`https://garapp.siniverse.cc/`. Its named `dev` Preview uses
+`https://dev.garapp.siniverse.cc/`. Domains remain managed in Cloudflare;
+Wrangler declares no production or Preview routes. `workers_dev` and
+`preview_urls` are explicitly disabled. Authorization remains on the separate
+suite Worker at `https://api.siniverse.cc`.
 
-## GitHub-hosted validation and publication
+## Shared GitHub pipeline
 
-Use standard GitHub-hosted Linux runners and Node.js 22.12 or later. `npm ci`
-installs the exact Wrangler version from `package-lock.json`; publication uses
-that local executable, never an unpinned global tool.
+The `CI` caller is identical across the Siniverse applications and references
+an immutable commit of the reusable workflow in `sinikebe/siniverse`. Its
+`automation_ref` input matches the full SHA in `uses`. The registry and controller
+in that shared revision select the existing Worker, account and HTTPS probe URL.
+The application has no second publication workflow or local deployment controller.
 
-| Trigger | Result | Cloudflare credentials |
-| --- | --- | --- |
-| Pull request into main/dev, including a fork | CI, source/PWA checks, historical backups, tests and asset package | None |
-| Successful push CI on main | Rebuild and deploy production | Required |
-| Successful push CI on dev | Rebuild and publish named Preview `dev` of the same Worker | Required |
-| Manual Cloudflare Worker run, `deploy=false` (default) | Validate and build only | None |
-| Manual Cloudflare Worker run, `deploy=true` on main/dev | Validate and publish selected branch | Required |
-| Deletion of dev | Remove only the named `dev` Preview if the branch was not recreated | Required |
+The common runner is `ubuntu-24.04`, with Node.js 24.22.2 from `.node-version`,
+npm 11.19.1 from `packageManager`, and local Wrangler 4.161.0 from the lockfile.
+One job installs with `npm ci`, checks, builds, dry-runs, and, if authorized,
+publishes and probes the same `dist/`. No build artifact is uploaded to transfer
+between jobs and no persistent Actions cache is introduced by this pipeline.
 
-The publication workflow runs from the default branch after `CI`. It accepts
-only successful push runs from this repository and the two named branches.
-Pull request runs cannot enter its credential-bearing job; no
-`pull_request_target` executes repository code. A manual CI run does not imply
-publication: use the explicit Cloudflare Worker dispatch with `deploy=true`.
+| Event | Behavior |
+| --- | --- |
+| Pull request into main/dev | Checks, build and local dry run; no publication credentials |
+| Push main | Production publication after checks and source revision guards |
+| Push dev | Named `dev` Preview of the same Worker after checks |
+| Manual `deploy=false` (default) | Validation only |
+| Manual `deploy=true` | Publication only for current main/dev and valid credentials |
 
-The build checks immutable historical backup inputs, sources and PWA fingerprints,
-runs all Node tests, and then writes `dist/`. Before building and again immediately
-before Wrangler, the workflow checks that the local commit is the expected event
-SHA and still the head of the target branch. Queued obsolete runs skip publication.
-The selected build environment must match the publication branch.
+The caller passes exactly `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`.
+Only the common publication step receives their values. Missing credentials are
+handled consistently by the shared controller: pushes explicitly skip publication;
+an explicit manual publication request fails clearly. Adding secrets does not
+start a run by itself. Use a permitted push or the explicit manual publication
+option when configuration is complete; never put secret values in code or logs.
 
-Configure repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`
-with access to this existing Worker. A push with missing secrets explicitly skips
-publication. The publisher also rejects an account other than the existing
-Worker account before invoking Wrangler. A manual `deploy=true` request with missing secrets fails with a clear
-configuration error. Adding secrets does not itself start a deployment; dispatch
-once on main or dev after configuration. Never print secret values or add them to
-Wrangler files, command arguments, artifacts or browser preferences.
+Repository, account, branch, source SHA and current remote head are checked centrally.
+Publication is serialized per branch without cancelling an active deployment.
+The shared controller writes `dist/deployment.json` and verifies it over HTTPS
+after deployment. Garapp does not produce a second manifest or its own probe logic.
+Former Cloudflare Builds triggers stay disabled; no additional Worker or paid
+resource is required. Preview URLs remain public unless Access is configured.
 
-Disable the former Cloudflare Workers Builds production/branch triggers before
-using GitHub publication, so a push does not run both systems. Do not reactivate
-paid options, alter DNS or change Worker/domain identities as part of this setup.
-`wrangler.jsonc` retains the existing compatibility date, static assets and SPA
-fallback, with an empty `previews` block for this assets-only Worker.
+## Garapp adapters
 
-## Dev Preview
+`npm run ci:check` preserves source/documentation checks, committed PWA fingerprints,
+immutable historical backup fixtures and Drive metadata, every application test,
+and the Python tests for legacy Pages packaging. `SINIVERSE_BASE_SHA` supplies
+the shared comparison revision and is mapped to the existing `BACKUP_BASE_SHA`
+checker. A local invocation can use `BACKUP_BASE_SHA` or the preceding Git commit.
 
-The command is `wrangler preview --name dev`, scoped to `siniverse-garapp-site`.
-It does not deploy a separate Worker or assign a production route to dev. Preview
-hostnames are managed separately in Cloudflare. With the current Preview-only
-base `dev.garapp.siniverse.cc`, the named Preview is
-`https://dev.dev.garapp.siniverse.cc`; this is not a promise that the shorter base
-serves the application. Routing adjustments remain a separate operation.
+`npm run ci:build` replaces only generated `dist/` and calls the existing static
+packager. `SINIVERSE_BRANCH` selects main/dev packaging, including the PR target
+variant; `SINIVERSE_SOURCE_BRANCH` is the actual feature branch. Environments are
+`production`, `preview` or `test`, and `SINIVERSE_SHA` must match the checkout.
+Only the built deployment configuration and its offline fingerprints vary with
+the target. Public sources, browser storage, documents and Drive backups are unchanged.
 
-Preview URLs are public unless Cloudflare Access is configured. This pipeline
-creates no per-PR or arbitrary feature-branch Preview, so deleting a merged work
-branch needs no remote Preview cleanup. `main` and `dev` are retained. The dev
-Preview is removed only when dev itself is deleted, and cleanup skips if dev has
-been recreated. Cleanup never calls `wrangler delete` on the Worker.
-
-## Local packaging
+For local checks, use the pinned Node/npm versions and Python 3:
 
 ```sh
 npm ci
-GARAPP_BUILD_BRANCH=main npm run build:cloudflare
-npm exec -- wrangler deploy --dry-run --outdir /tmp/garapp-worker-dry-run
+npm run ci:check
+SINIVERSE_BRANCH=main SINIVERSE_ENVIRONMENT=test SINIVERSE_SHA=$(git rev-parse HEAD) npm run ci:build
 ```
 
-Choose `GARAPP_BUILD_BRANCH=dev` for a dev asset package, in a fresh checkout or
-after removing only generated `dist/`. A dry run checks local packaging, not token
-permissions, live routes or Preview availability. Real publication is intentionally
-restricted to trusted GitHub event context and never begins with missing secrets.
+A dry run validates packaging rather than remote token permissions or routing.
+The shared caller requests guarded cleanup for merged work branches from the
+same repository. Keep the reserved `main` and `dev` branches. The common pipeline
+does not create arbitrary feature/PR Previews that would require a second cleanup
+workflow in this repository.
 
-## Historical GitHub Pages and recovery
+## Legacy Pages and recovery
 
-The [legacy Pages workflow](legacy-pages.md) remains independent and publishes
-only redirect entry points plus same-origin recovery tools. Its artifact name
-includes the run and attempt IDs; publication waits briefly for that exact artifact
-to become visible, so a retried job cannot select another attempt's artifact.
+The [historical Pages caller](legacy-pages.md) invokes the separate shared Pages
+workflow at the same immutable automation revision. `npm run ci:pages` receives
+`SINIVERSE_PAGES_MAIN_SOURCE`, `SINIVERSE_PAGES_DEV_SOURCE` and
+`SINIVERSE_PAGES_OUT`; the two source checkouts stay distinct and the output must
+be a new directory outside both. The existing Python generator and templates
+publish the fixed redirect entry points, retiring service workers and same-origin
+`recovery.html` tools without changing their bytes or data access paths.
 
-The old `sinikebe.github.io` origin keeps separate storage. Export there through
-`recovery.html`, then import on the new domain, or reconnect an existing verified
-Drive backup. Preserve OAuth projects, Drive namespaces and original revision
-history. Browser tokens remain in memory; refresh tokens remain in the shared
-authorization Worker. The CI migration does not transfer or erase user data.
+The shared task still requires successful CI for the exact main/dev heads. It uses
+the same pinned Node/npm versions, no Cloudflare credentials, an artifact name
+unique to run/attempt, a bounded visibility check and one-day retention. This
+compatibility task is not a second Workers publication path.
 
-References: [GitHub Actions deployment](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/),
-[Workers Previews in CI](https://developers.cloudflare.com/workers/previews/examples/),
-[Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/),
-[Preview domains](https://developers.cloudflare.com/workers/previews/custom-domains/).
+The previous `sinikebe.github.io` origin retains its own browser storage. Use the
+existing JSON export/import and recovery tools to move a copy explicitly, or
+reconnect an existing verified Drive backup. Preserve OAuth projects, backup
+namespaces, original revision history and exact document bytes. The CI change
+neither transfers nor erases user data.

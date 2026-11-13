@@ -5,62 +5,33 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+    types: [opened, synchronize, reopened, closed]
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish main or the stable dev Preview after validation
+        type: boolean
+        default: false
+        required: true
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  check:
-    name: Application and backup compatibility
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout the proposed revision
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-
-      - name: Prepare the current revision
-        env:
-          TARGET_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: >-
-          python3 scripts/prepare_pages.py
-          --source .
-          --output "$RUNNER_TEMP/garapp-check"
-          --branch "$TARGET_BRANCH"
-
-      - name: Verify historical Pages packaging
-        run: python3 -m unittest discover -s test -p 'legacy_pages_test.py'
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install locked deployment tooling
-        run: npm ci
-
-      - name: Check source, documentation and offline bundle
-        run: npm run check:source
-
-      - name: Verify historical backup compatibility
-        run: npm run check:backups
-
-      - name: Keep historical backup inputs immutable
-        env:
-          BACKUP_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: node tools/check-backup-fixtures.mjs
-
-      - name: Verify application behavior
-        run: npm test
-
-      - name: Build the Worker package without credentials
-        env:
-          GARAPP_BUILD_BRANCH: ${{ github.base_ref || github.ref_name }}
-        run: npm run build:cloudflare
+  ci:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+    uses: sinikebe/siniverse/.github/workflows/reusable-ci.yml@306bb650829b7d910345b5218095a18f344d2b28
+    with:
+      automation_ref: 306bb650829b7d910345b5218095a18f344d2b28
+      deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy)) && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && secrets.CLOUDFLARE_ACCOUNT_ID || '' }}
+      CLOUDFLARE_API_TOKEN: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy)) && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && secrets.CLOUDFLARE_API_TOKEN || '' }}
+  cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged && github.event.pull_request.head.repo.full_name == github.repository && github.event.repository.private == false
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: sinikebe/siniverse/.github/workflows/reusable-cleanup.yml@306bb650829b7d910345b5218095a18f344d2b28
+    with:
+      automation_ref: 306bb650829b7d910345b5218095a18f344d2b28

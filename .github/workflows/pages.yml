@@ -1,132 +1,20 @@
-name: GitHub Pages
+name: Pages
 
 on:
   workflow_run:
     workflows: [CI]
-    types: [completed]
     branches: [main, dev]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
   contents: read
-
-# Keep the lock through both checkout and deployment, so queued runs rebuild
-# from current branch heads instead of publishing an older assembled artifact.
-concurrency:
-  group: pages
-  cancel-in-progress: false
+  actions: read
+  pages: write
+  id-token: write
 
 jobs:
-  publish:
-    name: Publish main and dev
-    # workflow_run executes on the default branch. Keep Pages deployments on
-    # main even when validation was triggered by a push to dev.
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_repository.full_name == github.repository &&
-        (github.event.workflow_run.event == 'push' ||
-         github.event.workflow_run.event == 'workflow_dispatch')))
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      actions: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Checkout publishing tools
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          persist-credentials: false
-          path: tooling
-
-      - name: Checkout the latest main
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          persist-credentials: false
-          path: sources/main
-
-      - name: Checkout the latest dev
-        uses: actions/checkout@v6
-        with:
-          ref: dev
-          persist-credentials: false
-          path: sources/dev
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '22'
-
-      - name: Require successful CI for both checked-out revisions
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          for branch in main dev; do
-            sha=$(git -C "sources/$branch" rev-parse HEAD)
-            passed=$(gh api "repos/$GH_REPO/actions/workflows/ci.yml/runs?head_sha=$sha&status=success&per_page=100" \
-              --jq "[.workflow_runs[] | select(.head_sha == \"$sha\" and .head_branch == \"$branch\" and (.event == \"push\" or .event == \"workflow_dispatch\"))] | length")
-            if [ "$passed" -eq 0 ]; then
-              echo "No successful CI for $branch at $sha; wait for its CI before publishing."
-              exit 1
-            fi
-          done
-
-      # A successful triggering run may precede a newer branch push. Validate
-      # the actual checkout of both branches before publishing either one.
-      - name: Validate the exact main and dev revisions
-        shell: bash
-        run: |
-          for branch in main dev; do
-            (
-              cd "sources/$branch"
-              if [ -f package-lock.json ]; then npm ci; fi
-              npm run check:source --if-present
-              npm run check:backups --if-present
-              npm test
-            )
-          done
-
-      - name: Prepare historical redirects and local recovery tools
-        run: |
-          python3 tooling/scripts/prepare_legacy_pages.py --source sources/main --output _site --branch main
-          python3 tooling/scripts/prepare_legacy_pages.py --source sources/dev --output _site/dev --branch dev
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload both versions as one site
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: _site
-          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - name: Wait for this attempt's artifact to become visible
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
-        shell: bash
-        run: |
-          for attempt in 1 2 3 4 5 6; do
-            count=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq "[.artifacts[] | select(.name == \"$ARTIFACT\" and .expired == false)] | length")
-            if [ "$count" -eq 1 ]; then exit 0; fi
-            sleep 5
-          done
-          echo 'The Pages artifact is not visible yet. Retry this job later.'
-          exit 1
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+  pages:
+    uses: sinikebe/siniverse/.github/workflows/reusable-pages.yml@306bb650829b7d910345b5218095a18f344d2b28
+    with:
+      automation_ref: 306bb650829b7d910345b5218095a18f344d2b28
