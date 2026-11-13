@@ -55,8 +55,9 @@ checker. A local invocation can use `BACKUP_BASE_SHA` or the preceding Git commi
 packager. `SINIVERSE_BRANCH` selects main/dev packaging, including the PR target
 variant; `SINIVERSE_SOURCE_BRANCH` is the actual feature branch. Environments are
 `production`, `preview` or `test`, and `SINIVERSE_SHA` must match the checkout.
-Only the built deployment configuration and its offline fingerprints vary with
-the target. Public sources, browser storage, documents and Drive backups are unchanged.
+The built deployment configuration, displayed version and offline fingerprints
+vary with the target. Public sources, browser storage, documents and Drive backups
+are unchanged by packaging.
 
 For local checks, use the pinned Node/npm versions and Python 3:
 
@@ -72,6 +73,24 @@ same repository. Keep the reserved `main` and `dev` branches. The common pipelin
 does not create arbitrary feature/PR Previews that would require a second cleanup
 workflow in this repository.
 
+## Application versions
+
+`package.json`, the root entries in `package-lock.json` and the checked-in footer
+hold `0.0.1` as the local fallback. The deployed version comes from shared CI,
+recorded in immutable annotated tags `siniverse-version/main/vX.Y.Z` and
+`siniverse-version/dev/vX.Y.Z`. The first version in each channel is `0.0.1`.
+Subsequent assignments default to patch, use minor for features and major for
+breaking changes; one explicit `semver:major`, `semver:minor` or `semver:patch`
+override is handled centrally. CI does not commit version bumps to app branches.
+
+`SINIVERSE_VERSION` contains the assigned strict SemVer value without `v`.
+The existing packager renders the footer as `vX.Y.Z` before calculating the final
+service worker fingerprints. A version change therefore changes both index and
+its offline release. There is no runtime version fetch: a cached page displays
+the version of its own loaded bundle, including offline and without JavaScript.
+The existing update prompt controls activation; versioning does not reset browser
+storage, recovery archives, Drive metadata or any data-format version.
+
 ## Legacy Pages and recovery
 
 The [historical Pages caller](legacy-pages.md) invokes the separate shared Pages
@@ -80,7 +99,12 @@ workflow at the same immutable automation revision. `npm run ci:pages` receives
 `SINIVERSE_PAGES_OUT`; the two source checkouts stay distinct and the output must
 be a new directory outside both. The existing Python generator and templates
 publish the fixed redirect entry points, retiring service workers and same-origin
-`recovery.html` tools without changing their bytes or data access paths.
+`recovery.html` tools. The redirects and retirement workers stay byte-identical
+to their templates. `SINIVERSE_PAGES_MAIN_VERSION` and
+`SINIVERSE_PAGES_DEV_VERSION` provide the versions resolved for the exact two
+source HEADs. The adapter renders only each recovery footer; absent values use
+the local `0.0.1` fallback. Pages retains its retiring worker, which has no asset
+cache to regenerate, and all original data access paths.
 
 The shared task still requires successful CI for the exact main/dev heads. It uses
 the same pinned Node/npm versions, no Cloudflare credentials, an artifact name
