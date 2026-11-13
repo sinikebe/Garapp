@@ -47,11 +47,19 @@ les ressources de chaque branche pour `recovery.html`, puis remplace uniquement
 l’index et le service worker de l’artefact par les fichiers de transition.
 `public/`, le build Cloudflare et les ressources du Worker ne sont pas modifiés.
 
+Le workflow transmet aussi `SINIVERSE_PAGES_MAIN_VERSION` et
+`SINIVERSE_PAGES_DEV_VERSION`, sans préfixe `v`, résolues depuis les tags des deux
+HEAD exacts. L'adaptateur affiche cette version dans le pied de page de chaque
+`recovery.html` ; en local, la valeur de repli est `0.0.1`. Les redirecteurs et les
+service workers de retrait restent identiques à leurs modèles. Ces workers ne
+précachent aucune ressource ; aucun cache ni stockage utilisateur n'est modifié
+par l'affichage de la version.
+
 Le workflow Pages actif s’exécute depuis `main` et récupère son outillage depuis
-`main`. Fusionner une proposition dans `dev` ne suffit donc pas : le générateur,
-ses modèles et le workflow doivent également être promus dans `main` par une PR
-de publication. Préserver les commits propres à chaque branche lors de cette
-promotion. Les deux révisions assemblées doivent avoir une CI de push réussie ;
+`main`. Les changements d'outillage rejoignent d'abord `dev`. Après test de la
+preview et accord explicite de promotion, seule une PR depuis `dev` vers `main`
+peut les faire entrer en production ; une branche de fonctionnalité ne cible pas
+`main`. Les deux révisions assemblées doivent avoir une CI de push réussie ;
 le workflow vérifie leurs HEAD avant publication et utilise ces résultats sans
 répéter les suites de tests. Lancer ensuite
 **Pages** depuis `main`, ou laisser une CI de push réussie le déclencher.

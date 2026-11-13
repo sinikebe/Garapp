@@ -4,9 +4,16 @@ Une proposition doit décrire le problème rencontré, le comportement attendu e
 les étapes pour le reproduire. Les captures et exemples doivent être fictifs ou
 expurgés de toute information privée. Ne joindre aucun export réel de garage.
 
-Le travail courant vise `dev`. Une pull request doit rester centrée sur son objectif,
-avec un titre et des commits courts décrivant le changement. Les corrections
-fonctionnelles doivent inclure un test reproduisant la régression lorsque possible.
+Toute PR de changement cible d'abord `dev`. Une proposition doit rester centrée
+sur son objectif, avec un titre et des commits courts décrivant le changement.
+Les corrections fonctionnelles doivent inclure un test reproduisant la régression
+lorsque possible. Après revue et CI réussie, la fusion dans `dev` ne demande pas
+d'accord de production.
+
+`main` accepte uniquement une PR depuis la branche `dev` du même dépôt, après
+test de la preview et accord explicite du responsable pour cette promotion.
+Ne pas fusionner de branche de fonctionnalité directement dans `main`, ni
+contourner cette promotion par un push direct.
 
 Avant de proposer des changements :
 

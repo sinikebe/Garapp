@@ -64,7 +64,7 @@ export class DriveAPI {
       const timeout = new AbortController();
       const timer = setTimeout(() => timeout.abort(), this.timeoutMs);
       try {
-        const token = this.token();
+        const token = await this.token();
         if (!token) { this.onExpired(); throw new DriveError(401); }
         response = await this.fetcher(url.href, {
           ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` },

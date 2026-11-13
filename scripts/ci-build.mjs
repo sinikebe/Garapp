@@ -25,7 +25,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   // all browser/Drive data remain outside this packaging operation.
   const output = join(root, 'dist');
   await rm(output, { recursive: true, force: true });
-  await prepareCloudflare({ source: root, output, branch: context.branch, domain: 'siniverse.cc' });
+  await prepareCloudflare({ source: root, output, branch: context.branch, domain: 'siniverse.cc', version: process.env.SINIVERSE_VERSION });
   // The shared controller adds deployment.json after this package is complete.
   process.stdout.write('Prepared Garapp ' + context.branch + ' (' + context.environment + ') at ' + output + '.\n');
 }

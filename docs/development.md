@@ -132,8 +132,12 @@ décrit les adaptateurs, les secrets et la Preview nommée dev. Les Builds
 Cloudflare précédents restent désactivés pour éviter deux pipelines.
 
 La [CI](../.github/workflows/ci.yml) s'exécute sur les pushes `main` et `dev`, sur
-les pull requests visant ces branches et lors d'un lancement manuel. Une pull request
-est vérifiée sans être publiée. Les règles de protection GitHub doivent rendre ces
+les PR admissibles et lors d'un lancement manuel. Toute PR de changement vise
+`dev` ; après revue et CI verte, elle peut y être fusionnée sans accord de production.
+Une PR vers `main` doit provenir de `dev` dans le même dépôt, après test de la
+preview et accord explicite du responsable pour cette promotion. Une branche de
+fonctionnalité ne doit jamais être fusionnée directement dans `main`.
+Les PR sont vérifiées sans publication. Les protections GitHub doivent rendre ces
 contrôles obligatoires pour empêcher une fusion qui les contournerait.
 
 Le workflow [GitHub Pages](../.github/workflows/pages.yml) s'exécute depuis `main`.
