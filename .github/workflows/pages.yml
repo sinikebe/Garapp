@@ -94,10 +94,10 @@ jobs:
             )
           done
 
-      - name: Prepare both versions
+      - name: Prepare historical redirects and local recovery tools
         run: |
-          python3 tooling/scripts/prepare_pages.py --source sources/main --output _site --branch main
-          python3 tooling/scripts/prepare_pages.py --source sources/dev --output _site/dev --branch dev
+          python3 tooling/scripts/prepare_legacy_pages.py --source sources/main --output _site --branch main
+          python3 tooling/scripts/prepare_legacy_pages.py --source sources/dev --output _site/dev --branch dev
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
