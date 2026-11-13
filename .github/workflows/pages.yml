@@ -88,6 +88,7 @@ jobs:
           for branch in main dev; do
             (
               cd "sources/$branch"
+              if [ -f package-lock.json ]; then npm ci; fi
               npm run check:source --if-present
               npm run check:backups --if-present
               npm test
@@ -106,7 +107,26 @@ jobs:
         uses: actions/upload-pages-artifact@v4
         with:
           path: _site
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Wait for this attempt's artifact to become visible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            count=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq "[.artifacts[] | select(.name == \"$ARTIFACT\" and .expired == false)] | length")
+            if [ "$count" -eq 1 ]; then exit 0; fi
+            sleep 5
+          done
+          echo 'The Pages artifact is not visible yet. Retry this job later.'
+          exit 1
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
