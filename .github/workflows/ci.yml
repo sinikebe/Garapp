@@ -41,6 +41,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+          cache: npm
+
+      - name: Install locked deployment tooling
+        run: npm ci
 
       - name: Check source, documentation and offline bundle
         run: npm run check:source
@@ -55,3 +59,8 @@ jobs:
 
       - name: Verify application behavior
         run: npm test
+
+      - name: Build the Worker package without credentials
+        env:
+          GARAPP_BUILD_BRANCH: ${{ github.base_ref || github.ref_name }}
+        run: npm run build:cloudflare

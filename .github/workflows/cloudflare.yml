@@ -1,36 +1,114 @@
-name: Cloudflare Worker assets
+name: Cloudflare Worker
 
 on:
-  pull_request:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main, dev]
-  push:
-    branches: [main, dev]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Publish after validation (requires Cloudflare secrets)
+        type: boolean
+        default: false
+  delete:
 
 permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-assets-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: cloudflare-${{ github.event.workflow_run.head_branch || github.event.ref || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
-  prepare:
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+  validate:
+    if: >-
+      github.event_name == 'workflow_dispatch' && !inputs.deploy &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-      - name: Check Worker static assets without publishing
+          cache: npm
+      - run: npm ci
+      - run: python3 -m unittest discover -s test -p 'legacy_pages_test.py'
+      - name: Validate and build without publication credentials
         env:
-          BRANCH: ${{ github.base_ref || github.ref_name }}
+          GARAPP_BUILD_BRANCH: ${{ github.ref_name }}
+        run: npm run build:cloudflare
+
+  publish:
+    if: >-
+      github.repository == 'sinikebe/Garapp' &&
+      ((github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.event == 'push' &&
+        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')) ||
+       (github.event_name == 'workflow_dispatch' && inputs.deploy &&
+        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')) ||
+       (github.event_name == 'delete' && github.event.ref_type == 'branch' && github.event.ref == 'dev'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - name: Check deployment credentials without exposing their values
+        id: credentials
+        env:
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          DEPLOY_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
+        shell: bash
         run: |
-          node scripts/prepare_cloudflare.mjs --source . --output "$RUNNER_TEMP/cloudflare-check" --branch "$BRANCH" --domain example.test
-          test -s "$RUNNER_TEMP/cloudflare-check/index.html"
-          test -s "$RUNNER_TEMP/cloudflare-check/sw.js"
+          if [ -n "$CF_ACCOUNT" ] && [ -n "$CF_TOKEN" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Cloudflare publication skipped: configure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.' >> "$GITHUB_STEP_SUMMARY"
+            if [ "$DEPLOY_REQUESTED" = 'true' ]; then
+              echo '::error::Manual publication requires CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.'
+              exit 1
+            fi
+          fi
+
+      - uses: actions/checkout@v6
+        if: steps.credentials.outputs.ready == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        if: steps.credentials.outputs.ready == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Reject a stale revision before building
+        if: steps.credentials.outputs.ready == 'true'
+        id: revision
+        run: node scripts/cloudflare-deployment.mjs verify
+
+      - name: Install locked deployment tooling
+        if: steps.revision.outputs.current == 'true'
+        run: npm ci
+
+      - name: Build and verify the exact source revision
+        if: steps.revision.outputs.current == 'true' && github.event_name != 'delete'
+        env:
+          GARAPP_BUILD_BRANCH: ${{ github.event.workflow_run.head_branch || github.ref_name }}
+        run: npm run build:cloudflare
+
+      - name: Publish production or named dev Preview
+        if: steps.revision.outputs.current == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/cloudflare-deployment.mjs publish

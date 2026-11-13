@@ -38,9 +38,11 @@ Les versions principale et de développement utilisent des garages distincts.
 
 ## Développement local
 
-Node.js 22 ou plus récent suffit. Aucune installation de dépendances n'est requise.
+Node.js 22.12 ou plus récent est nécessaire pour l'outillage de publication.
+Installer les versions verrouillées, puis lancer l'application :
 
 ```sh
+npm ci
 npm start
 ```
 

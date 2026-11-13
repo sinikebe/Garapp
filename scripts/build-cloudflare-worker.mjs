@@ -1,4 +1,4 @@
-/** Build production Worker assets only after the same compatibility checks as CI. */
+/** Build main or dev assets only after the same compatibility checks as CI. */
 import { execFileSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,9 +36,9 @@ function backupBaseline() {
   }
 }
 
-const branch = process.env.WORKERS_CI_BRANCH ?? 'main';
+const branch = process.env.GARAPP_BUILD_BRANCH ?? process.env.WORKERS_CI_BRANCH ?? 'main';
 if (process.env.WORKERS_CI && !process.env.WORKERS_CI_BRANCH) throw Error('Workers Builds must supply WORKERS_CI_BRANCH.');
-if (branch !== 'main') throw Error(`This Worker only publishes main; received ${branch}.`);
+if (!['main', 'dev'].includes(branch)) throw Error('Choose main or dev for the asset package.');
 
 run('node', ['tools/check-backup-fixtures.mjs'], {
   ...process.env, BACKUP_BASE_SHA: backupBaseline(),
