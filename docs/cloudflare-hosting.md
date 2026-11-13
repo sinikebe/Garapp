@@ -83,7 +83,8 @@ workflow in this repository.
 `package.json`, the root entries in `package-lock.json` and the checked-in footer
 hold `0.0.1` as the local fallback. The deployed version comes from shared CI,
 recorded in immutable annotated tags `siniverse-version/main/vX.Y.Z` and
-`siniverse-version/dev/vX.Y.Z`. The first version in each channel is `0.0.1`.
+`siniverse-version/dev/vX.Y.Z`. The first development version is `0.0.1`.
+The first production promotion copies the exact version already tested on dev.
 Subsequent assignments default to patch, use minor for features and major for
 breaking changes; one explicit `semver:major`, `semver:minor` or `semver:patch`
 override is handled centrally. CI does not commit version bumps to app branches.
