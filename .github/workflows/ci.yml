@@ -35,6 +35,9 @@ jobs:
           --output "$RUNNER_TEMP/garapp-check"
           --branch "$TARGET_BRANCH"
 
+      - name: Verify historical Pages packaging
+        run: python3 -m unittest discover -s test -p 'legacy_pages_test.py'
+
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
