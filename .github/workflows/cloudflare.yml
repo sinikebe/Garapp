@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-${{ github.event.workflow_run.head_branch || github.event.ref || github.ref_name }}
+  group: cloudflare-${{ github.event.workflow_run.head_branch || (github.event_name == 'delete' && github.event.ref) || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
