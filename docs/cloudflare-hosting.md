@@ -1,92 +1,94 @@
 # Cloudflare Workers hosting
 
-Garapp is a static, offline-capable application hosted at
-`https://garapp.siniverse.cc`. The static site is published by a Worker using
-Cloudflare Static Assets; Google Drive authorization uses a separate suite
-Worker at `https://api.siniverse.cc`. Vehicle records and attachments remain in
-the browser and in the user's own Drive. Source code and deployed assets are
-public, including when the source repository is private: no personal data,
-client secret, session cookie or refresh token belongs in the repository.
+Garapp is served at `https://garapp.siniverse.cc` by the existing
+`siniverse-garapp-site` Worker and Cloudflare Static Assets. Authorization remains
+on the separate suite Worker at `https://api.siniverse.cc`. Vehicle records,
+attachments, exports, browser storage and PWA scopes are unaffected by the CI
+pipeline. No account secret belongs in source or generated assets.
 
-## Build and publish
+## GitHub-hosted validation and publication
 
-Connect the Garapp repository to **Workers Builds** in Cloudflare. Create a
-Worker named `siniverse-garapp-site` (the exact name in `wrangler.jsonc`), with
-`main` as its production branch. Use the repository root, Node.js 22 or later,
-the build command `npm run build:cloudflare`, and the deploy command
-`npx wrangler deploy`. These commands run inside Cloudflare; local development
-can use `node scripts/build-cloudflare-worker.mjs` without npm or Wrangler.
-Disable preview branch builds for this production-only Worker.
+Use standard GitHub-hosted Linux runners and Node.js 22.12 or later. `npm ci`
+installs the exact Wrangler version from `package-lock.json`; publication uses
+that local executable, never an unpinned global tool.
 
-The build checks the preceding Git revision's immutable backup fixtures and
-historical Drive metadata, checks the source and PWA cache, runs all tests, and
-only then writes `dist/`. A shallow checkout may fetch the exact preceding
-revision; failure to verify history stops deployment. Workers Builds supplies
-`WORKERS_CI_BRANCH`, and the build refuses a branch other than `main`. To rerun
-locally, remove only the generated `dist/` directory before rebuilding.
-`wrangler.jsonc` serves this directory as Static Assets and preserves the
-previous Pages SPA fallback for unknown routes. The published service worker
-is generated from final assets and retains its offline scope.
+| Trigger | Result | Cloudflare credentials |
+| --- | --- | --- |
+| Pull request into main/dev, including a fork | CI, source/PWA checks, historical backups, tests and asset package | None |
+| Successful push CI on main | Rebuild and deploy production | Required |
+| Successful push CI on dev | Rebuild and publish named Preview `dev` of the same Worker | Required |
+| Manual Cloudflare Worker run, `deploy=false` (default) | Validate and build only | None |
+| Manual Cloudflare Worker run, `deploy=true` on main/dev | Validate and publish selected branch | Required |
+| Deletion of dev | Remove only the named `dev` Preview if the branch was not recreated | Required |
 
-GitHub Actions validates both the application and the Worker asset package.
-It does **not** deploy either Cloudflare project. The former Pages deployment
-job has been removed so enabling an old deployment variable cannot publish
-the Pages project again.
+The publication workflow runs from the default branch after `CI`. It accepts
+only successful push runs from this repository and the two named branches.
+Pull request runs cannot enter its credential-bearing job; no
+`pull_request_target` executes repository code. A manual CI run does not imply
+publication: use the explicit Cloudflare Worker dispatch with `deploy=true`.
 
-## Rollout
+The build checks immutable historical backup inputs, sources and PWA fingerprints,
+runs all Node tests, and then writes `dist/`. Before building and again immediately
+before Wrangler, the workflow checks that the local commit is the expected event
+SHA and still the head of the target branch. Queued obsolete runs skip publication.
+The selected build environment must match the publication branch.
 
-1. Deploy the shared authorization Worker on `api.siniverse.cc`. In the
-   existing Garapp Google Cloud project, add the exact OAuth Web redirect
-   `https://api.siniverse.cc/v1/garapp/callback` to its existing client.
-   Store the client secret and encryption key
-   only as Worker secrets. Keep the existing OAuth project and its Drive
-   permissions to retain access to historical backups.
-2. Deploy `siniverse-garapp-site` through Workers Builds and inspect its
-   `workers.dev` deployment before moving the domain. The initial
-   `wrangler.jsonc` intentionally has no `routes`, so Pages can continue to
-   serve `garapp.siniverse.cc` during this preview. An alias outside the
-   production hostname still uses the manual Google connection.
-3. At cutover, delete the Pages CNAME for `garapp.siniverse.cc` under the
-   Cloudflare zone's DNS Records, then remove that hostname from the Pages
-   project's **Custom domains**. A Worker Custom Domain cannot be created
-   while the Pages CNAME exists. Add the `routes` property to `wrangler.jsonc`
-   and merge the change to `main` to trigger Workers Builds. The final
-   configuration is:
+Configure repository secrets `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`
+with access to this existing Worker. A push with missing secrets explicitly skips
+publication. The publisher also rejects an account other than the existing
+Worker account before invoking Wrangler. A manual `deploy=true` request with missing secrets fails with a clear
+configuration error. Adding secrets does not itself start a deployment; dispatch
+once on main or dev after configuration. Never print secret values or add them to
+Wrangler files, command arguments, artifacts or browser preferences.
 
-   ```json
-   {
-     "name": "siniverse-garapp-site",
-     "compatibility_date": "2026-11-12",
-     "assets": {
-       "directory": "./dist",
-       "not_found_handling": "single-page-application"
-     },
-     "routes": [{ "pattern": "garapp.siniverse.cc", "custom_domain": true }]
-   }
-   ```
+Disable the former Cloudflare Workers Builds production/branch triggers before
+using GitHub publication, so a push does not run both systems. Do not reactivate
+paid options, alter DNS or change Worker/domain identities as part of this setup.
+`wrangler.jsonc` retains the existing compatibility date, static assets and SPA
+fallback, with an empty `previews` block for this assets-only Worker.
 
-   Keep the `routes` entry in source for subsequent deployments. Cloudflare
-   will manage the Worker's DNS and certificate. Do not change the hostname
-   or PWA scope: browser storage and installed app data stay attached to
-   their existing origin.
-4. Confirm that an existing Drive folder and its complete revision history
-   remain visible; compare and restore a copy, then test large transfers and
-   reconnection after closing the app. Google OAuth projects in **Testing**
-   expire Drive authorization after seven days; switch to **In production**
-   before expecting persistent connections.
-5. Disable automatic deployments on the old Pages project after the Worker
-   takes over the hostname. Retain legacy GitHub Pages recovery options until
-   browsers containing old-origin data have been migrated.
+## Dev Preview
 
-If the shared authorization Worker is unreachable, Garapp retains its
-existing manual, memory-only Google connection. It never stores a Google token
-in local storage. Its Drive backups remain immutable JSON files with the same
-namespace and original revision graph. A host change never deletes Drive
-files or moves local data between origins.
+The command is `wrangler preview --name dev`, scoped to `siniverse-garapp-site`.
+It does not deploy a separate Worker or assign a production route to dev. Preview
+hostnames are managed separately in Cloudflare. With the current Preview-only
+base `dev.garapp.siniverse.cc`, the named Preview is
+`https://dev.dev.garapp.siniverse.cc`; this is not a promise that the shorter base
+serves the application. Routing adjustments remain a separate operation.
 
-The historical `sinikebe.github.io` origin is separate browser storage.
-Export a complete garage and recovery copies there, then import and verify
-them on `garapp.siniverse.cc`. The existing Google Drive namespace maps to the
-old publication URL by design; keep it unchanged for both environments.
+Preview URLs are public unless Cloudflare Access is configured. This pipeline
+creates no per-PR or arbitrary feature-branch Preview, so deleting a merged work
+branch needs no remote Preview cleanup. `main` and `dev` are retained. The dev
+Preview is removed only when dev itself is deleted, and cleanup skips if dev has
+been recreated. Cleanup never calls `wrangler delete` on the Worker.
 
-Cloudflare references: [Migrate from Pages to Workers](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/), [remove a Pages custom domain](https://developers.cloudflare.com/pages/configuration/custom-domains/#delete-a-custom-domain), [configure a Worker Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/#set-up-a-custom-domain-in-your-wrangler-configuration-file).
+## Local packaging
+
+```sh
+npm ci
+GARAPP_BUILD_BRANCH=main npm run build:cloudflare
+npm exec -- wrangler deploy --dry-run --outdir /tmp/garapp-worker-dry-run
+```
+
+Choose `GARAPP_BUILD_BRANCH=dev` for a dev asset package, in a fresh checkout or
+after removing only generated `dist/`. A dry run checks local packaging, not token
+permissions, live routes or Preview availability. Real publication is intentionally
+restricted to trusted GitHub event context and never begins with missing secrets.
+
+## Historical GitHub Pages and recovery
+
+The [legacy Pages workflow](legacy-pages.md) remains independent and publishes
+only redirect entry points plus same-origin recovery tools. Its artifact name
+includes the run and attempt IDs; publication waits briefly for that exact artifact
+to become visible, so a retried job cannot select another attempt's artifact.
+
+The old `sinikebe.github.io` origin keeps separate storage. Export there through
+`recovery.html`, then import on the new domain, or reconnect an existing verified
+Drive backup. Preserve OAuth projects, Drive namespaces and original revision
+history. Browser tokens remain in memory; refresh tokens remain in the shared
+authorization Worker. The CI migration does not transfer or erase user data.
+
+References: [GitHub Actions deployment](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/),
+[Workers Previews in CI](https://developers.cloudflare.com/workers/previews/examples/),
+[Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/),
+[Preview domains](https://developers.cloudflare.com/workers/previews/custom-domains/).

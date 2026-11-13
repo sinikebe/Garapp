@@ -8,10 +8,11 @@ applicatif, gestionnaire d'état externe ou compilation de l'interface n'est né
 
 ## Exécuter le projet
 
-Prérequis : Node.js 22 ou plus récent. Python 3.10 ou plus récent sert uniquement
+Prérequis : Node.js 22.12 ou plus récent. Python 3.10 ou plus récent sert uniquement
 à préparer la publication GitHub Pages.
 
 ```sh
+npm ci
 npm start
 ```
 
@@ -119,6 +120,13 @@ limites figurent dans le [guide Drive](google-drive.md). Les autorisations de fi
 les quotas et l'installation PWA dépendent du navigateur utilisé.
 
 ## CI et publication
+
+La publication Workers utilise maintenant les runners GitHub hébergés, un
+Wrangler local verrouillé et des gardes de branche/révision. Les PR sont
+vérifiées sans secrets ; seuls main et dev peuvent être publiés après CI ou
+demande manuelle explicite. Le [guide Cloudflare](cloudflare-hosting.md)
+décrit les secrets, les commandes et la Preview nommée dev. Les Builds
+Cloudflare précédents doivent rester désactivés pour éviter deux pipelines.
 
 La [CI](../.github/workflows/ci.yml) s'exécute sur les pushes `main` et `dev`, sur
 les pull requests visant ces branches et lors d'un lancement manuel. Une pull request
