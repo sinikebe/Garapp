@@ -133,6 +133,13 @@ Après une CI réussie, il assemble les deux branches dans un même artefact :
 | `main` | [Version principale](https://sinikebe.github.io/Garapp/) | Garage et caches propres à ce chemin |
 | `dev` | [Version de développement](https://sinikebe.github.io/Garapp/dev/) | Garage et caches distincts |
 
+Ces deux anciennes entrées publient désormais des redirecteurs vers
+`https://garapp.siniverse.cc/`. L'application de chaque branche est conservée
+dans `recovery.html` à la même base pour exporter les données locales. Le
+[guide des anciennes adresses](legacy-pages.md) décrit les limites du changement
+d'origine, le retrait des anciens service workers et la promotion nécessaire de
+l'outillage vers `main`. Le build Cloudflare reste indépendant de cet artefact.
+
 Les publications sont sérialisées. Le workflow récupère les branches après sa mise
 en attente, exige une CI réussie pour chacun des deux commits récupérés, puis valide
 ces révisions avant l'envoi de l'artefact. Une branche devenue invalide depuis le
@@ -147,7 +154,8 @@ L'environnement `github-pages`, s'il limite les branches, doit autoriser `main`.
 Les branches `main` et `dev` doivent toutes deux exister. Le workflow Pages peut être
 relancé manuellement depuis `main`.
 
-Seul `public/` est publié. Le dossier doit contenir un `index.html` UTF-8 non vide,
+Seules les ressources de `public/` et les fichiers de transition Pages sont publiés.
+Le dossier doit contenir un `index.html` UTF-8 non vide,
 ne doit contenir aucun lien symbolique, et `public/dev` reste réservé. Les données
 du garage, exports, documents personnels et fichiers de travail ne doivent jamais
 être placés dans ce dossier. Le script possède une page d'attente pour un dépôt sans

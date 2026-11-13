@@ -7,8 +7,8 @@ historique des interventions, composants, assurance, carburant et dépenses.
 Les données et les documents sont enregistrés sur l'appareil. Les exports JSON
 sont autonomes ; la sauvegarde Google Drive est facultative.
 
-[Ouvrir Garapp](https://sinikebe.github.io/Garapp/) ·
-[Version de développement](https://sinikebe.github.io/Garapp/dev/)
+[Ouvrir Garapp](https://garapp.siniverse.cc/) ·
+[Retrouver les données de l’ancienne adresse](docs/legacy-pages.md)
 
 ## Fonctionnalités
 
@@ -33,6 +33,7 @@ Les versions principale et de développement utilisent des garages distincts.
 | [Exemple de sauvegarde](docs/examples/garage-v2.json) | Garage entièrement fictif, validé par les tests |
 | [Google Drive](docs/google-drive.md) | Configuration OAuth, synchronisation et limites |
 | [Développement](docs/development.md) | Architecture, vérifications et publication |
+| [Ancienne adresse GitHub Pages](docs/legacy-pages.md) | Redirections et export des données conservées |
 | [Contribuer](CONTRIBUTING.md) | Proposer une correction ou une évolution |
 
 ## Développement local
