@@ -47,6 +47,14 @@ les ressources de chaque branche pour `recovery.html`, puis remplace uniquement
 l’index et le service worker de l’artefact par les fichiers de transition.
 `public/`, le build Cloudflare et les ressources du Worker ne sont pas modifiés.
 
+Le workflow transmet aussi `SINIVERSE_PAGES_MAIN_VERSION` et
+`SINIVERSE_PAGES_DEV_VERSION`, sans préfixe `v`, résolues depuis les tags des deux
+HEAD exacts. L'adaptateur affiche cette version dans le pied de page de chaque
+`recovery.html` ; en local, la valeur de repli est `0.0.1`. Les redirecteurs et les
+service workers de retrait restent identiques à leurs modèles. Ces workers ne
+précachent aucune ressource ; aucun cache ni stockage utilisateur n'est modifié
+par l'affichage de la version.
+
 Le workflow Pages actif s’exécute depuis `main` et récupère son outillage depuis
 `main`. Fusionner une proposition dans `dev` ne suffit donc pas : le générateur,
 ses modèles et le workflow doivent également être promus dans `main` par une PR

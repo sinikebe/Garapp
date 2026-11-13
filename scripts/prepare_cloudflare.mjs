@@ -7,6 +7,21 @@ import { renderServiceWorker } from '../tools/build-pwa.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const legacy = Object.freeze({ finapp: 'https://sinikebe.github.io/finapp/', garapp: 'https://sinikebe.github.io/Garapp/' });
 
+// Rendering only: assigning and incrementing versions belongs to shared CI.
+const semver = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+
+export function appVersion(version = '0.0.1') {
+  if (typeof version !== 'string' || version.trim() !== version || !semver.test(version)) throw Error('App version must be strict SemVer without a leading v.');
+  return version;
+}
+
+export function renderAppVersion(html, version) {
+  const value = appVersion(version);
+  const marker = /(<span data-app-version>)v[^<>]*(<\/span>)/g;
+  if ([...html.matchAll(marker)].length !== 1) throw Error('Expected one app version in the footer.');
+  return html.replace(marker, (_match, open, close) => open + 'v' + value + close);
+}
+
 export function suiteOrigins(domain) {
   if (typeof domain !== 'string' || domain.length > 253 || !/^[a-z0-9][a-z0-9.-]*\.[a-z0-9-]+$/i.test(domain)
     || domain.split('.').some((label) => !label || label.length > 63 || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(label))) {
@@ -26,9 +41,10 @@ async function assertNoSymlinks(path) {
   }
 }
 
-export async function prepareCloudflare({ source = root, output, branch, domain }) {
+export async function prepareCloudflare({ source = root, output, branch, domain, version }) {
   if (branch !== 'main' && branch !== 'dev') throw Error('Branch must be main or dev.');
   if (!output) throw Error('Choose an output directory.');
+  const releaseVersion = appVersion(version);
   const origins = suiteOrigins(domain);
   const publicRoot = join(resolve(source), 'public');
   const target = resolve(output);
@@ -52,24 +68,25 @@ export async function prepareCloudflare({ source = root, output, branch, domain 
   let html = await readFile(join(target, 'index.html'), 'utf8');
   const route = branch === 'dev' ? { finapp: origins.devFinapp, garapp: origins.devGarapp } : origins;
   html = html.replaceAll(legacy.finapp, route.finapp).replaceAll(legacy.garapp, route.garapp);
+  html = renderAppVersion(html, releaseVersion);
   await writeFile(join(target, 'index.html'), html);
   // The offline worker fingerprints the final, branch-specific assets.
   await writeFile(join(target, 'sw.js'), await renderServiceWorker(target));
-  return { target, environment: branch, suite: origins };
+  return { target, environment: branch, suite: origins, version: releaseVersion };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const options = {};
   for (let i = 2; i < process.argv.length; i += 2) {
     const name = process.argv[i];
-    if (!['--source', '--output', '--branch', '--domain'].includes(name) || !process.argv[i + 1] || Object.hasOwn(options, name)) {
+    if (!['--source', '--output', '--branch', '--domain', '--version'].includes(name) || !process.argv[i + 1] || Object.hasOwn(options, name)) {
       throw Error(`Unknown or missing argument: ${name}`);
     }
     options[name] = process.argv[i + 1];
   }
   const result = await prepareCloudflare({
     source: options['--source'] ?? root, output: options['--output'],
-    branch: options['--branch'], domain: options['--domain'],
+    branch: options['--branch'], domain: options['--domain'], version: options['--version'],
   });
   process.stdout.write(`Prepared ${result.environment} at ${result.target}.\n`);
 }
