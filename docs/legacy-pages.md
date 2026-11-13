@@ -38,7 +38,11 @@ nécessaire pour charger la redirection et les outils de récupération publiés
 
 ## Publier les redirecteurs
 
-`scripts/prepare_legacy_pages.py` est réservé à l’artefact GitHub Pages. Il utilise
+`npm run ci:pages` est l'adaptateur du workflow Pages commun. Il reçoit les
+checkouts main/dev dans `SINIVERSE_PAGES_MAIN_SOURCE` et
+`SINIVERSE_PAGES_DEV_SOURCE`, et un chemin de sortie neuf dans
+`SINIVERSE_PAGES_OUT`, hors des deux sources. Il appelle le générateur existant
+`scripts/prepare_legacy_pages.py`, réservé à l’artefact GitHub Pages. Celui-ci utilise
 les ressources de chaque branche pour `recovery.html`, puis remplace uniquement
 l’index et le service worker de l’artefact par les fichiers de transition.
 `public/`, le build Cloudflare et les ressources du Worker ne sont pas modifiés.
@@ -47,9 +51,10 @@ Le workflow Pages actif s’exécute depuis `main` et récupère son outillage d
 `main`. Fusionner une proposition dans `dev` ne suffit donc pas : le générateur,
 ses modèles et le workflow doivent également être promus dans `main` par une PR
 de publication. Préserver les commits propres à chaque branche lors de cette
-promotion. Les deux révisions assemblées doivent avoir une CI réussie ; le workflow
-vérifie encore leurs sources, sauvegardes et tests avant publication. Lancer ensuite
-**GitHub Pages** depuis `main`, ou laisser une CI de push réussie le déclencher.
+promotion. Les deux révisions assemblées doivent avoir une CI de push réussie ;
+le workflow vérifie leurs HEAD avant publication et utilise ces résultats sans
+répéter les suites de tests. Lancer ensuite
+**Pages** depuis `main`, ou laisser une CI de push réussie le déclencher.
 Les deux entrées sont publiées ensemble, sans changement Cloudflare ni DNS.
 
 Vérification locale, avec un dossier de sortie inexistant :

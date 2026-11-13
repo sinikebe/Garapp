@@ -38,8 +38,8 @@ Les versions principale et de développement utilisent des garages distincts.
 
 ## Développement local
 
-Node.js 22.12 ou plus récent est nécessaire pour l'outillage de publication.
-Installer les versions verrouillées, puis lancer l'application :
+Utiliser la version Node de `.node-version` et npm 11.19.1, indiquée par
+`packageManager`. Installer les versions verrouillées, puis lancer l'application :
 
 ```sh
 npm ci
