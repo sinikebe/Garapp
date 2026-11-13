@@ -15,6 +15,11 @@ an immutable commit of the reusable workflow in `sinikebe/siniverse`. Its
 in that shared revision select the existing Worker, account and HTTPS probe URL.
 The application has no second publication workflow or local deployment controller.
 
+All change PRs target `dev` first and may merge after review and successful CI.
+Production promotion uses only a same-repository PR from `dev` into `main`,
+after preview testing and explicit owner approval. Feature branches never merge
+directly into `main`; a direct push must not bypass the promotion policy.
+
 The common runner is `ubuntu-24.04`, with Node.js 24.22.2 from `.node-version`,
 npm 11.19.1 from `packageManager`, and local Wrangler 4.161.0 from the lockfile.
 One job installs with `npm ci`, checks, builds, dry-runs, and, if authorized,
@@ -23,7 +28,7 @@ between jobs and no persistent Actions cache is introduced by this pipeline.
 
 | Event | Behavior |
 | --- | --- |
-| Pull request into main/dev | Checks, build and local dry run; no publication credentials |
+| PR into dev, or same-repository dev to main | Checks, build and local dry run; no publication credentials |
 | Push main | Production publication after checks and source revision guards |
 | Push dev | Named `dev` Preview of the same Worker after checks |
 | Manual `deploy=false` (default) | Validation only |

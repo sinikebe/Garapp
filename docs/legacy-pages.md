@@ -56,10 +56,10 @@ précachent aucune ressource ; aucun cache ni stockage utilisateur n'est modifi�
 par l'affichage de la version.
 
 Le workflow Pages actif s’exécute depuis `main` et récupère son outillage depuis
-`main`. Fusionner une proposition dans `dev` ne suffit donc pas : le générateur,
-ses modèles et le workflow doivent également être promus dans `main` par une PR
-de publication. Préserver les commits propres à chaque branche lors de cette
-promotion. Les deux révisions assemblées doivent avoir une CI de push réussie ;
+`main`. Les changements d'outillage rejoignent d'abord `dev`. Après test de la
+preview et accord explicite de promotion, seule une PR depuis `dev` vers `main`
+peut les faire entrer en production ; une branche de fonctionnalité ne cible pas
+`main`. Les deux révisions assemblées doivent avoir une CI de push réussie ;
 le workflow vérifie leurs HEAD avant publication et utilise ces résultats sans
 répéter les suites de tests. Lancer ensuite
 **Pages** depuis `main`, ou laisser une CI de push réussie le déclencher.

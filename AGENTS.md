@@ -40,3 +40,11 @@ Shared CI assigns deployed versions using immutable per-channel tags.
 `package.json` and the root lockfile version remain the local `0.0.1` fallback;
 do not bump them manually for releases. Keep the rendered footer version and
 final PWA fingerprints consistent, as described in `docs/cloudflare-hosting.md`.
+
+## Branch and promotion policy
+
+Every change PR targets `dev` first. After review and successful CI, changes
+may merge into `dev` without a separate production approval.
+`main` accepts only a PR from this repository's `dev` branch, after preview
+testing and explicit owner approval for that promotion. Never merge a feature
+branch directly into `main` or bypass this promotion with a direct push.
