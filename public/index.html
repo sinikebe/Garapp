@@ -30,6 +30,7 @@
 <body data-layout="horizon" data-section="garage">
   <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
     <symbol id="i-car" viewBox="0 0 24 24"><path d="m5 10 2-6h10l2 6M4 10h16a1 1 0 0 1 1 1v7H3v-7a1 1 0 0 1 1-1ZM6 18v3m12-3v3M6 14h2m8 0h2"/></symbol>
+    <symbol id="i-fuel" viewBox="0 0 24 24"><path d="M3 21h12M5 21V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v17M5 10h8m0 3h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V8l-4-4m2 2v4h2"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11H3ZM9 21v-8h6v8"/></symbol>
     <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14 6a6 6 0 0 0-7.5 7.5L2 18l4 4 4.5-4.5A6 6 0 0 0 18 10l-4 1-2-2Z"/></symbol>
     <symbol id="i-parts" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5Zm-9 5v10l9 5 9-5V7M12 12v10M7.5 4.5l9 5"/></symbol>
@@ -188,6 +189,22 @@
         </div></details>
       </div>
       <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le véhicule</button></div>
+    </form>
+  </dialog>
+  <dialog id="fuel-dialog" aria-labelledby="fuel-dialog-title">
+    <form id="fuel-form">
+      <div class="dialog-heading"><div><p class="eyebrow fuel-heading">CARBURANT</p><h2 id="fuel-dialog-title">Ajouter du carburant</h2></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+      <p id="fuel-entry-status" class="reference-note" data-help-keep hidden></p>
+      <div class="form-grid">
+        <label>Date du ravitaillement<input name="date" type="date"></label>
+        <label>Kilométrage du véhicule<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Facultatif"></label>
+        <label>Quantité ajoutée (L)<input name="litres" inputmode="decimal" placeholder="Ex. 42,5"></label>
+        <label>Montant payé (€)<input name="totalAmount" inputmode="decimal" placeholder="Ex. 76,50"></label>
+        <label class="full-width">Remplissage<select name="fullTank"><option value="">Non renseigné</option><option value="true">Plein complet · réservoir rempli</option><option value="false">Ajout partiel</option></select></label>
+        <p class="hint full-width" data-help data-help-label="Renseigner un ravitaillement">Les champs inconnus peuvent rester vides. Le kilométrage et les pleins complets permettent de calculer la consommation ; les litres et le montant payé donnent le prix au litre. Enregistrez aussi les ajouts partiels.</p>
+        <details id="fuel-optional" class="full-width supplemental"><summary>Note et justificatif (facultatifs)</summary><label>Note<textarea name="notes" rows="3" placeholder="Station, remarque…"></textarea></label><label id="fuel-status-field" hidden>État du ravitaillement<select name="status"><option value="done">Enregistré</option><option value="incomplete">À compléter</option><option value="planned">Prévu</option></select></label><div id="fuel-documents"></div></details>
+      </div>
+      <p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-close>Annuler</button><button class="primary-button" type="submit">Enregistrer le ravitaillement</button></div>
     </form>
   </dialog>
   <dialog id="record-dialog" class="wide-dialog" aria-labelledby="record-dialog-title">

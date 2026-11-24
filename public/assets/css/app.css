@@ -120,6 +120,13 @@ main { min-width: 0; padding: var(--space-4xl); display: grid; align-content: st
 .record-meta { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); color: var(--text-secondary); font-size: var(--type-2xs); }
 .record-cost { max-width: 18ch; font-size: var(--type-md); font-weight: 550; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
 .record-row > .icon-button { width: 32px; min-height: 36px; padding: 0; }
+.record-row.record-row-fuel { padding: var(--space-xl); margin-block: var(--space-xs); border: 0; border-radius: var(--radius-sm); background: var(--fuel-wash); box-shadow: inset 3px 0 var(--fuel-price); }
+.fuel-record-label { display: flex; align-items: center; gap: var(--space-xs); color: var(--fuel-price); font-size: var(--type-2xs); font-weight: 650; }
+.fuel-record-label .icon { width: 16px; height: 16px; }
+.fuel-record-volume { color: var(--text-primary); font-weight: 650; font-variant-numeric: tabular-nums; }
+.fuel-heading { color: var(--fuel-price); }
+#fuel-documents { margin-top: var(--space-xl); }
+#fuel-documents .draft-document > .supplemental { display: none; }
 .section-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-xl); margin-bottom: var(--space-3xl); }
 .filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-lg); flex: 1; min-width: 0; }
 .filters select { width: auto; min-width: 170px; font-size: var(--type-sm); }

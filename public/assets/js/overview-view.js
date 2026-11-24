@@ -3,6 +3,9 @@ import { associatedComponentIds, chronological, componentLife, recordCost, today
 import { formatAmount as euros } from './amounts.js';
 import { vehicleVisualMarkup } from './vehicle-visual.js';
 import { escapeHtml as esc, formatNumber as number, formatMileage as mileage, formatDate as dateText, icon } from './ui-format.js';
+import { fuelUnitPrice } from './fuel-entry.js';
+
+const unitPrice = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 
 const labels = { due: 'Échéance atteinte', soon: 'À prévoir', ok: 'Repère non atteint', unknown: 'Suivi à compléter' };
 
@@ -21,6 +24,11 @@ export function recordsMarkup(records, current) {
   if (!records.length) return empty('Rien à afficher pour le moment', 'Ajoutez une intervention ou ajustez les filtres.', 'new-record', 'Ajouter une intervention');
   return `<div class="record-list">${chronological(records).map((record) => {
     const parts = associatedComponentIds(record).map((id) => current.components.find((part) => part.id === id)?.name).filter(Boolean);
+    if (record.type === 'fuel') {
+      const price = fuelUnitPrice(record);
+      const filling = record.fuel?.fullTank == null ? 'Remplissage non précisé' : record.fuel.fullTank ? 'Plein complet' : 'Ajout partiel';
+      return `<article class="record-row record-row-fuel"><span class="record-date">${record.date ? `<time datetime="${record.date}"><strong>${esc(dateText(record.date, { day: 'numeric', month: 'short' }))}</strong>${record.date.slice(0, 4)}</time>` : 'Date inconnue'}</span><div><span class="fuel-record-label">${icon('fuel')} Carburant</span><button type="button" class="record-title" data-record="${record.id}">${esc(record.title)}</button><div class="record-meta"><span class="fuel-record-volume">${record.fuel?.litres == null ? 'Quantité inconnue' : esc(record.fuel.litres.replace('.', ',')) + ' L'}</span><span>${filling}</span><span>${price === null ? 'Prix au litre inconnu' : unitPrice.format(price) + ' €/L'}</span><span>${mileage(record.odometer)}</span>${record.status !== 'done' ? `<span>${record.status === 'planned' ? 'Prévu' : 'À compléter'}</span>` : ''}${record.documents.length ? `<span>${record.documents.length} justificatif(s)</span>` : ''}</div></div><span class="record-cost">${costMarkup(record)}</span><button type="button" class="icon-button" data-record="${record.id}" aria-label="Voir ${esc(record.title)}">${icon('arrow')}</button></article>`;
+    }
     return `<article class="record-row"><span class="record-date">${record.date ? `<time datetime="${record.date}"><strong>${esc(dateText(record.date, { day: 'numeric', month: 'short' }))}</strong>${record.date.slice(0, 4)}</time>` : 'Date inconnue'}</span><div><button type="button" class="record-title" data-record="${record.id}">${esc(record.title)}</button><div class="record-meta"><span>${esc(typeLabel(record.type))}</span><span>${mileage(record.odometer)}</span>${record.status !== 'done' ? `<span>${record.status === 'planned' ? 'Prévu' : 'À compléter'}</span>` : ''}${parts.length ? `<span>${esc(parts.join(' · '))}</span>` : ''}${record.documents.length ? `<span>${record.documents.length} document(s)</span>` : ''}</div></div><span class="record-cost">${costMarkup(record)}</span><button type="button" class="icon-button" data-record="${record.id}" aria-label="Voir ${esc(record.title)}">${icon('arrow')}</button></article>`;
   }).join('')}</div>`;
 }

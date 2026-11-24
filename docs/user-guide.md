@@ -164,6 +164,11 @@ donnent les montants et sources. Une période vide ne prouve pas l'absence de d�
 
 Une fiche **Carburant** peut renseigner les litres, le montant payé, la date, le compteur
 et le caractère complet ou partiel du plein. Le compteur reste facultatif.
+Le bouton **Ajouter du carburant** ouvre un formulaire dédié à ces cinq informations.
+La note et le justificatif sont regroupés dans une section facultative. Modifier un
+ravitaillement ouvre le même formulaire et conserve ses autres données historiques.
+Dans le journal, les ravitaillements se distinguent par un repère violet et affichent
+le volume, le remplissage, le prix au litre calculable, le compteur et le montant payé.
 
 - **Consommation en L/100 km** : litres ajoutés après un premier plein complet, ajouts
   partiels inclus, jusqu'au plein complet suivant, divisés par la distance du cycle,

@@ -36,3 +36,25 @@ test('presentation helpers escape attribute text and preserve calendar dates', (
   const expected = new Date('2026-03-02T12:00:00Z').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
   assert.equal(formatDate('2026-03-02', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Pacific/Kiritimati' }), expected);
 });
+
+test('journal fuel rows identify volumes, fill states and actual unit prices without inventing missing data', () => {
+  const current = parseGarage(JSON.stringify({ version: 2, vehicles: [{ id: 'fiction', name: 'Véhicule fictif', components: [], records: [
+    { id: 'full', type: 'fuel', title: 'Plein fictif <test>', date: '2026-01-04', odometer: 12500, fuel: { litres: '42.5', fullTank: true }, totalAmount: '76.5' },
+    { id: 'partial', type: 'fuel', title: 'Ajout fictif', date: '2026-01-03', fuel: { litres: '10', fullTank: false }, totalAmount: '0' },
+    { id: 'unknown', type: 'fuel', title: 'Données fictives incomplètes' },
+  ] }] })).vehicles[0];
+  const snapshot = structuredClone(current), html = recordsMarkup(current.records, current);
+  assert.match(html, /record-row-fuel/);
+  assert.match(html, /#i-fuel/);
+  assert.match(html, /42,5 L/);
+  assert.match(html, /Plein complet/);
+  assert.match(html, /Ajout partiel/);
+  assert.match(html, /1,800 €\/L/);
+  assert.match(html, /0,000 €\/L/);
+  assert.match(html, /Quantité inconnue/);
+  assert.match(html, /Prix au litre inconnu/);
+  assert.match(html, /Remplissage non précisé/);
+  assert.match(html, /Plein fictif &lt;test&gt;/);
+  assert.doesNotMatch(html, /NaN|Infinity|<test>/);
+  assert.deepEqual(current, snapshot);
+});
