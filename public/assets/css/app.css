@@ -125,6 +125,21 @@ main { min-width: 0; padding: var(--space-4xl); display: grid; align-content: st
 .fuel-record-label .icon { width: 16px; height: 16px; }
 .fuel-record-volume { color: var(--text-primary); font-weight: 650; font-variant-numeric: tabular-nums; }
 .fuel-heading { color: var(--fuel-price); }
+:where(.record-row-event, #record-form) { --event-color: light-dark(#596473, #bbc5d4); --event-wash: light-dark(#f3f5f7, #23282f); }
+[data-event-kind="revision"] { --event-color: light-dark(#216e69, #83d5ce); --event-wash: light-dark(#eef7f5, #192e2c); }
+[data-event-kind="entretien"] { --event-color: light-dark(#3c7138, #a6d89c); --event-wash: light-dark(#f0f6ed, #242e20); }
+[data-event-kind="reparation"] { --event-color: light-dark(#a33f56, #f2a2b5); --event-wash: light-dark(#fcf0f3, #34222a); }
+[data-event-kind="controle"] { --event-color: light-dark(#88600d, #ebce82); --event-wash: light-dark(#faf5e8, #302b1d); }
+[data-event-kind="acquisition"] { --event-color: light-dark(#2b629c, #9bc9f6); --event-wash: light-dark(#eff5fb, #1c2b3b); }
+[data-event-kind="registration"] { --event-color: light-dark(#65549d, #c5b6f3); --event-wash: light-dark(#f4f1fa, #292439); }
+[data-event-kind="plan"] { --event-color: light-dark(#98551e, #f3bb86); --event-wash: light-dark(#fcf3eb, #35291e); }
+[data-event-kind="reading"] { --event-color: light-dark(#156b83, #8bd3e7); --event-wash: light-dark(#edf7fa, #1c2e36); }
+[data-event-kind="insurance"] { --event-color: light-dark(#465bab, #afc0ff); --event-wash: light-dark(#f0f3fc, #232b40); }
+.record-row.record-row-event { padding: var(--space-xl); margin-block: var(--space-xs); border: 0; border-radius: var(--radius-sm); background: var(--event-wash); box-shadow: inset 3px 0 var(--event-color); }
+.event-record-label { display: flex; align-items: center; gap: var(--space-xs); color: var(--event-color); font-size: var(--type-2xs); font-weight: 650; }
+.event-record-label .icon { width: 16px; height: 16px; }
+#record-form-kind { color: var(--event-color); }
+#record-form-guidance { margin: 0; }
 #fuel-documents { margin-top: var(--space-xl); }
 #fuel-documents .draft-document > .supplemental { display: none; }
 .section-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-xl); margin-bottom: var(--space-3xl); }
