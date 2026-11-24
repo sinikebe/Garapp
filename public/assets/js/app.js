@@ -20,6 +20,7 @@ import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
 import { renderStatistics } from './statistics-view.js';
 import { largestRecordedRefuel } from './fuel-statistics.js';
+import { updateFuelEntry, fuelUnitPrice } from './fuel-entry.js';
 import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES, componentSpatial, spatialLabel, inferSpatial, detectComponents } from './component-catalog.js';
 import { knownComponents, proposedDiscoveries, applyDiscoveries } from './component-knowledge.js';
 import { renderComponentView, newSceneState } from './component-view.js';
@@ -43,6 +44,7 @@ let pendingImport = null;
 let importGeneration = 0;
 let editingVehicle = null;
 let editingRecord = null;
+let editingFuel = null;
 let editingComponent = null;
 let editingInsurance = null;
 let editingInsurancePayment = null;
@@ -393,10 +395,11 @@ function detailRecord(id, trashed = false) {
   if (!record) return;
   const cost = recordCost(record);
   const insuranceDetail = record.insurance ? `<p class="insurance-calendar">Cotisation de ${esc(insuranceMonthText(record.insurance.period))}</p>${!trashed ? `<button type="button" class="ghost-button" data-insurance-payment="${record.insurance.contractId}" data-insurance-period="${record.insurance.period}">Modifier le prélèvement ou le tarif futur</button>` : ''}` : '';
-  const fuelDetail = record.type === 'fuel' || record.fuel ? `<dl class="detail-facts"><div><dt>Carburant ajouté</dt><dd>${record.fuel?.litres == null ? 'Non renseigné' : esc(record.fuel.litres.replace('.', ',')) + ' L'}</dd></div><div><dt>Plein complet</dt><dd>${record.fuel?.fullTank == null ? 'Non renseigné' : record.fuel.fullTank ? 'Oui' : 'Non · ajout partiel'}</dd></div></dl>${extraMarkup(record.fuel ?? {}, 'fuel')}` : '';
+  const isFuel = record.type === 'fuel', pricePerLitre = fuelUnitPrice(record);
+  const fuelDetail = isFuel || record.fuel ? `<dl class="detail-facts"><div><dt>Carburant ajouté</dt><dd>${record.fuel?.litres == null ? 'Non renseigné' : esc(record.fuel.litres.replace('.', ',')) + ' L'}</dd></div><div><dt>Remplissage</dt><dd>${record.fuel?.fullTank == null ? 'Non renseigné' : record.fuel.fullTank ? 'Plein complet' : 'Ajout partiel'}</dd></div><div><dt>Prix du litre</dt><dd>${pricePerLitre === null ? 'Non renseigné' : pricePerLitre.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' €/L'}</dd></div></dl>${extraMarkup(record.fuel ?? {}, 'fuel')}` : '';
   $('detail-title').textContent = record.title;
   $('detail-eyebrow').textContent = `${typeLabel(record.type)}${record.status === 'done' ? '' : ' · ' + (record.status === 'planned' ? 'Prévu' : 'À compléter')}`;
-  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${insuranceDetail}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">${record.insurance ? 'Montant enregistré pour cette échéance' : 'Montant indiqué sur le justificatif'} : ${formatExactAmount(record.totalAmount)}.${record.insurance ? '' : ' Le détail peut être incomplet ou arrondi.'}</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="line-meta">${LINE_TYPES[line.kind]}${lineComponentSummary(line)}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
+  $('detail-content').innerHTML = `${trashed ? `<p class="reference-note">Dans la corbeille depuis le ${esc(new Date(entry.deletedAt).toLocaleString('fr-FR'))}. Cette fiche ne participe plus aux calculs.</p>` : ''}${insuranceDetail}${fuelDetail}<dl class="detail-facts"><div><dt>Date</dt><dd>${esc(dateText(record.date))}</dd></div><div><dt>Kilométrage</dt><dd>${mileage(record.odometer)}</dd></div></dl><div class="detail-total"><span>${isFuel ? cost.incomplete ? 'Montant payé inconnu' : 'Montant payé' : cost.incomplete ? 'Total inconnu' : 'Total'}</span><strong>${euros(cost.total)}</strong></div>${cost.incomplete && cost.subtotal !== null ? `<p class="hint">Sous-total connu : ${formatExactAmount(cost.subtotal)}</p>` : ''}${record.totalAmount !== null ? `<p class="hint">${record.insurance ? 'Montant enregistré pour cette échéance' : 'Montant indiqué sur le justificatif'} : ${formatExactAmount(record.totalAmount)}.${record.insurance ? '' : ' Le détail peut être incomplet ou arrondi.'}</p>` : ''}${record.lines.length ? `<h3>Lignes de l’intervention</h3><div class="detail-lines">${record.lines.map((line) => `<article class="detail-line"><div class="bar-heading"><strong>${esc(line.label)}</strong><span>${formatExactAmount(line.amount)}</span></div><p class="line-meta">${LINE_TYPES[line.kind]}${lineComponentSummary(line)}</p>${textMarkup(line)}${documentsMarkup(line.documents)}${extraMarkup(line, 'line')}</article>`).join('')}</div>` : isFuel ? '' : `<dl class="detail-facts"><div><dt>Pièces</dt><dd>${formatExactAmount(record.partsAmount)}</dd></div><div><dt>Main-d’œuvre / prestation</dt><dd>${formatExactAmount(record.laborAmount)}</dd></div></dl>`}${isFuel && !associatedComponentIds(record).length ? '' : `<h3>Composants associés</h3><div class="part-links">${associatedComponentIds(record).map((partId) => `<button type="button" class="ghost-button" data-component="${partId}">${esc(current.components.find((part) => part.id === partId)?.name)}</button>`).join('') || '<p class="hint">Aucun composant associé.</p>'}</div>`}${textMarkup(record)}${documentsMarkup(record.documents)}${extraMarkup(record, 'record')}<div class="dialog-actions record-detail-actions">${trashed ? `<button class="ghost-button" type="button" data-action="trash">Retour à la corbeille</button><button class="primary-button" type="button" data-restore-record="${record.id}">Restaurer la fiche</button>` : `<button class="ghost-button danger-text" type="button" data-trash-record="${record.id}">Mettre à la corbeille</button><button class="primary-button" type="button" data-edit-record="${record.id}">Modifier la fiche</button>`}</div>`;
   showDialog('detail-dialog');
 }
 
@@ -683,9 +686,10 @@ $('record-form').addEventListener('change', (event) => {
 function openRecord(componentId = null, id = null) {
   if (!vehicle()) return openVehicle();
   const record = vehicle().records.find((one) => one.id === id);
+  if (record?.type === 'fuel') return openFuel(id);
   editingRecord = record?.id ?? null;
   $('record-discoveries').replaceChildren(); discoveryCandidates = [];
-  const types = [...new Set([...Object.keys(TYPES), ...(record ? [record.type] : [])])];
+  const types = [...new Set([...Object.keys(TYPES).filter((type) => type !== 'fuel' || record), ...(record ? [record.type] : [])])];
   $('record-form-type').innerHTML = types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
   const form = prepareForm('record', record ?? {}, { title: '', type: 'revision', status: 'done', date: today(), odometer: vehicle().odometer, partsAmount: '', laborAmount: '', totalAmount: '', notes: '', content: '' });
   form.elements.type.disabled = !!record?.insurance;
@@ -706,6 +710,28 @@ function openRecord(componentId = null, id = null) {
   refreshDiscoveries();
   form.querySelector('[type="submit"]').textContent = 'Enregistrer la fiche';
   showDialog('record-dialog');
+}
+function openFuel(id = null) {
+  const current = vehicle(); if (!current) return openVehicle();
+  const record = current.records.find((one) => one.id === id);
+  if (id !== null && !record) return;
+  editingFuel = record?.id ?? null;
+  const form = $('fuel-form'); form.reset();
+  form.querySelector('.form-error').hidden = true;
+  form.elements.date.value = record ? record.date ?? '' : today();
+  form.elements.odometer.value = record?.odometer ?? '';
+  form.elements.litres.value = record?.fuel?.litres ?? '';
+  form.elements.totalAmount.value = record ? recordCost(record).total ?? '' : '';
+  form.elements.fullTank.value = record?.fuel?.fullTank == null ? '' : String(record.fuel.fullTank);
+  form.elements.notes.value = record?.notes ?? '';
+  form.elements.status.value = record?.status ?? 'done';
+  $('fuel-status-field').hidden = !record;
+  $('fuel-dialog-title').textContent = record ? 'Modifier le ravitaillement' : 'Ajouter du carburant';
+  $('fuel-entry-status').hidden = !record || record.status === 'done';
+  $('fuel-entry-status').textContent = record?.status === 'planned' ? 'Ravitaillement prévu · exclu des statistiques.' : 'Ravitaillement à compléter.';
+  $('fuel-optional').open = false;
+  setDocumentDraft('fuel', record?.documents); refreshDocuments('fuel');
+  showDialog('fuel-dialog'); form.elements.litres.focus();
 }
 function updateFuelFields() {
   const form = $('record-form'), fuel = form.elements.type.value === 'fuel';
@@ -822,6 +848,22 @@ $('vehicle-form').addEventListener('submit', (event) => {
     next.activeId = updated.id; return next;
   });
 });
+$('fuel-form').addEventListener('submit', (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  void submitForm(form, () => {
+    const next = structuredClone(garage), current = next.vehicles.find((one) => one.id === next.activeId);
+    const index = current.records.findIndex((one) => one.id === editingFuel);
+    if (editingFuel !== null && index < 0) throw Error('Ce ravitaillement a changé. Rouvrez sa fiche avant de le modifier.');
+    const original = current.records[index] ?? { id: uid() };
+    const updated = updateFuelEntry(original, {
+      date: form.elements.date.value, odometer: form.elements.odometer.value, litres: form.elements.litres.value,
+      totalAmount: form.elements.totalAmount.value, fullTank: form.elements.fullTank.value,
+      notes: form.elements.notes.value, documents: collectDocuments('fuel'), status: form.elements.status.value,
+    });
+    if (index < 0) current.records.push(updated); else current.records[index] = updated;
+    return next;
+  });
+});
 $('record-form').addEventListener('submit', (event) => {
   event.preventDefault(); const form = event.currentTarget;
   void submitForm(form, () => {
@@ -895,13 +937,7 @@ const actions = {
   'new-insurance': () => openInsurance(),
   'insurance-history': () => { $('record-type').value = 'insurance'; $('record-search').value = ''; rememberNavigation(); location.hash = 'interventions'; },
   'insurance-expenses': () => { $('expense-scope').value = 'all'; const year = $('insurance-year').value; if (![...$('expense-year').options].some((option) => option.value === year)) $('expense-year').add(new Option(year, year)); $('expense-year').value = year; rememberNavigation(); location.hash = 'depenses'; },
-  'new-fuel': () => {
-    if (!vehicle()) return openVehicle();
-    openRecord();
-    const form = $('record-form');
-    form.elements.title.value = 'Plein de carburant'; form.elements.type.value = 'fuel'; form.elements.odometer.value = '';
-    $('record-dialog-title').textContent = 'Ajouter du carburant'; updateFuelFields(); form.elements.fuelLitres.focus();
-  },
+  'new-fuel': () => openFuel(),
   'new-reading': () => {
     if (!vehicle()) return openVehicle();
     openRecord();
