@@ -19,6 +19,15 @@ const byMonth = (items, date) => {
   return grouped;
 };
 
+/** Largest active, dated fuel addition used as the tank capacity reference. */
+export function largestRecordedRefuel(vehicle, date = today()) {
+  return vehicle.records.reduce((largest, record) => {
+    if (record.type !== 'fuel' || record.status === 'planned' || !record.date || record.date > date) return largest;
+    const litres = record.fuel?.litres;
+    return Number(litres) > Number(largest) && Number(litres) <= 10000 ? litres : largest;
+  }, null);
+}
+
 /** An undated or contradictory observation cannot support an estimated counter. */
 function counterAt(record, groups) {
   if (record.odometer !== null) return { value: record.odometer, estimated: false, first: record.date, last: record.date };
@@ -127,10 +136,7 @@ export function fuelStatistics(vehicle, { period = 'all', date = today() } = {})
   const future = actual.filter((record) => record.date > date).length;
   const history = actual.filter((record) => record.date && record.date <= date).sort((a, b) => a.date.localeCompare(b.date) || (a.odometer ?? Infinity) - (b.odometer ?? Infinity) || a.id.localeCompare(b.id));
   const theoreticalTankCapacity = vehicle.fuelTankCapacity ?? null;
-  const effectiveTankCapacity = history.reduce((maximum, record) => {
-    const litres = Number(record.fuel?.litres);
-    return litres > 0 && litres <= 10000 ? Math.max(maximum, litres) : maximum;
-  }, Number(theoreticalTankCapacity));
+  const effectiveTankCapacity = Math.max(Number(theoreticalTankCapacity), Number(largestRecordedRefuel(vehicle, date)));
   const records = history.filter((record) => inRange(record.date, range));
   const cycles = [], issues = [];
   const readings = mileageHistory(vehicle, { date }).groups;

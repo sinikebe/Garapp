@@ -19,6 +19,7 @@ import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
 import { renderStatistics } from './statistics-view.js';
+import { largestRecordedRefuel } from './fuel-statistics.js';
 import { COMPONENT_KINDS, COMPONENT_ZONES, COMPONENT_SIDES, componentSpatial, spatialLabel, inferSpatial, detectComponents } from './component-catalog.js';
 import { knownComponents, proposedDiscoveries, applyDiscoveries } from './component-knowledge.js';
 import { renderComponentView, newSceneState } from './component-view.js';
@@ -456,9 +457,10 @@ function detailComponent(id) {
 }
 function detailVehicle() {
   const current = vehicle(); if (!current) return openVehicle();
+  const largestRefuel = largestRecordedRefuel(current);
   $('detail-title').textContent = current.name;
   $('detail-eyebrow').textContent = 'VÉHICULE';
-  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div><div><dt>Capacité théorique du réservoir</dt><dd>${current.fuelTankCapacity == null ? 'Non renseignée' : esc(current.fuelTankCapacity.replace('.', ',')) + ' L'}</dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="delete-vehicle">Supprimer le véhicule</button><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
+  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div><div><dt>Capacité théorique du réservoir</dt><dd>${current.fuelTankCapacity == null ? 'Non renseignée' : esc(current.fuelTankCapacity.replace('.', ',')) + ' L'}</dd></div><div><dt>Plus gros ravitaillement enregistré</dt><dd>${largestRefuel == null ? 'Non renseigné' : esc(largestRefuel.replace('.', ',')) + ' L'} <span data-help data-help-label="Plus gros ravitaillement enregistré">Volume maximal ajouté en une seule fois parmi les ravitaillements datés jusqu’à aujourd’hui, hors prévisions et corbeille. Pour estimer le coût au km, la plus grande valeur entre ce volume et la capacité théorique est retenue, sans modifier la capacité saisie. Ce volume ne prouve pas que le réservoir était vide avant le plein. Il est recalculé après une correction ou une suppression.</span></dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="delete-vehicle">Supprimer le véhicule</button><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
   showDialog('detail-dialog');
 }
 
