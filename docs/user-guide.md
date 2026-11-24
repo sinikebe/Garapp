@@ -133,6 +133,27 @@ Un prélèvement mis à la corbeille n'est pas recréé. Sa suppression définit
 le mois exclu dans le calendrier pour empêcher sa réapparition. Les contrats, documents,
 tarifs et ajustements font partie des sauvegardes complètes.
 
+## Saisir et reconnaître les événements
+
+Le formulaire adapte ses libellés au type choisi : révision, entretien, réparation,
+contrôle, achat ou cession, mise en circulation, programme d’entretien, relevé,
+assurance ou autre événement. Le compteur reste vide à la création pour renseigner
+la valeur réellement observée à la date de l’événement.
+
+Un relevé simple demande seulement la date et le compteur. Pour les autres types,
+l’intitulé et le montant éventuel sont adaptés au contexte. Les notes, justificatifs
+et l’état du dossier se trouvent dans les options. Choisir **Prévu** exclut la fiche
+des dépenses enregistrées. Les coûts détaillés et les composants sont regroupés dans
+une section facultative pour les interventions. Les données historiques déjà présentes
+restent accessibles, y compris sur un relevé ou un événement administratif.
+Le résumé de cette section signale les propositions de composants repérés. Elles
+doivent être cochées explicitement pour être ajoutées à la fiche.
+
+Le journal associe un repère coloré, une icône et le nom du type à chaque événement.
+Il affiche le compteur pour un relevé, le budget d’un programme, la transaction d’un
+achat ou d’une cession et le contexte de la cotisation pour une assurance liée à un
+contrat. Les titres personnalisés et types historiques sont conservés.
+
 ## Statistiques et carburant
 
 Le formulaire véhicule propose une **capacité théorique du réservoir** facultative.
