@@ -135,6 +135,23 @@ tarifs et ajustements font partie des sauvegardes complètes.
 
 ## Statistiques et carburant
 
+Le formulaire véhicule propose une **capacité théorique du réservoir** facultative.
+Le **coût carburant estimé au km** utilise le maximum entre cette valeur et le plus
+gros ajout actif daté du véhicule, hors fiches prévues et futures. Cette référence
+peut augmenter après un achat et diminuer après une correction ou suppression ;
+la capacité théorique saisie reste conservée et les estimations sont recalculées.
+
+Cette statistique valorise les litres consommés au prix moyen pondéré du carburant
+présent, puis mélange le reste avec l’achat suivant. Le premier plein complet
+amorce le prix du stock préexistant avec le prix au litre de son achat. Avec des
+ajouts partiels, la consommation du cycle est répartie selon les distances entre
+ajouts, éventuellement interpolées. Un prix nécessaire inconnu, des distances
+insuffisantes ou des volumes incompatibles avec la capacité rendent le coût
+indisponible ; la consommation calculable reste disponible. La carte et le tableau
+comptent séparément les cycles sans coût estimable. La moyenne pondère les seuls
+cycles valorisés par leurs kilomètres. L’aide de la statistique détaille les
+hypothèses ; il s’agit toujours d’une estimation qui suppose tous les ajouts saisis.
+
 Les courbes kilométriques utilisent les relevés datés de la fiche véhicule et de
 l'historique actif. Les points suivent leurs dates réelles et donnent accès aux sources.
 Les fiches prévues, futures ou sans date/compteur sont exclues des calculs concernés.

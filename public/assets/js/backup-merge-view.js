@@ -13,7 +13,7 @@ const FIELD_NAMES = {
   record: 'Fiche', deletedAt: 'Mise à la corbeille', position: 'Position', id: 'Identifiant',
   partsAmount: 'Montant des pièces', laborAmount: 'Main-d’œuvre / prestation', kind: 'Nature', effect: 'Action sur les composants',
   componentId: 'Composant lié', componentIds: 'Composants liés', observedComponentIds: 'Composants observés',
-  year: 'Année', engine: 'Motorisation', odometerDate: 'Date du relevé', example: 'Véhicule de démonstration',
+  year: 'Année', engine: 'Motorisation', odometerDate: 'Date du relevé', fuelTankCapacity: 'Capacité théorique du réservoir (L)', example: 'Véhicule de démonstration',
   intervalKm: 'Intervalle kilométrique', intervalMonths: 'Intervalle en mois', group: 'Groupe',
   spatial: 'Emplacement', zone: 'Zone', side: 'Côté', presenceOrigin: 'Provenance',
   fuel: 'Carburant', litres: 'Quantité en litres', fullTank: 'Plein complet',

@@ -329,7 +329,7 @@ function render() {
 const CORE = {
   garage: ['version', 'activeId', 'vehicles', 'documents'],
   document: ['id', 'name', 'mimeType', 'dataUrl', 'size', 'description'],
-  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances'],
+  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'fuelTankCapacity', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances'],
   insurance: ['id', 'provider', 'reference', 'firstDate', 'debitDay', 'endDate', 'tariffs', 'skippedPeriods', 'notes', 'content', 'documents'],
   layout: ['wheelCount', 'doorCount', 'enginePosition'],
   component: ['id', 'name', 'group', 'description', 'intervalKm', 'intervalMonths', 'notes', 'content', 'documents', 'spatial'],
@@ -458,7 +458,7 @@ function detailVehicle() {
   const current = vehicle(); if (!current) return openVehicle();
   $('detail-title').textContent = current.name;
   $('detail-eyebrow').textContent = 'VÉHICULE';
-  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="delete-vehicle">Supprimer le véhicule</button><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
+  $('detail-content').innerHTML = `<dl class="detail-facts"><div><dt>Motorisation</dt><dd>${esc(current.engine || 'Non renseignée')}</dd></div><div><dt>Année</dt><dd>${current.year ?? 'Non renseignée'}</dd></div><div><dt>Kilométrage courant</dt><dd>${mileage(current.odometer)}</dd></div><div><dt>Date du relevé</dt><dd>${esc(dateText(current.odometerDate))}</dd></div><div><dt>Capacité théorique du réservoir</dt><dd>${current.fuelTankCapacity == null ? 'Non renseignée' : esc(current.fuelTankCapacity.replace('.', ',')) + ' L'}</dd></div></dl>${textMarkup(current)}${documentsMarkup(current.documents)}${extraMarkup(current, 'vehicle')}<p class="hint">Les relevés historiques sont conservés dans l’historique, sous le type « Relevé kilométrique ».</p><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="delete-vehicle">Supprimer le véhicule</button><button class="primary-button" type="button" data-action="edit-vehicle">Modifier le véhicule</button></div>`;
   showDialog('detail-dialog');
 }
 
@@ -550,7 +550,7 @@ function openVehicle(edit = false) {
   const current = edit ? vehicle() : null;
   editingVehicle = current?.id ?? null;
   visualUploadGeneration++; $('vehicle-visual-error').hidden = true;
-  prepareForm('vehicle', current ?? {}, { year: '', name: '', engine: '', odometer: '', odometerDate: '', notes: '', content: '' });
+  prepareForm('vehicle', current ?? {}, { year: '', name: '', engine: '', odometer: '', odometerDate: '', fuelTankCapacity: '', notes: '', content: '' });
   refreshVehicleVisualOptions(current?.coverDocumentId ?? '');
   const form = $('vehicle-form'), layout = componentLayout(current?.componentLayout,current ? knownComponents(current) : []);
   for (const [field,min,max,value] of [['layoutWheelCount',2,12,layout.wheelCount],['layoutDoorCount',1,8,layout.doorCount]]) form.elements[field].innerHTML = Array.from({length:max-min+1},(_,index)=>`<option value="${index+min}"${value===index+min?' selected':''}>${index+min}</option>`).join('');
@@ -812,8 +812,10 @@ $('vehicle-form').addEventListener('submit', (event) => {
     const next = structuredClone(garage);
     const index = next.vehicles.findIndex((one) => one.id === editingVehicle);
     const original = next.vehicles[index] ?? { id: uid(), example: false, components: [], records: [] };
+    const tankCapacity = amountInput(form.elements.fuelTankCapacity.value);
+    const tank = tankCapacity === null && original.fuelTankCapacity === undefined ? {} : { fuelTankCapacity: tankCapacity };
     const layout = original.componentLayout === undefined && !form.dataset.layoutEdited ? {} : { componentLayout:{ ...extrasInput(form.elements.layoutExtras,'layout'),wheelCount:Number(form.elements.layoutWheelCount.value),doorCount:Number(form.elements.layoutDoorCount.value),enginePosition:form.elements.layoutEnginePosition.value } };
-    const updated = { ...editableBase(original, 'vehicle', extrasInput(form.elements.extras, 'vehicle')), name: form.elements.name.value, year: nullableNumber(form.elements.year.value), engine: form.elements.engine.value, odometer: nullableNumber(form.elements.odometer.value), odometerDate: form.elements.odometerDate.value || null, ...readCommon(form, 'vehicle'), coverDocumentId: form.elements.coverDocumentId.value || null, ...layout };
+    const updated = { ...editableBase(original, 'vehicle', extrasInput(form.elements.extras, 'vehicle')), name: form.elements.name.value, year: nullableNumber(form.elements.year.value), engine: form.elements.engine.value, odometer: nullableNumber(form.elements.odometer.value), odometerDate: form.elements.odometerDate.value || null, ...tank, ...readCommon(form, 'vehicle'), coverDocumentId: form.elements.coverDocumentId.value || null, ...layout };
     if (index < 0) next.vehicles.push(updated); else next.vehicles[index] = updated;
     next.activeId = updated.id; return next;
   });

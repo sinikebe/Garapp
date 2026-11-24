@@ -20,6 +20,178 @@ const sequence = () => [
   fill('e', '2026-02-28', 12500, '50', true, '75'),
 ];
 
+const withCapacity = (records, capacity = '50') => {
+  const garage = garageOf(records);
+  garage.vehicles[0].fuelTankCapacity = capacity;
+  return parseGarage(JSON.stringify(garage)).vehicles[0];
+};
+const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} != ${expected}`);
+
+test('estimated cost uses the previous tank mixture and carries it across cycles and period filters', () => {
+  const vehicle = withCapacity([
+    fill('a', '2025-12-01', 1000, '35', true, '70'),
+    fill('b', '2026-01-01', 1500, '30', true, '45'),
+    fill('c', '2026-02-01', 2000, '25', true, '50'),
+  ]);
+  const original = structuredClone(vehicle), data = fuelStatistics(vehicle, options);
+  near(data.cycles[0].estimatedCostPerKm, 0.12);
+  near(data.cycles[1].estimatedCostPerKm, 0.085);
+  near(data.estimatedCostPerKm, 0.1025);
+  assert.equal(data.costedCycles, 2);
+  assert.equal(data.uncostedCycles, 0);
+  assert.equal(data.costedCycleDistance, 1000);
+  const filtered = fuelStatistics(vehicle, { ...options, period: '12m', date: '2027-01-15' });
+  near(filtered.estimatedCostPerKm, 0.085);
+  assert.equal(filtered.costedCycles, 1);
+  assert.equal(filtered.effectiveTankCapacity, 50);
+  assert.deepEqual(vehicle, original);
+  vehicle.records[2].odometer = 2500;
+  near(fuelStatistics(vehicle, options).estimatedCostPerKm, (60 + 42.5) / 1500);
+  vehicle.fuelTankCapacity = '20';
+  assert.equal(fuelStatistics(vehicle, { ...options, period: '12m', date: '2027-01-15' }).effectiveTankCapacity, 35);
+});
+
+test('capacity is derived from all admissible fills and falls again after corrections or trash', () => {
+  const records = [
+    fill('a', '2026-01-01', 1000, '35', true, '70'),
+    fill('b', '2026-02-01', 1500, '30', true, '45'),
+    fill('c', '2026-03-01', 2000, '25', true, '50'),
+    fill('record', '2026-04-01', 2500, '70', true, '140'),
+    fill('future', '2026-12-01', 3000, '90', true, '180'),
+    fill('plan', '2026-06-01', 3000, '95', true, '190', { status: 'planned' }),
+  ];
+  const vehicle = withCapacity(records);
+  assert.equal(fuelStatistics(vehicle, options).effectiveTankCapacity, 70);
+  assert.equal(vehicle.fuelTankCapacity, '50');
+  vehicle.records.find((record) => record.id === 'record').fuel.litres = '40';
+  const corrected = fuelStatistics(vehicle, options);
+  assert.equal(corrected.effectiveTankCapacity, 50);
+  near(corrected.cycles[1].estimatedCostPerKm, 0.085);
+  const garage = garageOf(records);
+  const trashed = moveRecordToTrash(garage, 'fiction', 'record', '2026-11-08T10:20:30.000Z');
+  assert.equal(fuelStatistics(trashed.vehicles[0], options).effectiveTankCapacity, 35);
+  assert.equal(fuelStatistics(restoreTrashedRecord(trashed, 'fiction', 'record').vehicles[0], options).effectiveTankCapacity, 70);
+  const withoutTheory = fuelStatistics(vehicleOf(records.slice(0, 3)), options);
+  assert.equal(withoutTheory.effectiveTankCapacity, 35);
+  assert.equal(withoutTheory.theoreticalTankCapacity, null);
+});
+
+test('partial fills distribute consumption by distance and blend prices successively', () => {
+  const vehicle = withCapacity([
+    fill('a', '2026-01-01', 1000, '30', true, '60'),
+    fill('partial', '2026-01-11', 1250, '10', false, '10'),
+    fill('b', '2026-01-21', 1500, '30', true, '90'),
+    fill('c', '2026-02-01', 2000, '20', true, '20'),
+  ]);
+  const data = fuelStatistics(vehicle, options);
+  // First 20 L at 2 €/L, then 20 L at (30*2+10*1)/40 = 1.75 €/L.
+  near(data.cycles[0].estimatedFuelCost, 75);
+  near(data.cycles[0].estimatedCostPerKm, 0.15);
+  near(data.cycles[1].estimatedFuelCost, 50);
+  assert.equal(data.consumption, 6);
+  vehicle.records[1].odometer = null;
+  near(fuelStatistics(vehicle, options).cycles[0].estimatedFuelCost, 75);
+  for (const missingPrice of [null, '-10']) {
+    vehicle.records[1].totalAmount = missingPrice;
+    const incomplete = fuelStatistics(vehicle, options);
+    assert.equal(incomplete.cycles[0].estimatedCostPerKm, null);
+    assert.equal(incomplete.consumption, 6);
+  }
+});
+
+test('impossible partial allocation invalidates only the new cost and not existing consumption', () => {
+  for (const [partialCounter, litres] of [[1010, '30'], [1490, '5']]) {
+    const data = fuelStatistics(withCapacity([
+      fill('a', '2026-01-01', 1000, '30', true, '60'),
+      fill('partial', '2026-01-10', partialCounter, litres, false, '10'),
+      fill('b', '2026-02-01', 1500, '50', true, '100'),
+    ]), options);
+    assert.notEqual(data.consumption, null);
+    assert.equal(data.estimatedCostPerKm, null);
+    assert.equal(data.uncostedCycles, 1);
+  }
+  const data = fuelStatistics(withCapacity([
+    fill('a', '2026-01-01', 1000, '30', true, '60'),
+    fill('partial', '2026-01-10', null, '10', false, '10'),
+    fill('b', '2026-01-10', 1500, '30', true, '60'),
+  ]), options);
+  assert.equal(data.estimatedCostPerKm, null);
+});
+
+test('unknown purchase prices propagate but do not affect fuel consumed before that purchase', () => {
+  const vehicle = withCapacity([
+    fill('a', '2026-01-01', 1000, '30', true, '60'),
+    fill('b', '2026-02-01', 1500, '30', true),
+    fill('c', '2026-03-01', 2000, '25', true, '50'),
+    fill('d', '2026-04-01', 2500, '50', true, '100'),
+    fill('e', '2026-05-01', 3000, '25', true, '0'),
+  ]);
+  const data = fuelStatistics(vehicle, options);
+  near(data.cycles[0].estimatedCostPerKm, 0.12);
+  assert.equal(data.cycles[1].estimatedCostPerKm, null);
+  assert.equal(data.cycles[2].estimatedCostPerKm, null);
+  near(data.cycles[3].estimatedCostPerKm, 0.1);
+  near(data.estimatedCostPerKm, 0.11);
+  assert.equal(data.uncostedCycles, 2);
+  vehicle.records[0].totalAmount = null;
+  assert.equal(fuelStatistics(vehicle, options).cycles[0].estimatedCostPerKm, null);
+  vehicle.records[0].totalAmount = '0';
+  assert.equal(fuelStatistics(vehicle, options).cycles[0].estimatedCostPerKm, 0);
+});
+
+test('missing quantities, dates and broken chronology never borrow a later purchase price', () => {
+  for (const extra of [ { fuel: { litres: null, fullTank: false } }, { date: null }, { odometer: 900 } ]) {
+    const data = fuelStatistics(withCapacity([
+      fill('a', '2026-01-01', 1000, '30', true, '60'),
+      fill('partial', '2026-01-15', 1200, '10', false, '20', extra),
+      fill('b', '2026-02-01', 1500, '25', true, '50'),
+      fill('c', '2026-03-01', 2000, '25', true, '50'),
+    ]), options);
+    assert.equal(data.estimatedCostPerKm, null);
+  }
+  const data = fuelStatistics(withCapacity([
+    fill('a', '2026-01-01', 1000, '30', true),
+    fill('b', '2026-02-01', 1500, '25', true, '50'),
+  ]), options);
+  assert.equal(data.estimatedCostPerKm, null);
+});
+
+test('non-finite purchase prices cannot enter estimated costs or their weighted average', () => {
+  const vehicle = withCapacity([
+    fill('a', '2026-01-01', 1000, '30', true, '60'),
+    fill('b', '2026-02-01', 1500, '30', true, '60'),
+    fill('c', '2026-03-01', 2000, '25', true, '50'),
+  ]);
+  // Defense in depth if an unvalidated caller bypasses the portable schema.
+  vehicle.records[0].totalAmount = '1' + '0'.repeat(400);
+  const data = fuelStatistics(vehicle, options);
+  assert.equal(data.estimatedCostPerKm, null);
+  assert.equal(data.costedCycles, 0);
+  assert.equal(data.uncostedCycles, 2);
+  for (const cycle of data.cycles) {
+    assert.equal(cycle.estimatedFuelCost, null);
+    assert.equal(cycle.estimatedCostPerKm, null);
+  }
+  assert.doesNotMatch(fuelMarkup(vehicle, options), /NaN|Infinity/);
+});
+
+test('optional tank capacity preserves portable precision, unknown fields and legacy absence', async () => {
+  const original = garageOf(sequence());
+  assert.equal(Object.hasOwn(original.vehicles[0], 'fuelTankCapacity'), false);
+  assert.equal(Object.hasOwn(parseGarage(JSON.stringify(original)).vehicles[0], 'fuelTankCapacity'), false);
+  original.vehicles[0].fuelTankCapacity = '50.123456789012345678';
+  original.vehicles[0].tankSource = { label: 'Example specification' };
+  const imported = await readBackupFile(new File([backupBlob(original)], 'example-tank.json'));
+  assert.equal(imported.garage.vehicles[0].fuelTankCapacity, '50.123456789012345678');
+  assert.deepEqual(imported.garage.vehicles[0].tankSource, original.vehicles[0].tankSource);
+  for (const invalid of ['0', '-1', '10001', 50, '1e2', {}, true]) {
+    original.vehicles[0].fuelTankCapacity = invalid;
+    assert.throws(() => parseGarage(JSON.stringify(original)), /capacité théorique/);
+  }
+  original.vehicles[0].fuelTankCapacity = null;
+  assert.equal(parseGarage(JSON.stringify(original)).vehicles[0].fuelTankCapacity, null);
+});
+
 test('full-to-full cycles include intermediate partial fills and omit the initial tank volume', () => {
   const vehicle = vehicleOf(sequence()), original = structuredClone(vehicle);
   const data = fuelStatistics(vehicle, options);

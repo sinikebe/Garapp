@@ -165,6 +165,8 @@
         <label>Kilométrage actuel<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Inconnu"></label>
         <label>Motorisation<input name="engine" maxlength="2000" placeholder="Non renseignée" autocomplete="off"></label>
         <label>Date du relevé actuel<input name="odometerDate" type="date"></label>
+        <label>Capacité théorique du réservoir (L)<input name="fuelTankCapacity" inputmode="decimal" placeholder="Facultative"></label>
+        <p class="hint full-width">Le coût carburant estimé au km utilise la plus grande valeur entre cette capacité et les quantités ajoutées enregistrées. La capacité théorique saisie est conservée.</p>
         <details id="vehicle-layout-options" class="full-width supplemental"><summary>Disposition du schéma des composants</summary>
           <p class="hint">Ces choix règlent uniquement la représentation des composants connus. Ils n’ajoutent ni équipement, ni fiche, ni intervention. Le hayon ou le coffre est distinct des portières latérales.</p>
           <div class="form-grid"><label>Roues représentées (hors secours)<select name="layoutWheelCount"></select></label><label>Portières latérales (hors hayon)<select name="layoutDoorCount"></select></label><label>Emplacement du moteur<select name="layoutEnginePosition"></select></label></div>
