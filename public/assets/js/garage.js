@@ -178,6 +178,7 @@ export function parseGarage(raw) {
     uniqueId(vehicle, ids);
     check(label(vehicle.name) && text(vehicle.engine ?? '', 2000) && nullableInteger(vehicle.year ?? null, 2100) && (vehicle.year == null || vehicle.year >= 1900) && nullableInteger(vehicle.odometer ?? null));
     check(validDate(vehicle.odometerDate ?? null));
+    check(isAmount(vehicle.fuelTankCapacity ?? null) && (vehicle.fuelTankCapacity == null || Number(vehicle.fuelTankCapacity) > 0 && Number(vehicle.fuelTankCapacity) <= 10000), 'La capacité théorique doit être une chaîne décimale positive en litres (au plus 10 000), ou null.');
     check(vehicle.example === undefined || typeof vehicle.example === 'boolean');
     check(vehicle.insurances === undefined || Array.isArray(vehicle.insurances) && vehicle.insurances.length <= 100, 'Un véhicule peut contenir au plus 100 contrats d’assurance.');
     const insuranceIds = new Set(), insurancePeriods = new Set();

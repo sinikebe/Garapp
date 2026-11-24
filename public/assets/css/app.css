@@ -492,10 +492,11 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 @media (max-width: 430px) { .trash-record-actions { align-items: stretch; flex-direction: column; gap: var(--space-sm); } }
 @media print { .trash-access { display: none; } }
 
+.fuel-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .fuel-overview .stat-card { min-width: 0; padding: var(--space-xl); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); }
 .fuel-overview .stat-value small { font-size: var(--type-sm); letter-spacing: normal; font-weight: 400; }
-.fuel-overview .fuel-estimated-card { border-left: 3px solid light-dark(#a85419, #f3b877); }
-.fuel-estimated-card .stat-value, .fuel-estimated-value { color: light-dark(#a85419, #f3b877); }
+.fuel-overview :is(.fuel-estimated-card, .fuel-cost-estimated-card) { border-left: 3px solid light-dark(#a85419, #f3b877); }
+.fuel-estimated-card .stat-value, .fuel-estimated-value, .fuel-cost-estimated-card .stat-value, .fuel-cost-estimated-value { color: light-dark(#a85419, #f3b877); }
 .fuel-estimated-line, .fuel-estimated-point { stroke: light-dark(#a85419, #f3b877); }
 .fuel-estimated-line { stroke-dasharray: 5 3; }
 .fuel-estimated-point { fill: light-dark(#a85419, #f3b877); }

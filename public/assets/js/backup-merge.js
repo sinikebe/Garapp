@@ -9,7 +9,7 @@ const own = (value, key) => Object.hasOwn(value, key) ? value[key] : absent;
 const literal = (value) => ({ type: 'literal', value });
 const labels = {
   name: 'Nom', title: 'Intitulé', label: 'Libellé', description: 'Description', notes: 'Notes', content: 'Contenu',
-  date: 'Date', year: 'Année', engine: 'Motorisation', odometer: 'Kilométrage', odometerDate: 'Date du relevé',
+  date: 'Date', year: 'Année', engine: 'Motorisation', odometer: 'Kilométrage', odometerDate: 'Date du relevé', fuelTankCapacity: 'Capacité théorique du réservoir (L)',
   type: 'Type', status: 'État', amount: 'Montant', partsAmount: 'Montant des pièces', laborAmount: 'Main-d’œuvre',
   totalAmount: 'Total du justificatif', kind: 'Nature', effect: 'Action sur les composants',
   componentIds: 'Composants remplacés', observedComponentIds: 'Composants observés',
