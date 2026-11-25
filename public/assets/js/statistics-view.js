@@ -1,4 +1,6 @@
 import { today } from './garage.js';
+import { graphOperations, graphDay } from './graph-data.js';
+import { renderGraphExplorer, graphOperationMarkers } from './graph-view.js';
 import { fuelMarkup } from './fuel-view.js';
 import { formatAmount, formatExactAmount } from './amounts.js';
 import { mileageHistory, spendingHistory, mileageGeometry, chartScale } from './statistics.js';
@@ -13,7 +15,7 @@ const sourceButton = (reading) => reading.source === 'vehicle'
   : `<button type="button" class="text-button" data-record="${esc(reading.id)}">${esc(reading.title)}</button>`;
 const axes = (plot, unit) => `<text class="chart-unit" x="${plot.left}" y="16">${unit}</text>${plot.ticks.map((tick) => `<path class="chart-gridline" d="M${plot.left} ${tick.y}H${plot.width - plot.right}"/><text class="chart-axis-label" x="${plot.left - 10}" y="${tick.y + 4}" text-anchor="end">${esc(compact(tick.value))}</text>`).join('')}`;
 
-function mileageChart(history, plot) {
+function mileageChart(history, plot, operations = []) {
   if (!history.groups.length) return '<div class="chart-empty"><p>Aucun relevé daté sur cette période.</p><p class="hint">Une date et un compteur renseignés suffisent pour afficher un point. Deux dates permettent de tracer une évolution.</p></div>';
   const segments = [];
   for (let i = 1; i < plot.points.length; i++) {
@@ -21,8 +23,9 @@ function mileageChart(history, plot) {
     const a = plot.points[i - 1], b = plot.points[i];
     segments.push(`<path class="chart-line${history.groups[i].values[0] < history.groups[i - 1].values[0] ? ' chart-warning-line' : ''}" d="M${a.x} ${a.ys[0]}L${b.x} ${b.ys[0]}"/>`);
   }
+  const overlay = operations.length ? graphOperationMarkers({ operations, x: date => history.days ? plot.left + (graphDay(date) - graphDay(history.first.date)) / history.days * (plot.width - plot.left - plot.right) : (plot.left + plot.width - plot.right) / 2 }, plot) : '';
   const indexes = [...new Set([0, Math.floor((plot.points.length - 1) / 2), plot.points.length - 1])].filter((index, _, all) => all.length <= 2 || index === 0 || index === plot.points.length - 1 || plot.points[index].x - plot.points[0].x > 110 && plot.points.at(-1).x - plot.points[index].x > 110);
-  return `<svg id="stats-mileage-chart" class="stats-chart" viewBox="0 0 ${plot.width} ${plot.height}" role="img" aria-labelledby="stats-mileage-svg-title stats-mileage-svg-desc"><title id="stats-mileage-svg-title">Évolution du compteur kilométrique</title><desc id="stats-mileage-svg-desc">${history.groups.length} date(s) observée(s), de ${dateText(history.first.date)} à ${dateText(history.last.date)}. L’axe horizontal suit les dates réelles. Les points sont reliés comme repère visuel ; aucun kilométrage intermédiaire n’est enregistré. Les valeurs exactes et leurs sources sont disponibles sous le graphique.</desc>${axes(plot, 'km')}${segments.join('')}<path id="stats-mileage-guide" class="chart-guide" d=""/>${plot.points.map((point) => `<g data-mileage-group="${point.index}" class="${history.groups[point.index].values.length > 1 ? 'chart-conflict' : ''}">${point.ys.map((y, index) => `<circle class="chart-point" cx="${point.x}" cy="${y}" r="3"><title>${dateText(history.groups[point.index].date)} : ${number(history.groups[point.index].values[index])} km</title></circle>`).join('')}</g>`).join('')}${indexes.map((index) => `<text class="chart-axis-label${index > 0 && index < plot.points.length - 1 ? ' chart-secondary-label' : ''}" x="${plot.points[index].x}" y="${plot.height - 15}" text-anchor="${indexes.length === 1 ? 'middle' : index === 0 ? 'start' : index === plot.points.length - 1 ? 'end' : 'middle'}">${dateText(history.groups[index].date)}</text>`).join('')}</svg>`;
+  return `<svg id="stats-mileage-chart" class="stats-chart" viewBox="0 0 ${plot.width} ${plot.height}" role="img" aria-labelledby="stats-mileage-svg-title stats-mileage-svg-desc"><title id="stats-mileage-svg-title">Évolution du compteur kilométrique</title><desc id="stats-mileage-svg-desc">${history.groups.length} date(s) observée(s), de ${dateText(history.first.date)} à ${dateText(history.last.date)}. L’axe horizontal suit les dates réelles. Les points sont reliés comme repère visuel ; aucun kilométrage intermédiaire n’est enregistré. Les valeurs exactes et leurs sources sont disponibles sous le graphique.</desc>${axes(plot, 'km')}${segments.join('')}<path id="stats-mileage-guide" class="chart-guide" d=""/>${plot.points.map((point) => `<g data-mileage-group="${point.index}" class="${history.groups[point.index].values.length > 1 ? 'chart-conflict' : ''}">${point.ys.map((y, index) => `<circle class="chart-point" cx="${point.x}" cy="${y}" r="3"><title>${dateText(history.groups[point.index].date)} : ${number(history.groups[point.index].values[index])} km</title></circle>`).join('')}</g>`).join('')}${overlay}${indexes.map((index) => `<text class="chart-axis-label${index > 0 && index < plot.points.length - 1 ? ' chart-secondary-label' : ''}" x="${plot.points[index].x}" y="${plot.height - 15}" text-anchor="${indexes.length === 1 ? 'middle' : index === 0 ? 'start' : index === plot.points.length - 1 ? 'end' : 'middle'}">${dateText(history.groups[index].date)}</text>`).join('')}</svg>`;
 }
 
 function spendingChart(history) {
@@ -45,6 +48,7 @@ export function statisticsMarkup(vehicle, options = {}) {
   const date = options.date ?? today();
   const mileage = mileageHistory(vehicle, { ...options, date }), spending = spendingHistory(vehicle, { ...options, date });
   const plot = mileageGeometry(mileage);
+  const operations = options.showOperations ? graphOperations(vehicle, options).filter(record => record.odometer !== null) : [];
   const interval = mileage.groups.length > 1 ? `Du ${dateText(mileage.first.date)} au ${dateText(mileage.last.date)}` : 'Deux dates distinctes sont nécessaires';
   const uncertain = mileage.conflicts.length || mileage.decreases.length;
   const warning = uncertain ? `<p class="stats-warning" role="status">Relevés à vérifier : ${mileage.conflicts.length} date(s) avec plusieurs compteurs différents et ${mileage.decreases.length} baisse(s) entre dates successives. Les valeurs restent affichées ; l’écart et le rythme ne sont pas calculés.</p>` : '';
@@ -52,14 +56,45 @@ export function statisticsMarkup(vehicle, options = {}) {
   const mileageRows = mileage.readings.map((reading) => `<tr><td>${dateText(reading.date)}</td><td>${number(reading.odometer)} km</td><td>${sourceButton(reading)}</td></tr>`).join('');
   const spendingRows = spending.buckets.map((bucket) => `<tr><th scope="row">${esc(bucketLabel(bucket.key))}</th><td>${bucket.amount === null ? '—' : esc(formatExactAmount(bucket.amount))}${bucket.partial ? '<span class="stats-table-note">Sous-total connu</span>' : ''}</td><td>${bucket.records.length}</td><td>${bucket.partial}</td></tr>`).join('');
   const html = `<div class="stat-grid stats-overview"><section class="panel stat-card"><p class="stat-label">Dernier compteur daté</p><p class="stat-value">${mileage.last ? mileage.last.values.length === 1 ? `${number(mileage.last.values[0])} <small>km</small>` : 'À vérifier' : '—'}</p><p class="stat-foot">${mileage.last ? `Relevé du ${dateText(mileage.last.date)}` : 'Aucun relevé daté dans la période'}</p></section><section class="panel stat-card"><p class="stat-label">Écart de compteur observé</p><p class="stat-value">${mileage.distance === null ? '—' : `${number(mileage.distance)} <small>km</small>`}</p><p class="stat-foot">${uncertain ? 'Relevés à vérifier' : interval}</p></section><section class="panel stat-card"><p class="stat-label">Rythme annualisé estimé</p><p class="stat-value">${mileage.annualized === null ? '—' : `≈ ${number(Math.round(mileage.annualized))} <small>km/an</small>`}</p><p class="stat-foot">${uncertain ? 'Relevés à vérifier' : mileage.annualized === null ? 'Au moins deux relevés espacés de 30 jours' : 'Calculé entre les deux relevés extrêmes'}</p></section></div>
-    <section class="panel stats-panel" aria-labelledby="stats-mileage-title"><div class="panel-heading"><div><h2 id="stats-mileage-title">Évolution du compteur</h2><p class="hint">${mileage.readings.length} source(s) sur ${mileage.groups.length} date(s), dans la période choisie.</p></div><button type="button" class="ghost-button" data-action="new-reading">Ajouter un relevé</button></div>${warning}${mileageChart(mileage, plot)}${selected}<p class="hint stats-method">Les relevés de la fiche véhicule et des fiches datées sont utilisés, sauf les fiches prévues et les dates futures. Le rythme annualisé décrit l’intervalle observé ; ce n’est pas une prévision.</p>${vehicle.odometer !== null && !vehicle.odometerDate ? '<p class="hint stats-method">Le compteur de la fiche véhicule n’a pas de date et ne figure pas sur la courbe. <button type="button" class="text-button" data-action="edit-vehicle">Dater ce relevé</button></p>' : ''}${mileage.omitted.missingDate || mileage.omitted.missingOdometer || mileage.omitted.future ? `<p class="hint stats-method">Informations non utilisées : ${mileage.omitted.missingDate} date(s) manquante(s), ${mileage.omitted.missingOdometer} compteur(s) manquant(s), ${mileage.omitted.future} date(s) future(s).</p>` : ''}${mileageRows ? `<details class="stats-data"><summary>Voir les relevés et leurs sources</summary><div class="stats-table-wrap" role="region" aria-label="Relevés kilométriques" tabindex="0"><table><caption>Tous les relevés retenus, y compris les doublons de sources</caption><thead><tr><th scope="col">Date</th><th scope="col">Compteur</th><th scope="col">Source</th></tr></thead><tbody>${mileageRows}</tbody></table></div></details>` : ''}</section>
+    <section class="panel stats-panel" aria-labelledby="stats-mileage-title"><div class="panel-heading"><div><h2 id="stats-mileage-title">Évolution du compteur</h2><p class="hint">${mileage.readings.length} source(s) sur ${mileage.groups.length} date(s), dans la période choisie.</p></div><button type="button" class="ghost-button" data-action="new-reading">Ajouter un relevé</button></div>${warning}<div class="mileage-chart-options">${mileage.groups.length ? `<label><input type="checkbox" data-mileage-operations${options.showOperations ? ' checked' : ''}> Afficher les opérations</label>` : ''}<button type="button" class="text-button" data-stat-tab-target="explorer">Ouvrir l’explorateur graphique</button></div>${mileageChart(mileage, plot, operations)}${options.showOperations ? '<p class="hint" data-help-keep>Les losanges identifient les opérations avec un compteur connu. L’explorateur montre aussi les opérations sans compteur à leur date.</p>' : ''}${selected}<p class="hint stats-method">Les relevés de la fiche véhicule et des fiches datées sont utilisés, sauf les fiches prévues et les dates futures. Le rythme annualisé décrit l’intervalle observé ; ce n’est pas une prévision.</p>${vehicle.odometer !== null && !vehicle.odometerDate ? '<p class="hint stats-method">Le compteur de la fiche véhicule n’a pas de date et ne figure pas sur la courbe. <button type="button" class="text-button" data-action="edit-vehicle">Dater ce relevé</button></p>' : ''}${mileage.omitted.missingDate || mileage.omitted.missingOdometer || mileage.omitted.future ? `<p class="hint stats-method">Informations non utilisées : ${mileage.omitted.missingDate} date(s) manquante(s), ${mileage.omitted.missingOdometer} compteur(s) manquant(s), ${mileage.omitted.future} date(s) future(s).</p>` : ''}${mileageRows ? `<details class="stats-data"><summary>Voir les relevés et leurs sources</summary><div class="stats-table-wrap" role="region" aria-label="Relevés kilométriques" tabindex="0"><table><caption>Tous les relevés retenus, y compris les doublons de sources</caption><thead><tr><th scope="col">Date</th><th scope="col">Compteur</th><th scope="col">Source</th></tr></thead><tbody>${mileageRows}</tbody></table></div></details>` : ''}</section>
     <section class="panel stats-panel" aria-labelledby="stats-spending-title"><div class="panel-heading"><div><h2 id="stats-spending-title">Dépenses dans le temps</h2><p class="hint">${spending.unit === 'year' ? 'Par année' : 'Par mois'} · ${options.scope === 'all' ? 'Tous les événements' : 'Interventions'} · ${spending.records.length} fiche(s) datée(s)</p></div><div class="stats-cost-total"><strong>${spending.amount === null ? '—' : esc(formatAmount(spending.amount))}</strong><span>${spending.partial ? 'Sous-total connu' : 'Total enregistré'}</span></div></div>${spendingChart(spending)}<p class="hint stats-method">${spending.range.start ? `Du ${dateText(spending.range.start)} au ${dateText(spending.range.end)}. ` : ''}Les barres hachurées signalent des montants à compléter. Une période sans montant connu reste inconnue ; les remboursements et montants négatifs sont conservés.</p><p class="hint stats-method">${spending.partial} fiche(s) avec un total à compléter · ${spending.omitted.undated} fiche(s) sans date et ${spending.omitted.future} fiche(s) future(s) hors graphique. Les fiches prévues sont exclues.</p>${spendingRows ? `<details class="stats-data"><summary>Voir les montants exacts par période</summary><div class="stats-table-wrap" role="region" aria-label="Dépenses par période" tabindex="0"><table><caption>— signifie qu’aucun montant connu n’est enregistré dans la période</caption><thead><tr><th scope="col">Période</th><th scope="col">Montant connu</th><th scope="col">Fiches</th><th scope="col">Totaux à compléter</th></tr></thead><tbody>${spendingRows}</tbody></table></div></details>` : ''}</section>${fuelMarkup(vehicle, options)}`;
   return { html, mileage, spending, plot };
 }
 
+const statisticsStates = new WeakMap();
+
 export function renderStatistics(container, vehicle, options = {}) {
-  const { html, mileage, plot } = statisticsMarkup(vehicle, options);
-  container.innerHTML = html;
+  let vehicles = statisticsStates.get(container);
+  if (!vehicles) { vehicles = new Map(); statisticsStates.set(container, vehicles); }
+  if (!vehicles.has(vehicle.id)) vehicles.set(vehicle.id, { tab: 'summary', showOperations: false, explorer: {} });
+  const state = vehicles.get(vehicle.id);
+  const { html, mileage, plot } = statisticsMarkup(vehicle, { ...options, showOperations: state.showOperations });
+  container.innerHTML = `<div class="statistics-tabs" role="tablist" aria-label="Vues des statistiques"><button type="button" role="tab" id="statistics-tab-summary" aria-controls="statistics-panel-summary" data-stat-tab="summary">Synthèse</button><button type="button" role="tab" id="statistics-tab-explorer" aria-controls="statistics-panel-explorer" data-stat-tab="explorer">Explorateur graphique</button></div><div id="statistics-panel-summary" role="tabpanel" aria-labelledby="statistics-tab-summary">${html}</div><div id="statistics-panel-explorer" role="tabpanel" aria-labelledby="statistics-tab-explorer" hidden><div data-graph-explorer></div></div>`;
+  let mounted = false;
+  const activate = (tab, focus = false) => {
+    state.tab = tab;
+    for (const button of container.querySelectorAll('[data-stat-tab]')) {
+      const active = button.dataset.statTab === tab;
+      button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
+      container.querySelector('#statistics-panel-' + button.dataset.statTab).hidden = !active;
+      if (active && focus) button.focus();
+    }
+    if (tab === 'explorer' && !mounted) { renderGraphExplorer(container.querySelector('[data-graph-explorer]'), vehicle, options, state.explorer); mounted = true; }
+  };
+  for (const button of container.querySelectorAll('[data-stat-tab]')) {
+    button.addEventListener('click', () => activate(button.dataset.statTab));
+    button.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      activate(event.key === 'Home' ? 'summary' : event.key === 'End' ? 'explorer' : state.tab === 'summary' ? 'explorer' : 'summary', true);
+    });
+  }
+  container.querySelector('[data-stat-tab-target]').addEventListener('click', () => activate('explorer', true));
+  container.querySelector('[data-mileage-operations]')?.addEventListener('change', (event) => {
+    state.showOperations = event.target.checked; renderStatistics(container, vehicle, options);
+    container.querySelector('[data-mileage-operations]').focus();
+  });
+  activate(state.tab);
   if (!mileage.groups.length) return;
   const svg = container.querySelector('#stats-mileage-chart'), select = container.querySelector('#stats-mileage-point');
   const showPoint = (index) => {

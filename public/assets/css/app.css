@@ -135,6 +135,7 @@ main { min-width: 0; padding: var(--space-4xl); display: grid; align-content: st
 [data-event-kind="plan"] { --event-color: light-dark(#98551e, #f3bb86); --event-wash: light-dark(#fcf3eb, #35291e); }
 [data-event-kind="reading"] { --event-color: light-dark(#156b83, #8bd3e7); --event-wash: light-dark(#edf7fa, #1c2e36); }
 [data-event-kind="insurance"] { --event-color: light-dark(#465bab, #afc0ff); --event-wash: light-dark(#f0f3fc, #232b40); }
+[data-event-kind="fuel"] { --event-color: var(--fuel-price); --event-wash: var(--fuel-wash); }
 .record-row.record-row-event { padding: var(--space-xl); margin-block: var(--space-xs); border: 0; border-radius: var(--radius-sm); background: var(--event-wash); box-shadow: inset 3px 0 var(--event-color); }
 .event-record-label { display: flex; align-items: center; gap: var(--space-xs); color: var(--event-color); font-size: var(--type-2xs); font-weight: 650; }
 .event-record-label .icon { width: 16px; height: 16px; }
@@ -540,4 +541,54 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .fuel-monthly :is(th, td):not(:first-child):not(:last-child) { text-align: right; }
 .fuel-monthly td:last-child { min-width: 180px; }
 .fuel-monthly .text-button { display: flex; }
+.statistics-tabs { display: flex; gap: var(--space-sm); margin-bottom: var(--space-2xl); border-bottom: 1px solid var(--border); }
+.statistics-tabs button { padding: var(--space-lg) var(--space-xl); border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-secondary); font-weight: 600; }
+.statistics-tabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.mileage-chart-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-lg); }
+.mileage-chart-options label { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--type-sm); }
+.mileage-chart-options input { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; }
+.explorer-legend { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-block: var(--space-xl); padding: var(--space-lg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.explorer-legend legend { padding-inline: var(--space-xs); color: var(--text-secondary); font-size: var(--type-sm); }
+.explorer-legend-item { display: inline-flex; align-items: center; justify-content: flex-start; gap: var(--space-sm); max-width: 100%; min-width: 0; min-height: 40px; padding: var(--space-sm) var(--space-lg); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface-1); text-align: left; overflow-wrap: anywhere; font-size: var(--type-xs); }
+.explorer-legend-item[aria-pressed="false"] { color: var(--text-secondary); border-style: dashed; }
+.explorer-legend-item[aria-pressed="false"] .explorer-swatch { opacity: .5; border-bottom-style: dashed; }
+.explorer-legend-item[aria-pressed="true"] { border-color: var(--series-color, var(--event-color)); background: var(--surface-2); }
+.explorer-legend-item .icon { width: 17px; height: 17px; color: var(--event-color); }
+.explorer-legend-item small { color: var(--text-secondary); }
+:where([data-series-key]) { --series-color: var(--accent); }
+[data-series-key="mileage"] { --series-color: light-dark(#156b83, #8bd3e7); }
+[data-series-key="spending"] { --series-color: light-dark(#465bab, #afc0ff); }
+[data-series-key="distance"] { --series-color: light-dark(#596473, #bbc5d4); }
+[data-series-key="litres"] { --series-color: var(--fuel-price); }
+[data-series-key="consumption"] { --series-color: light-dark(#216e69, #83d5ce); }
+[data-series-key="price"] { --series-color: light-dark(#8c4f99, #deb2e8); }
+[data-series-key="costkm"] { --series-color: light-dark(#a85419, #f3b877); }
+:where(.explorer-operation, .explorer-legend-item[data-graph-type]) { --event-color: light-dark(#596473, #bbc5d4); --event-wash: light-dark(#f3f5f7, #23282f); }
+.explorer-swatch { display: inline-block; flex: 0 0 18px; border-bottom: 3px solid var(--series-color); }
+.explorer-range { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-lg); margin-block: var(--space-xl); }
+.explorer-range label { display: grid; gap: var(--space-xs); color: var(--text-secondary); font-size: var(--type-sm); flex: 1 1 160px; max-width: 240px; }
+.explorer-scroll { overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-1); }
+.explorer-chart { display: block; width: 100%; min-width: 720px; height: auto; }
+.explorer-lane-title { fill: var(--series-color, var(--text-primary)); font: 600 13px var(--font); }
+.explorer-line { fill: none; stroke: var(--series-color); stroke-width: 2; }
+.explorer-point { fill: var(--surface-1); stroke: var(--series-color); stroke-width: 2; }
+.explorer-bar { stroke: var(--series-color); stroke-width: 7; fill: none; }
+.explorer-chart :is(.is-estimated, .is-warning, .is-partial) { stroke: light-dark(#a85419, #f3b877); stroke-dasharray: 5 3; }
+.explorer-operation { cursor: pointer; }
+.explorer-operation :is(path, circle) { fill: var(--event-wash); stroke: var(--event-color); stroke-width: 2; }
+.explorer-marker-count { fill: var(--text-primary); font: 600 11px var(--font); pointer-events: none; }
+.explorer-chart [data-explorer-date] { cursor: pointer; }
+.explorer-chart [data-explorer-guide] { pointer-events: none; }
+.explorer-selection { margin-block: var(--space-xl); }
+.explorer-selection h3 { margin-bottom: var(--space-lg); font-size: var(--type-md); }
+.explorer-facts { display: grid; gap: var(--space-lg); margin: 0; }
+.explorer-facts dt, .explorer-selection .stats-sources small { color: var(--text-secondary); font-size: var(--type-xs); }
+.explorer-facts dd { margin: var(--space-2xs) 0 0; font-size: var(--type-sm); font-variant-numeric: tabular-nums; }
+.explorer-selection .stats-sources { display: grid; }
+.explorer-selection .stats-sources small { display: block; }
+@media (max-width: 760px) {
+  .explorer-chart { min-width: 860px; }
+  .explorer-chart .chart-axis-label { font-size: 14px; }
+  .explorer-chart .explorer-lane-title { font-size: 15px; }
+}
 @media (max-width: 760px) { .fuel-overview { grid-template-columns: minmax(0, 1fr); } }
