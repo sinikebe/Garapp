@@ -162,7 +162,14 @@ gros ajout actif daté du véhicule, hors fiches prévues et futures. Cette réf
 peut augmenter après un achat et diminuer après une correction ou suppression ;
 la capacité théorique saisie reste conservée et les estimations sont recalculées.
 
-Cette statistique valorise les litres consommés au prix moyen pondéré du carburant
+Deux graphiques mensuels partagent les mêmes dates :
+le premier compare la consommation et le prix d’achat au litre ; le second montre
+le coût carburant estimé en €/km, en orange pointillé, avec un axe partant de zéro.
+Les points précisent aussi l’équivalent en €/100 km. Un mois sans coût estimable
+interrompt la courbe ; il n’est pas assimilé à un coût nul. Les graphiques affichent
+les 36 derniers mois de la période, et le tableau conserve les autres mois.
+
+Le coût estimé valorise les litres consommés au prix moyen pondéré du carburant
 présent, puis mélange le reste avec l’achat suivant. Le premier plein complet
 amorce le prix du stock préexistant avec le prix au litre de son achat. Avec des
 ajouts partiels, la consommation du cycle est répartie selon les distances entre

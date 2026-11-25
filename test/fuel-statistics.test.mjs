@@ -367,6 +367,65 @@ test('the fuel chart and table show the price even without a calculable consumpt
   assert.doesNotMatch(html, /NaN|Infinity/);
 });
 
+const costChart = (html) => html.match(/<svg id="fuel-cost-chart"[\s\S]*?<\/svg>/)?.[0];
+
+test('a separate cost chart uses the consumed tank mixture and exposes euros per km and per 100 km', () => {
+  const vehicle = withCapacity([
+    fill('a', '2025-12-01', 1000, '35', true, '70'),
+    fill('b', '2026-01-01', 1500, '30', true, '45'),
+    fill('c', '2026-02-01', 2000, '25', true, '50'),
+  ]);
+  const snapshot = structuredClone(vehicle), html = fuelMarkup(vehicle, options), chart = costChart(html);
+  assert.match(html, /id="fuel-consumption-chart"/);
+  assert.match(chart, /fuel-estimated-line fuel-cost-line/);
+  assert.equal((chart.match(/class="chart-point fuel-cost-point"/g) ?? []).length, 2);
+  assert.match(chart, /environ 0,12 €\/km \(12 €\/100 km\)/);
+  assert.match(chart, /environ 0,085 €\/km \(8,5 €\/100 km\)/);
+  assert.match(chart, /pondérée par les kilomètres/);
+  assert.match(chart, /aria-labelledby="fuel-cost-chart-title fuel-cost-chart-desc"/);
+  assert.deepEqual(vehicle, snapshot);
+});
+
+test('unknown months interrupt the cost curve while zero and isolated known costs remain visible', () => {
+  const chart = costChart(fuelMarkup(withCapacity([
+    fill('a', '2026-01-01', 1000, '35', true, '70'),
+    fill('b', '2026-02-01', 1500, '30', true, '45'),
+    fill('c', '2026-04-01', 2000, '25', true, '50'),
+  ]), options));
+  assert.equal((chart.match(/class="chart-point fuel-cost-point"/g) ?? []).length, 2);
+  assert.doesNotMatch(chart, /class="chart-line fuel-estimated-line fuel-cost-line"/);
+  const zeroChart = costChart(fuelMarkup(withCapacity([
+    fill('a', '2026-01-01', 1000, '35', true, '0'),
+    fill('b', '2026-02-01', 1500, '30', true, '0'),
+  ]), options));
+  assert.match(zeroChart, /environ 0 €\/km \(0 €\/100 km\)/);
+  assert.equal((zeroChart.match(/class="chart-point fuel-cost-point"/g) ?? []).length, 1);
+  assert.doesNotMatch(zeroChart, /NaN|Infinity|class="chart-line fuel-estimated-line fuel-cost-line"/);
+  const missing = fuelMarkup(withCapacity([
+    fill('a', '2026-01-01', 1000, '35', true),
+    fill('b', '2026-02-01', 1500, '30', true),
+  ]), options);
+  assert.equal(costChart(missing), undefined);
+  assert.match(missing, /Aucun coût carburant au km estimable/);
+  assert.match(missing, /id="fuel-consumption-chart"/);
+});
+
+test('both fuel charts use the same last 36 months while older months stay in the table', () => {
+  const records = Array.from({ length: 41 }, (_, index) => {
+    const year = 2023 + Math.floor(index / 12), month = String(index % 12 + 1).padStart(2, '0');
+    return fill(`fill-${index}`, `${year}-${month}-01`, 1000 + index * 500, '20', true, '40');
+  });
+  const html = fuelMarkup(withCapacity(records), options), chart = costChart(html);
+  assert.equal((chart.match(/class="chart-point fuel-cost-point"/g) ?? []).length, 36);
+  assert.match(chart, /juin 2023/);
+  assert.match(chart, /mai 2026/);
+  assert.doesNotMatch(chart, /janv\. 2023/);
+  assert.match(html, /janv\. 2023/);
+  const consumptionChart = html.match(/<svg id="fuel-consumption-chart"[\s\S]*?<\/svg>/)[0];
+  assert.match(consumptionChart, /juin 2023/);
+  assert.match(consumptionChart, /mai 2026/);
+});
+
 test('a tank baseline before the selected period remains available without including its purchase cost', () => {
   const data = fuelStatistics(vehicleOf([
     fill('a', '2025-11-20', 10000, '50', true, '80'),

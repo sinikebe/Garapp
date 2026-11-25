@@ -523,6 +523,11 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .fuel-estimated-line { stroke-dasharray: 5 3; }
 .fuel-estimated-point { fill: light-dark(#a85419, #f3b877); }
 .fuel-chart-legend { margin-top: calc(-1 * var(--space-lg)); }
+.fuel-charts { display: grid; gap: var(--space-3xl); margin-top: var(--space-3xl); }
+.fuel-chart-block { min-width: 0; }
+.fuel-chart-block + .fuel-chart-block { padding-top: var(--space-3xl); border-top: 1px solid var(--border); }
+.fuel-chart-block h3 { margin: 0; font-size: var(--type-md); font-weight: 600; }
+.fuel-cost-point { stroke: light-dark(#a85419, #f3b877); fill: var(--surface-1); }
 .fuel-consumption-swatch, .fuel-price-swatch { display: inline-block; width: 1.4em; height: .7em; margin-right: .4em; border-bottom: 2px solid var(--accent); vertical-align: .15em; }
 .fuel-price-swatch { border-color: var(--fuel-price); }
 .fuel-price-line, .fuel-price-point { stroke: var(--fuel-price); }
