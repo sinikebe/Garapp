@@ -56,6 +56,11 @@ test('dock destinations resolve to real views and compact header controls remain
   for (const id of ['layout-select', 'theme-toggle', 'presentation-description']) assert.ok(tools.includes(`id="${id}"`));
   for (const id of ['layout-select', 'theme-toggle', 'presentation-description', 'commands-open', 'drive-profile']) assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1);
   assert.match(header, /id="commands-open"[^>]+aria-label="Actions rapides"/);
+  assert.equal((html.match(/id="vehicle-select"/g) ?? []).length, 1);
+  assert.match(header, /data-vehicle-slot><label class="vehicle-picker"/);
+  assert.match(tools, /data-vehicle-menu-slot hidden/);
+  assert.match(html, /<div class="sr-only"><h1 id="view-title"/);
+  assert.doesNotMatch(html, /class="workspace-head"/);
 });
 
 test('invalid navigation preferences and inaccessible storage fall back without blocking use', () => {

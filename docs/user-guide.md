@@ -21,7 +21,9 @@ des espaces distincts ; un export/import permet un transfert explicite entre eux
 
 Les présentations **Horizon**, **Atelier** et **Panorama** adaptent la disposition du
 garage. La présentation et l’apparence sont regroupées dans **Outils → Affichage**.
-L’en-tête compact garde les accès rapides, les outils et le profil Drive. Le logo
+Le choix du véhicule apparaît dans la barre du haut et se replie dans **Outils**
+quand la place manque. La rubrique active est indiquée dans le dock ou le menu
+latéral. L’en-tête compact garde les accès rapides, les outils et le profil Drive. Le logo
 ouvre le menu des applications finapps. Les liens relient les versions principales
 entre elles, et les versions de développement entre elles.
 
@@ -161,8 +163,10 @@ contrat. Les titres personnalisés et types historiques sont conservés.
 La rubrique **Graphiques**, accessible par son icône dans le dock ou le menu latéral,
 permet d’afficher ensemble
 le compteur, les dépenses mensuelles, la distance relevée, les litres ajoutés,
-la consommation, le prix au litre et le coût carburant estimé au km. Activez ou
-masquez chaque mesure depuis la légende. Les pistes partagent les mêmes dates,
+la consommation, le prix au litre et le coût carburant estimé au km. Toutes les
+mesures et opérations sont activées au départ. Ouvrez **Éléments affichés** pour
+activer ou masquer une mesure ou un type d’opération depuis les légendes.
+Ces réglages sont repliés par défaut. Les pistes partagent les mêmes dates,
 mais chacune conserve son unité et une échelle adaptée aux valeurs affichées.
 Les champs **Du** et **Au** permettent de zoomer ; **Rétablir la période** revient
 à la période choisie dans cette rubrique. **Tout afficher** active toutes les
@@ -170,7 +174,7 @@ mesures et tous les types d’opérations de cette période.
 
 La seconde légende filtre les **repères des opérations**, sans modifier les
 mesures calculées sur l’historique. Les dépenses conservent le périmètre choisi
-au-dessus des onglets. Les indicateurs mensuels sont placés en fin de mois.
+au-dessus du graphique. Les indicateurs mensuels sont placés en fin de mois.
 Les fiches prévues, futures, sans date ou à la corbeille restent exclues.
 
 Une opération avec un compteur connu apparaît par un losange sur la piste du
