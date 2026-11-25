@@ -17,9 +17,11 @@ des espaces distincts ; un export/import permet un transfert explicite entre eux
 | Assurance | Gérer les contrats, cotisations et changements de tarif |
 | Dépenses | Consulter les montants connus par période et par type |
 | Statistiques | Suivre les relevés kilométriques, dépenses et achats de carburant |
+| Graphiques | Explorer les mesures et opérations depuis leur accès dédié dans le dock |
 
 Les présentations **Horizon**, **Atelier** et **Panorama** adaptent la disposition du
-garage. Le bandeau distingue la présentation, l'apparence et les outils. Le logo
+garage. La présentation et l’apparence sont regroupées dans **Outils → Affichage**.
+L’en-tête compact garde les accès rapides, les outils et le profil Drive. Le logo
 ouvre le menu des applications finapps. Les liens relient les versions principales
 entre elles, et les versions de développement entre elles.
 
@@ -156,13 +158,14 @@ contrat. Les titres personnalisés et types historiques sont conservés.
 
 ## Explorateur graphique
 
-Dans **Statistiques**, l’onglet **Explorateur graphique** permet d’afficher ensemble
+La rubrique **Graphiques**, accessible par son icône dans le dock ou le menu latéral,
+permet d’afficher ensemble
 le compteur, les dépenses mensuelles, la distance relevée, les litres ajoutés,
 la consommation, le prix au litre et le coût carburant estimé au km. Activez ou
 masquez chaque mesure depuis la légende. Les pistes partagent les mêmes dates,
 mais chacune conserve son unité et une échelle adaptée aux valeurs affichées.
 Les champs **Du** et **Au** permettent de zoomer ; **Rétablir la période** revient
-à la période choisie dans les statistiques. **Tout afficher** active toutes les
+à la période choisie dans cette rubrique. **Tout afficher** active toutes les
 mesures et tous les types d’opérations de cette période.
 
 La seconde légende filtre les **repères des opérations**, sans modifier les
@@ -178,7 +181,7 @@ permet aussi la consultation au clavier, avec les valeurs exactes et les sources
 Les valeurs inconnues ne sont pas remplacées par zéro. Les estimations restent
 signalées et les compteurs contradictoires ne sont pas reliés par une courbe.
 
-Dans l’onglet **Synthèse**, la case **Afficher les opérations** ajoute les mêmes
+Dans **Statistiques**, la case **Afficher les opérations** ajoute les mêmes
 losanges au graphique d’évolution du compteur pour les fiches avec un relevé.
 Les choix graphiques sont conservés pendant la session pour chaque véhicule.
 Sur petit écran, le graphique peut défiler horizontalement pour conserver des

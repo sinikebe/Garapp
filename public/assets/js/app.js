@@ -19,6 +19,7 @@ import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
 import { renderStatistics } from './statistics-view.js';
+import { renderGraphs } from './graph-view.js';
 import { largestRecordedRefuel } from './fuel-statistics.js';
 import { updateFuelEntry, fuelUnitPrice } from './fuel-entry.js';
 import { eventProfile, eventEditorLayout } from './event-profiles.js';
@@ -251,12 +252,13 @@ function renderExpenses() {
   });
 }
 const views = {
-  garage: ['Votre véhicule, en un coup d’œil.', 'L’essentiel aujourd’hui. L’historique quand vous en avez besoin.'],
-  interventions: ['Une histoire qui se conserve.', 'Interventions, documents et événements, reliés au véhicule.'],
-  composants: ['Chaque pièce a son histoire.', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
-  assurance: ['L’assurance, mois après mois.', 'Les contrats, les cotisations et les prélèvements du véhicule.'],
-  depenses: ['Savoir où va votre budget.', 'Les dépenses connues et les montants à compléter.'],
-  statistiques: ['Le véhicule au fil du temps.', 'Kilométrage, rythme de roulage et dépenses, à partir des informations enregistrées.'],
+  garage: ['Vue d’ensemble', 'L’essentiel aujourd’hui. L’historique quand vous en avez besoin.'],
+  interventions: ['Journal', 'Interventions, documents et événements, reliés au véhicule.'],
+  composants: ['Composants', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
+  assurance: ['Assurance', 'Les contrats, les cotisations et les prélèvements du véhicule.'],
+  depenses: ['Dépenses', 'Les dépenses connues et les montants à compléter.'],
+  statistiques: ['Statistiques', 'Kilométrage, rythme de roulage et dépenses, à partir des informations enregistrées.'],
+  graphiques: ['Graphiques', 'Mesures et opérations à explorer, avec des échelles indépendantes.'],
 };
 let section = resolveSection(location.hash, navigation.section);
 
@@ -268,6 +270,7 @@ function rememberNavigation() {
     expenseYear: $('expense-year').value, expenseScope: $('expense-scope').value,
     insuranceYear: $('insurance-year').value,
     statisticsPeriod: $('statistics-period').value, statisticsScope: $('statistics-scope').value,
+    graphPeriod: $('graphs-period').value, graphScope: $('graphs-scope').value,
   }, today().slice(0, 4));
   try { writeNavigation(localStorage, navigationStorageKey, navigation); } catch { /* Optional UI context. */ }
 }
@@ -300,6 +303,8 @@ function render() {
   $('expense-scope').value = filters.expenseScope;
   $('statistics-period').value = filters.statisticsPeriod;
   $('statistics-scope').value = filters.statisticsScope;
+  $('graphs-period').value = filters.graphPeriod;
+  $('graphs-scope').value = filters.graphScope;
   const previousType = filters.recordType;
   const types = [...new Set([...Object.keys(TYPES), ...current.records.map((record) => record.type)])];
   $('record-type').innerHTML = '<option value="all">Tous les types</option>' + types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
@@ -327,6 +332,8 @@ function render() {
   else $('insurance-content').replaceChildren();
   if (section === 'statistiques') renderStatistics($('statistics-content'), current, { period: filters.statisticsPeriod, scope: filters.statisticsScope });
   else $('statistics-content').replaceChildren();
+  if (section === 'graphiques') renderGraphs($('graphs-content'), current, { period: filters.graphPeriod, scope: filters.graphScope });
+  else $('graphs-content').replaceChildren();
   rememberNavigation();
 }
 
@@ -1024,6 +1031,10 @@ $('insurance-year').addEventListener('change', () => { rememberNavigation(); if 
 for (const id of ['statistics-period', 'statistics-scope']) $(id).addEventListener('change', () => {
   rememberNavigation();
   if (vehicle()) renderStatistics($('statistics-content'), vehicle(), { period: $('statistics-period').value, scope: $('statistics-scope').value });
+});
+for (const id of ['graphs-period', 'graphs-scope']) $(id).addEventListener('change', () => {
+  rememberNavigation();
+  if (vehicle()) renderGraphs($('graphs-content'), vehicle(), { period: $('graphs-period').value, scope: $('graphs-scope').value });
 });
 window.addEventListener('hashchange', () => {
   if (location.hash === '#main') return;

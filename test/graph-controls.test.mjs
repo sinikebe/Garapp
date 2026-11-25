@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseGarage } from '../public/assets/js/garage.js';
 import { GRAPH_MEASURES } from '../public/assets/js/graph-data.js';
-import { renderGraphExplorer } from '../public/assets/js/graph-view.js';
+import { renderGraphExplorer, renderGraphs } from '../public/assets/js/graph-view.js';
 import { renderStatistics } from '../public/assets/js/statistics-view.js';
 
 // Minimal event/element boundary for controller tests, without a browser or storage.
@@ -79,25 +79,24 @@ test('date input handlers reject reversed windows, apply a valid zoom and restor
   assert.match(view.plot.innerHTML, /data-record="b"/);
 });
 
-test('statistics tab handlers work with no mileage and support arrow-key navigation', () => {
-  const root = new Element(), summary = new Element({}, 'statistics-panel-summary'), explorer = new Element({}, 'statistics-panel-explorer');
-  const summaryTab = new Element({ statTab: 'summary' }), explorerTab = new Element({ statTab: 'explorer' });
-  const open = new Element({ statTabTarget: 'explorer' }), graph = fixture(0).root;
-  graph.dataset.graphExplorer = '';
-  root.append(summaryTab, explorerTab, summary.append(open), explorer.append(graph));
-  renderStatistics(root, vehicleOf([]), options);
-  assert.equal(summary.hidden, false); assert.equal(explorer.hidden, true);
-  explorerTab.fire('click');
-  assert.equal(explorer.hidden, false); assert.equal(summary.hidden, true);
-  assert.equal(explorerTab.attributes['aria-selected'], 'true');
-  assert.match(graph.innerHTML, /Explorer les mesures/);
-  explorerTab.fire('keydown', { key: 'ArrowLeft' });
-  assert.equal(summary.hidden, false); assert.equal(summaryTab.focused, true);
-  summaryTab.fire('keydown', { key: 'End' });
-  assert.equal(explorer.hidden, false); assert.equal(explorerTab.focused, true);
-  renderStatistics(root, vehicleOf([]), { ...options, period: '12m' });
-  assert.equal(explorer.hidden, false);
+test('the dedicated graph view retains per-vehicle legend choices across filter changes', () => {
+  const root = new Element(), widget = fixture(0);
+  widget.root.dataset.graphExplorer = ''; root.append(widget.root);
+  renderGraphs(root, vehicleOf([]), options);
+  assert.match(widget.root.innerHTML, /Explorer les mesures/);
+  const mileage = widget.measures.find(button => button.dataset.graphMeasure === 'mileage');
+  widget.click(mileage);
+  assert.equal(mileage.attributes['aria-pressed'], 'false');
+  renderGraphs(root, vehicleOf([]), { ...options, period: '12m' });
+  assert.equal(mileage.attributes['aria-pressed'], 'false');
   const other = vehicleOf([]); other.id = 'another-fiction';
-  renderStatistics(root, other, options);
-  assert.equal(summary.hidden, false);
+  renderGraphs(root, other, options);
+  assert.equal(mileage.attributes['aria-pressed'], 'true');
+});
+
+test('statistics keeps its summary and links directly to the graph route without nested tabs', () => {
+  const root = new Element();
+  renderStatistics(root, vehicleOf([]), options);
+  assert.match(root.innerHTML, /href="#graphiques"/);
+  assert.doesNotMatch(root.innerHTML, /role="tablist"/);
 });
