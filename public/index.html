@@ -63,10 +63,12 @@
         </nav>
       </div>
     </details>
+    <div class="header-vehicle-slot" data-vehicle-slot><label class="vehicle-picker" for="vehicle-select"><span class="sr-only">Véhicule</span><select id="vehicle-select"></select></label></div>
     <div class="app-bar-actions">
       <button class="icon-button command-trigger" id="commands-open" type="button" aria-label="Actions rapides" title="Actions rapides · Ctrl / ⌘ K"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-search"/></svg></button>
       <div class="app-bar-right">
         <details class="tools-menu" data-header-menu><summary class="icon-button" aria-label="Outils" title="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg></summary><div class="tools-content">
+          <div class="tools-group tools-vehicle" data-vehicle-menu-slot hidden></div>
           <div class="tools-group" role="group" aria-label="Affichage"><p class="tools-heading">Affichage</p><label class="layout-picker" for="layout-select"><span>Présentation</span><select id="layout-select" aria-label="Présentation" aria-describedby="presentation-description"><option value="horizon">Horizon</option><option value="atelier">Atelier</option><option value="parcours">Panorama</option></select></label><button class="ghost-button appearance-trigger" id="theme-toggle" type="button" aria-label="Apparence : automatique. Passer au mode clair."><svg class="icon ui-icon" aria-hidden="true"><use href="#i-sun"/></svg><span><span class="appearance-name">Apparence</span><span id="appearance-value" aria-hidden="true">Auto</span></span></button><p id="presentation-description" class="hint presentation-description" role="status" data-help-keep>Horizon : tableau de bord aéré et composants en grille sur grand écran.</p></div>
           <div class="tools-group" role="group" aria-label="Garage"><p class="tools-heading">Garage</p><button type="button" data-action="garage-details">Documents et informations du garage</button><button type="button" data-action="trash">Corbeille des interventions</button></div>
           <div class="tools-group" role="group" aria-label="Sauvegardes"><p class="tools-heading">Sauvegardes</p><button type="button" data-action="backups">Sauvegardes</button></div>
@@ -97,10 +99,7 @@
       <p id="dev-banner" class="environment-note" hidden>Version de développement · garage distinct de la version principale</p>
       <div id="storage-warning" class="storage-warning" role="status" hidden><p id="storage-message"></p><button type="button" class="text-button" data-action="export">Exporter mes données</button><button id="storage-export-original" type="button" class="ghost-button" data-action="export-stored" hidden>Exporter les données conservées</button><button type="button" class="text-button" data-action="reload">Recharger</button></div>
       <div id="pwa-update-banner" class="storage-warning pwa-update-banner" role="status" hidden><p id="pwa-update-message">Une nouvelle version de Garapp est prête.</p><button id="pwa-update" type="button" class="text-button">Mettre à jour</button></div>
-      <div class="workspace-head">
-        <div><p class="eyebrow sr-only">MON GARAGE</p><h1 id="view-title" tabindex="-1" aria-describedby="view-description">Vue d’ensemble</h1><p id="view-description" class="hint sr-only" data-help-keep>L’essentiel aujourd’hui. L’historique quand vous en avez besoin.</p></div>
-        <label class="vehicle-picker" for="vehicle-select"><span class="sr-only">Véhicule</span><select id="vehicle-select"></select></label>
-      </div>
+      <div class="sr-only"><h1 id="view-title" tabindex="-1" aria-describedby="view-description">Vue d’ensemble</h1><p id="view-description" data-help-keep>L’essentiel aujourd’hui. L’historique quand vous en avez besoin.</p></div>
       <div id="example-banner" class="example-note"><span><strong>Un garage pour essayer.</strong> Véhicule, interventions et repères fictifs.</span><button class="text-button" type="button" data-action="new-vehicle">Ajouter mon véhicule <svg class="icon ui-icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>
       <section id="garage-view" aria-label="Vue d’ensemble"><div id="dashboard"></div></section>
       <section id="interventions-view" aria-label="Interventions" hidden>

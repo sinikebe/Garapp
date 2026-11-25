@@ -46,6 +46,11 @@ const options = { date: '2026-11-25' };
 test('legend button handlers redraw lanes and operation markers while preserving source data and focus targets', () => {
   const view = fixture(), state = {}, vehicle = sample(), snapshot = structuredClone(vehicle);
   renderGraphExplorer(view.root, vehicle, options, state);
+  assert.deepEqual(state.measures, GRAPH_MEASURES.map((measure) => measure.key));
+  assert.deepEqual(state.hiddenTypes, []);
+  for (const measure of view.measures) assert.equal(measure.attributes['aria-pressed'], 'true');
+  assert.match(view.root.innerHTML, /<details class="explorer-options"><summary>Éléments affichés<\/summary>/);
+  assert.doesNotMatch(view.root.innerHTML, /<details[^>]*\bopen\b/);
   assert.match(view.plot.innerHTML, /data-series-key="spending"/);
   const spending = view.measures.find(button => button.dataset.graphMeasure === 'spending');
   view.click(spending);

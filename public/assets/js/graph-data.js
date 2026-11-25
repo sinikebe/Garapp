@@ -93,7 +93,7 @@ export function graphData(vehicle, options = {}) {
   };
 }
 
-export function graphLayout(data, { measures = ['mileage', 'spending'], hiddenTypes = [], from = '', to = '' } = {}) {
+export function graphLayout(data, { measures = GRAPH_MEASURES.map((measure) => measure.key), hiddenTypes = [], from = '', to = '' } = {}) {
   const first = validDate(from) && from >= data.start && from <= data.end ? from : data.start;
   const last = validDate(to) && to >= first && to <= data.end ? to : data.end;
   const inside = (point) => point.date >= first && point.date <= last;

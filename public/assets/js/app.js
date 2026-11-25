@@ -15,6 +15,7 @@ import { suiteLinks } from './app-switcher.js';
 import { deploymentFor } from './deployment-config.js';
 import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
 import { initHeaderMenus } from './header-menus.js';
+import { initHeaderVehicle } from './header-vehicle.js';
 import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
@@ -71,6 +72,7 @@ let commandReturnFocus = null;
 const openDialogs = () => [...document.querySelectorAll('dialog[open]')];
 const vehicle = () => garage.vehicles.find((one) => one.id === garage.activeId);
 const closeMenus = initHeaderMenus(document);
+initHeaderVehicle(document);
 initHelpTips();
 const announce = (message) => { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6000); };
 function storageWarning(message) { $('storage-warning').hidden = false; $('storage-message').textContent = message; $('save-status').textContent = 'Modifications non enregistrées'; }
