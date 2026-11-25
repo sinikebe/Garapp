@@ -154,6 +154,37 @@ Il affiche le compteur pour un relevé, le budget d’un programme, la transacti
 achat ou d’une cession et le contexte de la cotisation pour une assurance liée à un
 contrat. Les titres personnalisés et types historiques sont conservés.
 
+## Explorateur graphique
+
+Dans **Statistiques**, l’onglet **Explorateur graphique** permet d’afficher ensemble
+le compteur, les dépenses mensuelles, la distance relevée, les litres ajoutés,
+la consommation, le prix au litre et le coût carburant estimé au km. Activez ou
+masquez chaque mesure depuis la légende. Les pistes partagent les mêmes dates,
+mais chacune conserve son unité et une échelle adaptée aux valeurs affichées.
+Les champs **Du** et **Au** permettent de zoomer ; **Rétablir la période** revient
+à la période choisie dans les statistiques. **Tout afficher** active toutes les
+mesures et tous les types d’opérations de cette période.
+
+La seconde légende filtre les **repères des opérations**, sans modifier les
+mesures calculées sur l’historique. Les dépenses conservent le périmètre choisi
+au-dessus des onglets. Les indicateurs mensuels sont placés en fin de mois.
+Les fiches prévues, futures, sans date ou à la corbeille restent exclues.
+
+Une opération avec un compteur connu apparaît par un losange sur la piste du
+compteur. Le bandeau inférieur affiche aussi les opérations sans compteur, à
+leur date réelle. Un repère unique ouvre la fiche ; un groupe chiffré donne
+accès aux opérations du même jour. Le sélecteur **Valeurs et opérations à consulter**
+permet aussi la consultation au clavier, avec les valeurs exactes et les sources.
+Les valeurs inconnues ne sont pas remplacées par zéro. Les estimations restent
+signalées et les compteurs contradictoires ne sont pas reliés par une courbe.
+
+Dans l’onglet **Synthèse**, la case **Afficher les opérations** ajoute les mêmes
+losanges au graphique d’évolution du compteur pour les fiches avec un relevé.
+Les choix graphiques sont conservés pendant la session pour chaque véhicule.
+Sur petit écran, le graphique peut défiler horizontalement pour conserver des
+graduations lisibles ; la légende et le sélecteur restent accessibles sous forme
+de commandes classiques.
+
 ## Statistiques et carburant
 
 Le formulaire véhicule propose une **capacité théorique du réservoir** facultative.
