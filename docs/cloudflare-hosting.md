@@ -84,10 +84,12 @@ workflow in this repository.
 hold `0.0.1` as the local fallback. The deployed version comes from shared CI,
 recorded in immutable annotated tags `siniverse-version/main/vX.Y.Z` and
 `siniverse-version/dev/vX.Y.Z`. The first development version is `0.0.1`.
-The first production promotion copies the exact version already tested on dev.
-Subsequent assignments default to patch, use minor for features and major for
-breaking changes; one explicit `semver:major`, `semver:minor` or `semver:patch`
-override is handled centrally. CI does not commit version bumps to app branches.
+Each dev integration increments patch once; a merge counts once without
+recounting its feature branch commits. Each approved dev-to-main promotion
+increments the previous production minor once and resets patch to zero; the first
+production version is 0.1.0. Titles and semver labels do not override this rule.
+Retries reuse the exact assigned version. Existing tags stay immutable, and a
+newer production is the baseline for dev patches without reducing historical versions. CI does not commit version bumps to app branches.
 
 `SINIVERSE_VERSION` contains the assigned strict SemVer value without `v`.
 The existing packager renders the footer as `vX.Y.Z` before calculating the final

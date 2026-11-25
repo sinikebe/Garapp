@@ -234,6 +234,16 @@ transaction d’enregistrement.
 
 ### Événement carburant
 
+Le véhicule peut porter `fuelTankCapacity`, chaîne décimale positive (au plus
+10 000 L), `null` ou absente : c’est sa capacité **théorique** facultative. Cette
+propriété additive ne change pas la version 2 du format. Les anciennes sauvegardes
+restent inchangées à la lecture ; une valeur absente n’est pas ajoutée.
+La capacité retenue pour l’estimation est recalculée comme le maximum entre cette
+valeur et le plus gros ajout actif daté, hors fiches prévues ou futures. Ni ce
+maximum ni les valeurs du stock ou les estimations ne sont enregistrés. Modifier
+ou retirer un achat peut donc réduire la référence et recalcule l’historique,
+sans remplacer la capacité théorique saisie.
+
 Une fiche `type: "fuel"` utilise la date, le compteur, le total du justificatif,
 les documents et les autres champs habituels. Son objet facultatif `fuel` contient :
 
@@ -257,6 +267,27 @@ manquante invalide le cycle concerné ; le plein complet suivant peut servir de
 nouveau départ. Un événement carburant sans date empêche de situer les ajouts et
 laisse la consommation inconnue. Aucun résultat ne doit être déduit d’une simple
 quantité partielle ou d’une capacité de réservoir supposée.
+
+Le **coût carburant estimé au km** valorise les litres consommés au prix moyen
+pondéré du stock avant consommation, puis le mélange avec l’achat suivant. Au
+premier plein complet, le stock préexistant reçoit le prix au litre de ce premier
+achat ; sans prix connu sur ce plein, le stock reste inconnu. Aucun prix futur
+n’est utilisé rétroactivement. Pour les ajouts partiels d’un cycle complet, les
+litres consommés sont répartis entre les ajouts proportionnellement aux distances
+admissibles (compteurs ou interpolation), puis chaque achat modifie le mélange.
+Une répartition impossible (stock négatif ou supérieur à la capacité), un prix
+nécessaire inconnu ou une distance intermédiaire inexploitable rend ce coût
+indisponible, sans supprimer la consommation calculable. Un stock de prix inconnu
+reste inconnu jusqu’à son épuisement ; un remplacement complet peut rétablir le
+prix pour les cycles suivants. Le prix du plein final ne valorise pas les litres
+consommés avant cet achat.
+
+Les coûts estimés sont rattachés au mois du plein final. Leur moyenne est la somme
+des coûts estimés divisée par les distances des seuls cycles valorisables ; les
+cycles exclus sont comptés séparément. Le filtre de période conserve tout
+l’historique antérieur pour reconstruire le stock. Ces valeurs restent des
+estimations : elles supposent que chaque achat a été enregistré, un réservoir
+homogène, et une consommation constante par kilomètre entre les pleins complets.
 
 Si les deux pleins portent leur compteur, la distance du cycle est leur différence.
 Sinon, le compteur manquant est interpolé entre les relevés datés valides les plus

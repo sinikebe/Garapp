@@ -8,7 +8,7 @@ const sumKnown = (values) => values.some((value) => value !== null) ? sumAmounts
 const ratio = (litres, distance) => distance > 0 ? Number(litres) / distance * 100 : null;
 const fuelPrice = (purchases) => {
   const known = purchases.map((record) => ({ cost: recordCost(record).total, litres: record.fuel?.litres ?? null }))
-    .filter(({ cost, litres }) => cost !== null && Number(cost) >= 0 && litres !== null && Number(litres) > 0);
+    .filter(({ cost, litres }) => cost !== null && Number(cost) >= 0 && Number.isFinite(Number(cost)) && litres !== null && Number(litres) > 0 && Number.isFinite(Number(litres)));
   const litres = sumAmounts(known.map((entry) => entry.litres));
   return { value: known.length ? Number(sumAmounts(known.map((entry) => entry.cost))) / Number(litres) : null, excluded: purchases.length - known.length };
 };
@@ -18,6 +18,15 @@ const byMonth = (items, date) => {
   for (const item of items) { const key = date(item).slice(0, 7); if (!grouped.has(key)) grouped.set(key, []); grouped.get(key).push(item); }
   return grouped;
 };
+
+/** Largest active, dated fuel addition used as the tank capacity reference. */
+export function largestRecordedRefuel(vehicle, date = today()) {
+  return vehicle.records.reduce((largest, record) => {
+    if (record.type !== 'fuel' || record.status === 'planned' || !record.date || record.date > date) return largest;
+    const litres = record.fuel?.litres;
+    return Number(litres) > Number(largest) && Number(litres) <= 10000 ? litres : largest;
+  }, null);
+}
 
 /** An undated or contradictory observation cannot support an estimated counter. */
 function counterAt(record, groups) {
@@ -53,12 +62,81 @@ function measureCycleDistance(from, to, groups) {
   return { distance, estimated };
 }
 
+const purchasePrice = (record) => {
+  const cost = recordCost(record).total, litres = Number(record.fuel?.litres);
+  const price = cost !== null && Number(cost) >= 0 && litres > 0 && Number.isFinite(litres) ? Number(cost) / litres : NaN;
+  return Number.isFinite(price) ? price : null;
+};
+
+/** Rebuild the moving tank price from active history; never persist derived stock. */
+function valueCycles(history, cycles, capacity, readings) {
+  const byEnd = new Map(cycles.map((cycle) => [cycle.to.id, cycle]));
+  let previousFull = null, tankPrice = null;
+  for (let index = 0; index < history.length; index++) {
+    const end = history[index];
+    if (end.fuel?.fullTank !== true) continue;
+    const endPrice = purchasePrice(end);
+    if (previousFull === null) {
+      // The existing fuel is initially valued at this first full tank's own price.
+      tankPrice = endPrice;
+      previousFull = index;
+      continue;
+    }
+    const cycle = byEnd.get(end.id);
+    let cost = 0, stock = capacity, price = tankPrice, valid = capacity > 0;
+    if (!cycle || cycle.from.id !== history[previousFull].id) valid = false;
+    if (valid) {
+      const additions = history.slice(previousFull + 1, index + 1);
+      let previous = cycle.from;
+      for (const addition of additions) {
+        // Partial fills need an observable or admissibly interpolated distance too.
+        const segment = additions.length === 1 ? { distance: cycle.distance } : measureCycleDistance(previous, addition, readings);
+        const consumed = segment.reason ? NaN : Number(cycle.litres) * segment.distance / cycle.distance;
+        const added = Number(addition.fuel?.litres);
+        const remaining = stock - consumed;
+        const tolerance = Math.max(1, capacity) * 1e-9;
+        if (!Number.isFinite(consumed) || consumed < 0 || remaining < -tolerance || !(added > 0) || remaining + added > capacity + tolerance) {
+          valid = false; break;
+        }
+        // Unknown prices propagate until no fuel from the unknown stock remains.
+        if (consumed > 0 && price === null) cost = null;
+        else if (cost !== null) cost += consumed * (price ?? 0);
+        const left = Math.max(0, remaining), boughtPrice = purchasePrice(addition);
+        stock = left + added;
+        price = left <= tolerance ? boughtPrice : price === null || boughtPrice === null ? null : (left * price + added * boughtPrice) / stock;
+        previous = addition;
+      }
+    }
+    if (cycle) {
+      cycle.estimatedFuelCost = valid && Number.isFinite(cost) ? cost : null;
+      const value = cycle.estimatedFuelCost === null ? NaN : cycle.estimatedFuelCost / cycle.distance;
+      cycle.estimatedCostPerKm = Number.isFinite(value) ? value : null;
+    }
+    // A complete replacement can recover a known stock after a broken cycle.
+    const emptied = capacity > 0 && Math.abs(Number(end.fuel?.litres) - capacity) <= Math.max(1, capacity) * 1e-9;
+    tankPrice = valid && Number.isFinite(price) ? price : emptied ? endPrice : null;
+    previousFull = index;
+  }
+}
+
+function estimatedCostSummary(cycles) {
+  const known = cycles.filter((cycle) => Number.isFinite(cycle.estimatedCostPerKm));
+  const distance = known.reduce((sum, cycle) => sum + cycle.distance, 0);
+  const value = distance > 0 ? known.reduce((sum, cycle) => sum + cycle.estimatedFuelCost, 0) / distance : NaN;
+  return {
+    estimatedCostPerKm: Number.isFinite(value) ? value : null,
+    costedCycleDistance: distance, costedCycles: known.length, uncostedCycles: cycles.length - known.length,
+  };
+}
+
 export function fuelStatistics(vehicle, { period = 'all', date = today() } = {}) {
   const range = statisticsRange(period, date);
   const actual = vehicle.records.filter((record) => record.type === 'fuel' && record.status !== 'planned');
   const undated = actual.filter((record) => !record.date).length;
   const future = actual.filter((record) => record.date > date).length;
   const history = actual.filter((record) => record.date && record.date <= date).sort((a, b) => a.date.localeCompare(b.date) || (a.odometer ?? Infinity) - (b.odometer ?? Infinity) || a.id.localeCompare(b.id));
+  const theoreticalTankCapacity = vehicle.fuelTankCapacity ?? null;
+  const effectiveTankCapacity = Math.max(Number(theoreticalTankCapacity), Number(largestRecordedRefuel(vehicle, date)));
   const records = history.filter((record) => inRange(record.date, range));
   const cycles = [], issues = [];
   const readings = mileageHistory(vehicle, { date }).groups;
@@ -101,6 +179,7 @@ export function fuelStatistics(vehicle, { period = 'all', date = today() } = {})
       anchor = record; litres = '0'; complete = true;
     }
   }
+  valueCycles(history, cycles, effectiveTankCapacity, readings);
   const selectedCycles = cycles.filter((cycle) => inRange(cycle.to.date, range));
   const intervals = [];
   for (let i = 1; i < readings.length; i++) {
@@ -130,6 +209,7 @@ export function fuelStatistics(vehicle, { period = 'all', date = today() } = {})
     const price = fuelPrice(purchases);
     return {
       key, records: purchases, cycles: finished, intervals: distances,
+      ...estimatedCostSummary(finished),
       estimatedCycles: finished.filter((cycle) => cycle.estimated).length,
       cost: sumKnown(costs.map((cost) => cost.total ?? cost.subtotal)), partialCost: costs.filter((cost) => cost.total === null).length,
       averagePricePerLitre: price.value, priceExcluded: price.excluded,
@@ -144,6 +224,8 @@ export function fuelStatistics(vehicle, { period = 'all', date = today() } = {})
   const price = fuelPrice(records);
   return {
     range, records, buckets, cycles: selectedCycles, issues: issues.filter((issue) => inRange(issue.date, range)), undated, future,
+    theoreticalTankCapacity, effectiveTankCapacity: effectiveTankCapacity || null,
+    ...estimatedCostSummary(selectedCycles),
     estimatedCycles: selectedCycles.filter((cycle) => cycle.estimated).length,
     cost: sumKnown(costs.map((cost) => cost.total ?? cost.subtotal)), partialCost: costs.filter((cost) => cost.total === null).length,
     averagePricePerLitre: price.value, priceExcluded: price.excluded,

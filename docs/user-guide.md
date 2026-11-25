@@ -133,7 +133,52 @@ Un prélèvement mis à la corbeille n'est pas recréé. Sa suppression définit
 le mois exclu dans le calendrier pour empêcher sa réapparition. Les contrats, documents,
 tarifs et ajustements font partie des sauvegardes complètes.
 
+## Saisir et reconnaître les événements
+
+Le formulaire adapte ses libellés au type choisi : révision, entretien, réparation,
+contrôle, achat ou cession, mise en circulation, programme d’entretien, relevé,
+assurance ou autre événement. Le compteur reste vide à la création pour renseigner
+la valeur réellement observée à la date de l’événement.
+
+Un relevé simple demande seulement la date et le compteur. Pour les autres types,
+l’intitulé et le montant éventuel sont adaptés au contexte. Les notes, justificatifs
+et l’état du dossier se trouvent dans les options. Choisir **Prévu** exclut la fiche
+des dépenses enregistrées. Les coûts détaillés et les composants sont regroupés dans
+une section facultative pour les interventions. Les données historiques déjà présentes
+restent accessibles, y compris sur un relevé ou un événement administratif.
+Le résumé de cette section signale les propositions de composants repérés. Elles
+doivent être cochées explicitement pour être ajoutées à la fiche.
+
+Le journal associe un repère coloré, une icône et le nom du type à chaque événement.
+Il affiche le compteur pour un relevé, le budget d’un programme, la transaction d’un
+achat ou d’une cession et le contexte de la cotisation pour une assurance liée à un
+contrat. Les titres personnalisés et types historiques sont conservés.
+
 ## Statistiques et carburant
+
+Le formulaire véhicule propose une **capacité théorique du réservoir** facultative.
+Le **coût carburant estimé au km** utilise le maximum entre cette valeur et le plus
+gros ajout actif daté du véhicule, hors fiches prévues et futures. Cette référence
+peut augmenter après un achat et diminuer après une correction ou suppression ;
+la capacité théorique saisie reste conservée et les estimations sont recalculées.
+
+Deux graphiques mensuels partagent les mêmes dates :
+le premier compare la consommation et le prix d’achat au litre ; le second montre
+le coût carburant estimé en €/km, en orange pointillé, avec un axe partant de zéro.
+Les points précisent aussi l’équivalent en €/100 km. Un mois sans coût estimable
+interrompt la courbe ; il n’est pas assimilé à un coût nul. Les graphiques affichent
+les 36 derniers mois de la période, et le tableau conserve les autres mois.
+
+Le coût estimé valorise les litres consommés au prix moyen pondéré du carburant
+présent, puis mélange le reste avec l’achat suivant. Le premier plein complet
+amorce le prix du stock préexistant avec le prix au litre de son achat. Avec des
+ajouts partiels, la consommation du cycle est répartie selon les distances entre
+ajouts, éventuellement interpolées. Un prix nécessaire inconnu, des distances
+insuffisantes ou des volumes incompatibles avec la capacité rendent le coût
+indisponible ; la consommation calculable reste disponible. La carte et le tableau
+comptent séparément les cycles sans coût estimable. La moyenne pondère les seuls
+cycles valorisés par leurs kilomètres. L’aide de la statistique détaille les
+hypothèses ; il s’agit toujours d’une estimation qui suppose tous les ajouts saisis.
 
 Les courbes kilométriques utilisent les relevés datés de la fiche véhicule et de
 l'historique actif. Les points suivent leurs dates réelles et donnent accès aux sources.
@@ -147,6 +192,11 @@ donnent les montants et sources. Une période vide ne prouve pas l'absence de d�
 
 Une fiche **Carburant** peut renseigner les litres, le montant payé, la date, le compteur
 et le caractère complet ou partiel du plein. Le compteur reste facultatif.
+Le bouton **Ajouter du carburant** ouvre un formulaire dédié à ces cinq informations.
+La note et le justificatif sont regroupés dans une section facultative. Modifier un
+ravitaillement ouvre le même formulaire et conserve ses autres données historiques.
+Dans le journal, les ravitaillements se distinguent par un repère violet et affichent
+le volume, le remplissage, le prix au litre calculable, le compteur et le montant payé.
 
 - **Consommation en L/100 km** : litres ajoutés après un premier plein complet, ajouts
   partiels inclus, jusqu'au plein complet suivant, divisés par la distance du cycle,

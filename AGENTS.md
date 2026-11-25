@@ -33,8 +33,12 @@ records, imported documents, exports or other applications to the offline cache.
 
 Use PR titles starting with `feat:` for features and `fix:` for fixes. Mark
 breaking changes with `!` in the prefix or `BREAKING CHANGE` in the description.
-If an explicit override is needed, use exactly one `semver:major`, `semver:minor`
-or `semver:patch` label.
+These markers describe the change and do not select a version increment.
+Each integration on dev increments patch once; a merged feature branch counts
+once without recounting its commits. Each approved dev-to-main promotion
+increments the previous production minor once and resets patch to zero.
+`semver:*` labels do not override this policy. Retries reuse the exact assigned
+commit version, and existing tags remain immutable.
 
 Shared CI assigns deployed versions using immutable per-channel tags.
 `package.json` and the root lockfile version remain the local `0.0.1` fallback;
