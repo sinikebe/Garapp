@@ -146,3 +146,12 @@ export function renderGraphExplorer(container, vehicle, options = {}, state = {}
   });
   draw();
 }
+
+const graphStates = new WeakMap();
+export function renderGraphs(container, vehicle, options = {}) {
+  let states = graphStates.get(container);
+  if (!states) { states = new Map(); graphStates.set(container, states); }
+  if (!states.has(vehicle.id)) states.set(vehicle.id, {});
+  container.innerHTML = '<div data-graph-explorer></div>';
+  renderGraphExplorer(container.querySelector('[data-graph-explorer]'), vehicle, options, states.get(vehicle.id));
+}

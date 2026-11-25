@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from '../public/assets/js/navigation.js';
+import { SECTIONS, navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from '../public/assets/js/navigation.js';
 import { storageKey, exampleGarage } from '../public/assets/js/garage.js';
 import { suiteLinks } from '../public/assets/js/app-switcher.js';
 import { initHeaderMenus } from '../public/assets/js/header-menus.js';
@@ -11,6 +11,8 @@ const year = '2026';
 test('explicit routes win, a return without a fragment resumes, and invalid routes are safe', () => {
   assert.equal(resolveSection('#composants', 'interventions'), 'composants');
   assert.equal(resolveSection('#statistiques', 'garage'), 'statistiques');
+  assert.equal(resolveSection('#graphiques', 'garage'), 'graphiques');
+  assert.equal(resolveSection('', 'graphiques'), 'graphiques');
   assert.equal(resolveSection('', 'statistiques'), 'statistiques');
   assert.equal(resolveSection('', 'interventions'), 'interventions');
   for (const hash of ['#unknown', '#__proto__', '#interventions?share=example']) assert.equal(resolveSection(hash, 'depenses'), 'garage');
@@ -21,7 +23,7 @@ test('each vehicle retains its own useful list filters without modifying garage 
   const garage = exampleGarage('2026-11-06');
   const before = structuredClone(garage);
   const input = { section: 'interventions', filters: {
-    first: { recordSearch: 'filtre fictif', recordType: 'entretien', expenseYear: 'all', statisticsPeriod: '12m', statisticsScope: 'all' },
+    first: { recordSearch: 'filtre fictif', recordType: 'entretien', expenseYear: 'all', statisticsPeriod: '12m', statisticsScope: 'all', graphPeriod: '36m', graphScope: 'all' },
     second: { componentSearch: 'batterie fictive', componentStatus: 'attention', componentView: 'list', expenseScope: 'all' },
   } };
   const state = normalizeNavigation(input, year);
@@ -33,8 +35,27 @@ test('each vehicle retains its own useful list filters without modifying garage 
   assert.equal(state.filters.first.statisticsPeriod, '12m');
   assert.equal(state.filters.first.statisticsScope, 'all');
   assert.equal(state.filters.second.statisticsPeriod, 'all');
+  assert.equal(state.filters.first.graphPeriod, '36m');
+  assert.equal(state.filters.first.graphScope, 'all');
+  assert.equal(state.filters.second.graphPeriod, 'all');
+  assert.equal(state.filters.second.graphScope, 'maintenance');
   assert.deepEqual(garage, before);
   assert.equal(state.vehicles, undefined);
+});
+
+test('dock destinations resolve to real views and compact header controls remain unique and accessible', () => {
+  const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const nav = html.match(/<nav class="workspace-nav"[\s\S]*?<\/nav>/)[0];
+  for (const section of SECTIONS) {
+    assert.ok(nav.includes(`href="#${section}"`));
+    assert.ok(html.includes(`id="${section}-view"`));
+  }
+  assert.match(nav, /href="#graphiques" aria-label="Graphiques"><svg/);
+  const header = html.match(/<header class="app-bar">[\s\S]*?<\/header>/)[0];
+  const tools = header.slice(header.indexOf('<details class="tools-menu"'), header.indexOf('</details>', header.indexOf('<details class="tools-menu"')));
+  for (const id of ['layout-select', 'theme-toggle', 'presentation-description']) assert.ok(tools.includes(`id="${id}"`));
+  for (const id of ['layout-select', 'theme-toggle', 'presentation-description', 'commands-open', 'drive-profile']) assert.equal((html.match(new RegExp(`id="${id}"`, 'g')) ?? []).length, 1);
+  assert.match(header, /id="commands-open"[^>]+aria-label="Actions rapides"/);
 });
 
 test('invalid navigation preferences and inaccessible storage fall back without blocking use', () => {
