@@ -23,9 +23,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: sinikebe/siniverse/.github/workflows/reusable-version.yml@0b44f1ce54f877f75f1d4d04901d86def2c7543a
+    uses: sinikebe/siniverse/.github/workflows/reusable-version.yml@92b9be1954635cb46856d8eb63e3616fa1dc74a3
     with:
-      automation_ref: 0b44f1ce54f877f75f1d4d04901d86def2c7543a
+      automation_ref: 92b9be1954635cb46856d8eb63e3616fa1dc74a3
       deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
   ci:
     needs: version
@@ -33,9 +33,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: sinikebe/siniverse/.github/workflows/reusable-ci.yml@0b44f1ce54f877f75f1d4d04901d86def2c7543a
+    uses: sinikebe/siniverse/.github/workflows/reusable-ci.yml@92b9be1954635cb46856d8eb63e3616fa1dc74a3
     with:
-      automation_ref: 0b44f1ce54f877f75f1d4d04901d86def2c7543a
+      automation_ref: 92b9be1954635cb46856d8eb63e3616fa1dc74a3
       deploy: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
       version: ${{ needs.version.outputs.version }}
       version_tag: ${{ needs.version.outputs.tag }}
@@ -47,6 +47,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    uses: sinikebe/siniverse/.github/workflows/reusable-cleanup.yml@0b44f1ce54f877f75f1d4d04901d86def2c7543a
+    uses: sinikebe/siniverse/.github/workflows/reusable-cleanup.yml@92b9be1954635cb46856d8eb63e3616fa1dc74a3
     with:
-      automation_ref: 0b44f1ce54f877f75f1d4d04901d86def2c7543a
+      automation_ref: 92b9be1954635cb46856d8eb63e3616fa1dc74a3
