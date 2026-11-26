@@ -37,9 +37,16 @@ des données complémentaires et un petit document intégré.
 
 L’extension facultative `vehicle.maintenanceChecks` est une collection de contrôles,
 sans changement du numéro de format. Chaque entrée contient `id`, `name`,
-`intervalDays` (entier de 1 à 36 500), `firstDate` (date civile), `enabled` (booléen,
+`firstDate` (date civile), `enabled` (booléen,
 vrai par défaut) et `notes`. Les propriétés supplémentaires sont conservées et les
-contrôles se fusionnent indépendamment par identifiant.
+contrôles se fusionnent indépendamment par identifiant. Une seule fréquence doit
+être renseignée : `intervalDays` (1 à 36 500), `intervalMonths` (1 à 1 200) ou
+`intervalKm` (1 à 1 000 000) ; les autres sont absentes ou nulles. Les contrôles
+historiques en jours gardent leur cadence. `presetKey` conserve éventuellement le
+lien vers une recommandation fournie avec l’application. `maintenanceDefaultsVersion`
+sur le véhicule indique que les rappels standard ont été préparés, pour ne pas les
+réinsérer après personnalisation ou pause. Ces champs ne constituent pas un historique
+de contrôles effectués.
 
 Une fiche de journal peut porter `maintenanceCheckId`. Seules les fiches actives de
 type `controle`, réalisées, datées et non futures valident ce contrôle. Le lien est

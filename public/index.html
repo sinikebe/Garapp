@@ -369,9 +369,10 @@
     <form id="maintenance-check-form"><div class="form-grid">
       <label class="full-width">Contrôle<input name="name" list="maintenance-suggestions" required maxlength="2000" placeholder="Pression des pneus, niveaux…"></label>
       <datalist id="maintenance-suggestions"><option value="Pression des pneus"></option><option value="Niveau d’huile moteur"></option><option value="Niveau de liquide de refroidissement"></option><option value="Niveau de lave-glace"></option><option value="Éclairage et signalisation"></option></datalist>
-      <label>Fréquence (jours)<input name="intervalDays" type="number" min="1" max="36500" step="1" required placeholder="Ex. : 30"></label>
-      <label>Première échéance<input name="firstDate" type="date" required aria-describedby="maintenance-first-hint"></label>
-      <p id="maintenance-first-hint" class="hint full-width">La première échéance sert avant le premier contrôle enregistré. Ensuite, la fréquence repart de la date du dernier contrôle. Choisissez vos fréquences selon le véhicule et ses préconisations.</p>
+      <label>Fréquence<input name="frequency" type="number" min="1" max="36500" step="1" required></label>
+      <label>Unité<select name="intervalUnit"><option value="days">Jours</option><option value="months">Mois calendaires</option><option value="km">Kilomètres</option></select></label>
+      <label class="full-width">Première échéance<input name="firstDate" type="date" required aria-describedby="maintenance-first-hint"></label>
+      <p id="maintenance-first-hint" class="hint full-width">La première échéance sert avant le premier contrôle enregistré. Ensuite, la fréquence repart de sa date ou de son compteur. Adaptez les rappels au véhicule et à sa notice.</p>
       <label class="full-width">Consignes ou notes<textarea name="notes" rows="2" maxlength="1000000"></textarea></label>
       <label class="maintenance-enabled full-width"><input name="enabled" type="checkbox" checked> Rappel actif</label>
     </div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-action="alerts">Retour aux alertes</button><button class="primary-button" type="submit">Enregistrer le rappel</button></div></form>
@@ -379,7 +380,7 @@
   <dialog id="maintenance-done-dialog" aria-labelledby="maintenance-done-title">
     <div class="dialog-heading"><h2 id="maintenance-done-title">Noter le contrôle</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
     <p id="maintenance-done-name"></p><form id="maintenance-done-form"><div class="form-grid">
-      <label>Date du contrôle<input name="date" type="date" required></label><label>Kilométrage (facultatif)<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Compteur observé"></label>
+      <label>Date du contrôle<input name="date" type="date" required></label><label><span id="maintenance-done-odometer-label">Kilométrage (facultatif)</span><input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Compteur observé"></label>
       <label class="full-width">Observation (facultative)<textarea name="notes" rows="2" maxlength="1000000"></textarea></label>
     </div><p class="hint">Une fiche de contrôle sera ajoutée au journal. Le compteur saisi reste un relevé historique et ne remplace pas automatiquement celui du véhicule.</p><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-action="alerts">Annuler</button><button class="primary-button" type="submit">Contrôle effectué</button></div></form>
   </dialog>

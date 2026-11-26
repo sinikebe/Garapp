@@ -14,7 +14,7 @@ const labels = {
   totalAmount: 'Total du justificatif', kind: 'Nature', effect: 'Action sur les composants',
   componentIds: 'Composants remplacés', observedComponentIds: 'Composants observés',
   intervalKm: 'Intervalle kilométrique', intervalMonths: 'Intervalle en mois', group: 'Groupe',
-  maintenanceChecks: 'Contrôles réguliers', maintenanceCheckId: 'Contrôle régulier associé', intervalDays: 'Fréquence en jours', enabled: 'Rappel actif',
+  maintenanceChecks: 'Contrôles réguliers', maintenanceDefaultsVersion: 'Préparation des rappels standard', presetKey: 'Conseil de référence', maintenanceCheckId: 'Contrôle régulier associé', intervalDays: 'Fréquence en jours', enabled: 'Rappel actif',
   coverDocumentId: 'Visuel du véhicule', example: 'Véhicule de démonstration',
   litres: 'Quantité de carburant', fullTank: 'Plein complet', provider: 'Assureur', reference: 'Référence',
   firstDate: 'Première échéance', endDate: 'Fin du contrat', debitDay: 'Jour du prélèvement',

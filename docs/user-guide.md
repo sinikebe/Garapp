@@ -167,15 +167,36 @@ Pour les pièces, les intervalles en kilomètres et en mois se règlent dans
 **Composants** : le premier seuil atteint déclenche l’échéance, avec une alerte dès
 75 % de l’intervalle. Ce suivi ne mesure pas l’état physique des pièces.
 
-Dans **Vérifications régulières**, ajoutez un contrôle : pression des pneus,
-niveaux, éclairage ou un libellé personnalisé. Indiquez sa fréquence en jours et
-sa première échéance, selon le véhicule et ses préconisations. Les suggestions de
-libellés n’imposent aucune fréquence. Un contrôle passe à **Bientôt** dans le quart
-de sa fréquence précédant l’échéance, arrondi au jour supérieur et limité à 7 jours.
+Les rappels standard sont préparés une fois pour chaque véhicule, sans remplacer
+les contrôles personnalisés existants : pression **chaque mois**, huile moteur
+**tous les 2 500 km**, refroidissement et liquide de frein **tous les 3 mois**.
+Ces fréquences proviennent des conseils de la Sécurité routière, non d’échéances
+légales périodiques : [guide du bon conducteur, entretien](https://www.securite-routiere.gouv.fr/sites/default/files/2024-09/dsr_guide_bon_conducteur.pdf).
+La pression doit suivre la notice du constructeur, à froid, avec un contrôle aussi
+avant un long trajet : [référence officielle sur les pneus](https://www.alpes-de-haute-provence.gouv.fr/content/download/25301/144413/file/Etat%2520des%2520pneus.pdf).
+Aucune pression universelle en bars n’est préremplie. Les conseils avant un trajet
+et les liens vers les références sont disponibles dans le centre d’alertes.
+
+Aucun contrôle passé n’est inventé : la première échéance est le jour de préparation,
+et il faut noter le premier contrôle réellement effectué pour démarrer son cycle.
+Le rappel d’huile est initialement en pause pour une motorisation explicitement
+renseignée comme électrique sans mention de motorisation thermique ou hybride.
+Les consignes restent à adapter au véhicule. Un rappel déjà modifié ou mis en pause
+n’est pas réinitialisé au rechargement ou à la mise à jour.
+
+Dans **Vérifications régulières**, les contrôles peuvent utiliser une fréquence en
+**jours**, **mois calendaires** ou **kilomètres**. Les mois se calculent de date à date,
+avec adaptation au dernier jour du mois si nécessaire. Les pré-alertes calendaires
+couvrent le dernier quart de l’intervalle, arrondi au jour supérieur et limité à
+7 jours ; les pré-alertes kilométriques couvrent le dernier quart de la distance.
+Ces seuils d’anticipation appartiennent à l’application.
 
 **Noter le contrôle** enregistre sa date réelle, avec un compteur et une observation
-facultatifs, dans une fiche **Contrôle** du journal. La prochaine échéance part de
-la date du dernier contrôle réalisé et daté. Les fiches prévues, incomplètes,
+facultatifs, dans une fiche **Contrôle** du journal. Le compteur devient obligatoire
+pour un rappel kilométrique. L’échéance repart de la date ou du compteur de ce contrôle.
+Le suivi en kilomètres prend ensuite les relevés datés cohérents les plus récents,
+y compris ceux du journal ; il demande une correction si les compteurs sont absents
+ou incohérents. Les fiches prévues, incomplètes,
 futures, sans date ou à la corbeille ne valident pas le rappel. Modifier la date ou
 mettre cette fiche à la corbeille recalcule l’échéance ; la restaurer rétablit son
 effet. Le compteur du véhicule n’est pas remplacé automatiquement. Désactivez

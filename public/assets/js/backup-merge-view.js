@@ -15,7 +15,7 @@ const FIELD_NAMES = {
   componentId: 'Composant lié', componentIds: 'Composants liés', observedComponentIds: 'Composants observés',
   year: 'Année', engine: 'Motorisation', odometerDate: 'Date du relevé', fuelTankCapacity: 'Capacité théorique du réservoir (L)', example: 'Véhicule de démonstration',
   intervalKm: 'Intervalle kilométrique', intervalMonths: 'Intervalle en mois', group: 'Groupe',
-  maintenanceChecks: 'Contrôles réguliers', maintenanceCheckId: 'Contrôle régulier associé', intervalDays: 'Fréquence en jours', enabled: 'Rappel actif',
+  maintenanceChecks: 'Contrôles réguliers', maintenanceDefaultsVersion: 'Préparation des rappels standard', presetKey: 'Conseil de référence', maintenanceCheckId: 'Contrôle régulier associé', intervalDays: 'Fréquence en jours', enabled: 'Rappel actif',
   spatial: 'Emplacement', zone: 'Zone', side: 'Côté', presenceOrigin: 'Provenance',
   fuel: 'Carburant', litres: 'Quantité en litres', fullTank: 'Plein complet',
   insurances: 'Contrats d’assurance', insurance: 'Échéance d’assurance', provider: 'Assureur', reference: 'Référence',
