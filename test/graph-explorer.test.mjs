@@ -106,8 +106,8 @@ test('monthly distance links the dated odometer sources rather than unrelated pu
     event('reading-a', '2026-01-01', 1000, { type: 'reading' }),
     event('reading-b', '2026-02-01', 1500, { type: 'reading' }),
   ]), options);
-  const layout = graphLayout(data, { measures: ['distance'] });
-  const detail = explorerSelection(data, layout, '2026-02-28');
+  const layout = graphLayout(data, { measures: ['distance'], grouping: 'month' });
+  const detail = explorerSelection(data, layout, '2026-02-01');
   assert.match(detail, /500 km/);
   assert.match(detail, /data-record="reading-a"/);
   assert.match(detail, /data-record="reading-b"/);
@@ -143,12 +143,11 @@ test('empty data, invalid windows and all measures together keep finite geometry
   }
 });
 
-test('summary mileage operations are optional and never add an inferred counter', () => {
+test('the summary keeps sources and tables while all charts and operation markers live in Graphiques', () => {
   const vehicle = vehicleOf([event('known', '2026-01-01', 1000), event('unknown', '2026-01-02', null)]);
-  const plain = statisticsMarkup(vehicle, options).html;
-  assert.doesNotMatch(plain, /class="explorer-operation"/);
-  const enabled = statisticsMarkup(vehicle, { ...options, showOperations: true }).html;
-  assert.match(enabled, /class="explorer-operation"/);
-  assert.match(enabled, /data-record="known"/);
-  assert.match(enabled, /L’explorateur montre aussi les opérations sans compteur/);
+  const summary = statisticsMarkup(vehicle, options).html;
+  assert.doesNotMatch(summary, /<svg|data-mileage-operations/);
+  assert.match(summary, /href="#graphiques"/); assert.match(summary, /data-record="known"/);
+  const graph = explorerSvg(graphLayout(graphData(vehicle, options)));
+  assert.match(graph, /data-record="known"/); assert.match(graph, /data-record="unknown"/);
 });

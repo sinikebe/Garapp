@@ -30,10 +30,11 @@ const fixture = (typeCount = 1) => {
   const select = new Element({ explorerDateSelect: '' }), detail = new Element({ explorerDetail: '' });
   const from = new Element({ explorerFrom: '' }), to = new Element({ explorerTo: '' }), error = new Element({ explorerError: '' });
   const all = new Element({ explorerAll: '' }), reset = new Element({ explorerReset: '' });
+  const grouping = new Element({ explorerGrouping: '' }), expenses = new Element({ explorerExpenses: '' });
   const measures = GRAPH_MEASURES.map(measure => new Element({ graphMeasure: measure.key }));
   const types = Array.from({ length: typeCount }, (_, index) => { const count = new Element(); count.tag = 'small'; return new Element({ graphType: String(index) }).append(count); });
-  root.append(plot, select, detail, from, to, error, all, reset, ...measures, ...types);
-  return { root, plot, select, detail, from, to, error, all, reset, measures, types,
+  root.append(plot, select, detail, from, to, error, all, reset, grouping, expenses, ...measures, ...types);
+  return { root, plot, select, detail, from, to, error, all, reset, grouping, expenses, measures, types,
     click(element) { root.fire('click', { target: element }); } };
 };
 const vehicleOf = records => parseGarage(JSON.stringify({ version: 2, vehicles: [{ id: 'fiction', name: 'Véhicule fictif', components: [], records }] })).vehicles[0];
@@ -92,11 +93,14 @@ test('the dedicated graph view retains per-vehicle legend choices across filter 
   const mileage = widget.measures.find(button => button.dataset.graphMeasure === 'mileage');
   widget.click(mileage);
   assert.equal(mileage.attributes['aria-pressed'], 'false');
+  widget.grouping.value = 'month'; widget.grouping.fire('change');
   renderGraphs(root, vehicleOf([]), { ...options, period: '12m' });
   assert.equal(mileage.attributes['aria-pressed'], 'false');
+  assert.match(widget.root.innerHTML, /value="month" selected/);
   const other = vehicleOf([]); other.id = 'another-fiction';
   renderGraphs(root, other, options);
   assert.equal(mileage.attributes['aria-pressed'], 'true');
+  assert.match(widget.root.innerHTML, /value="year" selected/);
 });
 
 test('statistics keeps its summary and links directly to the graph route without nested tabs', () => {
