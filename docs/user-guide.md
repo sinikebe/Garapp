@@ -198,7 +198,7 @@ notifications restent propres à l’appareil et à la version dev ou principale
 
 La rubrique **Graphiques**, accessible par son icône dans le dock ou le menu latéral,
 permet d’afficher ensemble
-le compteur, les dépenses mensuelles, la distance relevée, les litres ajoutés,
+le compteur, les dépenses mensuelles, les kilomètres parcourus, les litres ajoutés,
 la consommation, le prix au litre et le coût carburant estimé au km. Toutes les
 mesures et opérations sont activées au départ. Ouvrez **Éléments affichés** pour
 activer ou masquer une mesure ou un type d’opération depuis les légendes.
@@ -221,8 +221,24 @@ permet aussi la consultation au clavier, avec les valeurs exactes et les sources
 Les valeurs inconnues ne sont pas remplacées par zéro. Les estimations restent
 signalées et les compteurs contradictoires ne sont pas reliés par une courbe.
 
-Dans **Statistiques**, la case **Afficher les opérations** ajoute les mêmes
-losanges au graphique d’évolution du compteur pour les fiches avec un relevé.
+Les visualisations sont regroupées dans **Graphiques**, y compris la répartition des
+montants par type. **Statistiques** garde les indicateurs et les tableaux de sources ;
+**Dépenses** conserve les montants par type sans leurs barres.
+
+Sur la piste du compteur, les **kilomètres parcourus** apparaissent en colonnes,
+**par an** au départ. Le choix **Kilomètres parcourus → Par mois** change ce découpage.
+La courbe du compteur et les colonnes ont chacune une échelle en km, indiquée à gauche
+et à droite. Les colonnes se masquent avec la mesure Kilomètres parcourus dans la
+légende. Si le compteur est masqué, les distances restent sur leur propre piste.
+
+La distance entre deux relevés valides est répartie entre les périodes traversées
+au prorata du nombre de jours. Ce découpage est une **estimation**, signalée par ≈.
+Les limites exactes entre relevés n’exigent pas d’interpolation. Aucun kilomètre n’est
+extrapolé avant le premier relevé ou après le dernier. Une année ou un mois observé
+partiellement reste signalé, et les intervalles incohérents ne sont pas inventés.
+Un clic sur une colonne, ou sa date dans le sélecteur, donne accès à sa valeur et aux
+relevés sources. Le zoom recalcule les colonnes sur l’intervalle visible.
+
 Les choix graphiques sont conservés pendant la session pour chaque véhicule.
 Sur petit écran, le graphique peut défiler horizontalement pour conserver des
 graduations lisibles ; la légende et le sélecteur restent accessibles sous forme
@@ -236,12 +252,10 @@ gros ajout actif daté du véhicule, hors fiches prévues et futures. Cette réf
 peut augmenter après un achat et diminuer après une correction ou suppression ;
 la capacité théorique saisie reste conservée et les estimations sont recalculées.
 
-Deux graphiques mensuels partagent les mêmes dates :
-le premier compare la consommation et le prix d’achat au litre ; le second montre
-le coût carburant estimé en €/km, en orange pointillé, avec un axe partant de zéro.
-Les points précisent aussi l’équivalent en €/100 km. Un mois sans coût estimable
-interrompt la courbe ; il n’est pas assimilé à un coût nul. Les graphiques affichent
-les 36 derniers mois de la période, et le tableau conserve les autres mois.
+Dans **Graphiques**, la consommation, le prix d’achat et le coût carburant estimé
+conservent des pistes indépendantes sur les mêmes dates. Le coût reste exprimé en
+€/km, avec l’équivalent en €/100 km dans les détails. Les inconnues interrompent les
+courbes. **Statistiques** conserve les chiffres et le tableau mensuel complet.
 
 Le coût estimé valorise les litres consommés au prix moyen pondéré du carburant
 présent, puis mélange le reste avec l’achat suivant. Le premier plein complet
@@ -284,8 +298,8 @@ le volume, le remplissage, le prix au litre calculable, le compteur et le montan
 - **Prix moyen en €/L** : somme des montants complets connus divisée par la somme
   des litres des mêmes achats. La moyenne est donc pondérée par les litres. Les achats
   sans montant complet, sans litres ou avec un montant négatif sont exclus et signalés
-  dans le tableau. Un montant nul connu reste utilisable. La courbe verte utilise
-  l'axe de droite en €/L, distinct de la consommation.
+  dans le tableau. Un montant nul connu reste utilisable. La courbe du prix conserve
+  sa propre piste en €/L dans Graphiques.
 
 Les achats et leur prix suivent leur date. La consommation est rattachée au mois du
 plein final ; les distances entre relevés, au mois du relevé final. Un intervalle peut
@@ -294,8 +308,8 @@ estimée des cycles ; un bilan calendaire complet exige des relevés aux limites
 
 Une quantité manquante invalide le cycle concerné. Un ajout sans date empêche de situer
 les ajouts entre les pleins et laisse la consommation inconnue. Les périodes sans
-valeur calculable interrompent chaque série. La courbe montre les 36 derniers mois
-de la période choisie ; le tableau conserve toute cette période.
+valeur calculable interrompent chaque série. Les graphiques et le tableau conservent
+la période choisie, avec un zoom possible dans Graphiques.
 
 ## Photo ou modèle 3D du véhicule
 

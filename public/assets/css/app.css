@@ -444,23 +444,15 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .stats-panel { margin-bottom: var(--space-3xl); min-width: 0; }
 .stats-panel .panel-heading { gap: var(--space-xl); align-items: flex-start; flex-wrap: wrap; }
 .stats-panel .panel-heading .hint { margin-top: var(--space-sm); }
-.stats-chart { width: 100%; height: auto; display: block; margin-block: var(--space-2xl); overflow: visible; }
 .chart-gridline { stroke: var(--border); stroke-width: 1; fill: none; }
-.chart-axis-label, .chart-unit { fill: var(--text-secondary); font: 12px var(--font); }
-.chart-unit { font-weight: 600; }
-.chart-line { stroke: var(--accent); stroke-width: 2.5; fill: none; }
-.chart-point { fill: var(--surface-1); stroke: var(--accent); stroke-width: 2; }
+.chart-axis-label { fill: var(--text-secondary); font: 12px var(--font); }
 .chart-guide { stroke: var(--border-strong); stroke-dasharray: 4 4; fill: none; }
-.is-selected .chart-point { fill: var(--accent); }
-.chart-warning-line, .chart-conflict .chart-point { stroke: light-dark(#a85419, #f3b877); stroke-dasharray: 5 3; }
-.chart-conflict .chart-point { fill: var(--surface-1); }
 .stats-warning { padding: var(--space-lg) var(--space-xl); margin-block: var(--space-xl); border-left: 3px solid light-dark(#a85419, #f3b877); background: var(--surface-2); font-size: var(--type-sm); }
 .chart-empty { padding: var(--space-4xl) var(--space-xl); margin-block: var(--space-xl); border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); text-align: center; }
 .chart-empty > p:first-child { margin-bottom: var(--space-sm); }
 .chart-selection { display: grid; grid-template-columns: minmax(190px, .8fr) minmax(0, 1.2fr); gap: var(--space-xl); padding: var(--space-xl); border-radius: var(--radius-sm); background: var(--surface-2); align-items: start; }
 .chart-selection > label { font-size: var(--type-xs); color: var(--text-secondary); }
 .chart-selection select { margin-top: var(--space-xs); }
-.chart-selection-detail { padding-top: var(--space-2xs); font-size: var(--type-sm); overflow-wrap: anywhere; }
 .stats-sources { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
 .stats-sources .text-button { justify-content: flex-start; padding: var(--space-xs) var(--space-sm); min-height: 36px; text-align: left; overflow-wrap: anywhere; }
 .stats-method { margin-top: var(--space-lg); }
@@ -478,10 +470,6 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .stats-cost-total { display: grid; gap: var(--space-xs); text-align: right; margin-left: auto; }
 .stats-cost-total strong { font-size: var(--type-xl); font-weight: 600; }
 .stats-cost-total span { color: var(--text-secondary); font-size: var(--type-xs); }
-.chart-baseline { stroke: var(--text-secondary); stroke-width: 1; }
-.chart-bar { fill: var(--accent); }
-.chart-bar-partial { fill: url(#stats-cost-partial); }
-.chart-hatch, .chart-zero { stroke: var(--accent); stroke-width: 2; fill: none; }
 @media (max-width: 760px) {
   .workspace-nav a, body[data-layout="parcours"] .workspace-nav a { flex: 1; font-size: 11px; }
   .workspace-nav a > span { max-width: 100%; overflow-wrap: anywhere; text-align: center; }
@@ -490,8 +478,6 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
   .stats-overview .stat-value { font-size: 28px; }
   .chart-selection { grid-template-columns: minmax(0, 1fr); }
   .chart-axis-label { font-size: 22px; }
-  .chart-unit { font-size: 18px; }
-  .chart-secondary-label { display: none; }
   :is(#statistiques-view, #graphiques-view) .section-toolbar > label { flex: 1; min-width: 140px; }
 }
 @media print { .stats-panel, .stats-overview { break-inside: avoid; } .chart-selection select { border: 0; } }
@@ -518,30 +504,12 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .fuel-overview .stat-value small { font-size: var(--type-sm); letter-spacing: normal; font-weight: 400; }
 .fuel-overview :is(.fuel-estimated-card, .fuel-cost-estimated-card) { border-left: 3px solid light-dark(#a85419, #f3b877); }
 .fuel-estimated-card .stat-value, .fuel-estimated-value, .fuel-cost-estimated-card .stat-value, .fuel-cost-estimated-value { color: light-dark(#a85419, #f3b877); }
-.fuel-estimated-line, .fuel-estimated-point { stroke: light-dark(#a85419, #f3b877); }
-.fuel-estimated-line { stroke-dasharray: 5 3; }
-.fuel-estimated-point { fill: light-dark(#a85419, #f3b877); }
-.fuel-chart-legend { margin-top: calc(-1 * var(--space-lg)); }
-.fuel-charts { display: grid; gap: var(--space-3xl); margin-top: var(--space-3xl); }
-.fuel-chart-block { min-width: 0; }
-.fuel-chart-block + .fuel-chart-block { padding-top: var(--space-3xl); border-top: 1px solid var(--border); }
-.fuel-chart-block h3 { margin: 0; font-size: var(--type-md); font-weight: 600; }
-.fuel-cost-point { stroke: light-dark(#a85419, #f3b877); fill: var(--surface-1); }
-.fuel-consumption-swatch, .fuel-price-swatch { display: inline-block; width: 1.4em; height: .7em; margin-right: .4em; border-bottom: 2px solid var(--accent); vertical-align: .15em; }
-.fuel-price-swatch { border-color: var(--fuel-price); }
-.fuel-price-line, .fuel-price-point { stroke: var(--fuel-price); }
-.fuel-price-point { fill: var(--surface-1); }
-.fuel-price-axis { fill: var(--fuel-price); }
 .fuel-price-value { font-variant-numeric: tabular-nums; }
-.fuel-legend-swatch { display: inline-block; width: 1.4em; height: .7em; margin-right: .4em; border-bottom: 2px dashed light-dark(#a85419, #f3b877); vertical-align: .15em; }
 .fuel-monthly { margin-top: var(--space-2xl); }
 .fuel-monthly table { min-width: 960px; }
 .fuel-monthly :is(th, td):not(:first-child):not(:last-child) { text-align: right; }
 .fuel-monthly td:last-child { min-width: 180px; }
 .fuel-monthly .text-button { display: flex; }
-.mileage-chart-options { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-lg); }
-.mileage-chart-options label { display: flex; align-items: center; gap: var(--space-sm); font-size: var(--type-sm); }
-.mileage-chart-options input { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; }
 .explorer-options { margin-block: var(--space-lg); }
 .explorer-options > summary { display: list-item; width: fit-content; min-height: 44px; padding-block: var(--space-lg); color: var(--accent); font-size: var(--type-sm); }
 .explorer-legend { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-block: var(--space-xl); padding: var(--space-lg); border: 1px solid var(--border); border-radius: var(--radius-sm); }
@@ -555,7 +523,7 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 :where([data-series-key]) { --series-color: var(--accent); }
 [data-series-key="mileage"] { --series-color: light-dark(#156b83, #8bd3e7); }
 [data-series-key="spending"] { --series-color: light-dark(#465bab, #afc0ff); }
-[data-series-key="distance"] { --series-color: light-dark(#596473, #bbc5d4); }
+[data-series-key="distance"] { --series-color: light-dark(#7854a5, #ceacf3); }
 [data-series-key="litres"] { --series-color: var(--fuel-price); }
 [data-series-key="consumption"] { --series-color: light-dark(#216e69, #83d5ce); }
 [data-series-key="price"] { --series-color: light-dark(#8c4f99, #deb2e8); }
@@ -570,6 +538,9 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
 .explorer-line { fill: none; stroke: var(--series-color); stroke-width: 2; }
 .explorer-point { fill: var(--surface-1); stroke: var(--series-color); stroke-width: 2; }
 .explorer-bar { stroke: var(--series-color); stroke-width: 7; fill: none; }
+.explorer-distance-column { fill: light-dark(#7854a5, #ceacf3); fill-opacity: .2; stroke: light-dark(#7854a5, #ceacf3); stroke-width: 1; cursor: pointer; }
+.explorer-distance-axis :is(text, .explorer-lane-title) { fill: light-dark(#7854a5, #ceacf3); }
+.expense-totals { list-style: none; padding: 0; display: grid; gap: var(--space-lg); }
 .explorer-chart :is(.is-estimated, .is-warning, .is-partial) { stroke: light-dark(#a85419, #f3b877); stroke-dasharray: 5 3; }
 .explorer-operation { cursor: pointer; }
 .explorer-operation :is(path, circle) { fill: var(--event-wash); stroke: var(--event-color); stroke-width: 2; }
@@ -589,3 +560,5 @@ body[data-layout="parcours"] .component-grid { grid-template-columns: repeat(2, 
   .explorer-chart .explorer-lane-title { font-size: 15px; }
 }
 @media (max-width: 760px) { .fuel-overview { grid-template-columns: minmax(0, 1fr); } }
+
+@media (max-width: 520px) { .explorer-range label { flex-basis: 120px; } }
