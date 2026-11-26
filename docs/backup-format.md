@@ -33,6 +33,21 @@ des données complémentaires et un petit document intégré.
 - Pour les valeurs dont la représentation exacte importe, utiliser des chaînes
   plutôt que des nombres JSON : décimales, références longues, codes et identifiants.
 
+### Contrôles réguliers et alertes
+
+L’extension facultative `vehicle.maintenanceChecks` est une collection de contrôles,
+sans changement du numéro de format. Chaque entrée contient `id`, `name`,
+`intervalDays` (entier de 1 à 36 500), `firstDate` (date civile), `enabled` (booléen,
+vrai par défaut) et `notes`. Les propriétés supplémentaires sont conservées et les
+contrôles se fusionnent indépendamment par identifiant.
+
+Une fiche de journal peut porter `maintenanceCheckId`. Seules les fiches actives de
+type `controle`, réalisées, datées et non futures valident ce contrôle. Le lien est
+conservé même si la définition est absente d’une copie importée ; il ne crée pas
+de définition ou de date. Mettre un rappel en pause ne retire ni sa définition ni
+ses fiches. Les préférences et la mémoire d’envoi des notifications du navigateur
+restent locales à l’appareil et n’entrent pas dans le fichier de sauvegarde.
+
 ## Racine
 
 | Champ | Type | Rôle |

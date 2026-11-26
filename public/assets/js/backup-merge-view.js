@@ -15,6 +15,7 @@ const FIELD_NAMES = {
   componentId: 'Composant lié', componentIds: 'Composants liés', observedComponentIds: 'Composants observés',
   year: 'Année', engine: 'Motorisation', odometerDate: 'Date du relevé', fuelTankCapacity: 'Capacité théorique du réservoir (L)', example: 'Véhicule de démonstration',
   intervalKm: 'Intervalle kilométrique', intervalMonths: 'Intervalle en mois', group: 'Groupe',
+  maintenanceChecks: 'Contrôles réguliers', maintenanceCheckId: 'Contrôle régulier associé', intervalDays: 'Fréquence en jours', enabled: 'Rappel actif',
   spatial: 'Emplacement', zone: 'Zone', side: 'Côté', presenceOrigin: 'Provenance',
   fuel: 'Carburant', litres: 'Quantité en litres', fullTank: 'Plein complet',
   insurances: 'Contrats d’assurance', insurance: 'Échéance d’assurance', provider: 'Assureur', reference: 'Référence',
@@ -23,7 +24,7 @@ const FIELD_NAMES = {
   overridden: 'Montant personnalisé', autoStatus: 'Validation automatique', coverDocumentId: 'Visuel du véhicule',
   componentLayout: 'Disposition du véhicule', trashedRecords: 'Fiches dans la corbeille',
 };
-const COLLECTION_ROLES = { garage: { vehicles: 'vehicle', documents: 'document' }, vehicle: { components: 'component', records: 'record', insurances: 'insurance', documents: 'document' }, record: { lines: 'line', documents: 'document' }, component: { documents: 'document' }, insurance: { documents: 'document' }, line: { documents: 'document' } };
+const COLLECTION_ROLES = { garage: { vehicles: 'vehicle', documents: 'document' }, vehicle: { components: 'component', records: 'record', insurances: 'insurance', maintenanceChecks: 'maintenanceCheck', documents: 'document' }, record: { lines: 'line', documents: 'document' }, component: { documents: 'document' }, insurance: { documents: 'document' }, line: { documents: 'document' } };
 const OBJECT_ROLES = { vehicle: { componentLayout: 'layout', trashedRecords: 'trash' }, record: { fuel: 'fuel', insurance: 'payment' }, component: { spatial: 'spatial' }, insurance: { tariffs: 'tariff' }, trash: { record: 'record' } };
 const member = (values, key) => values && Object.hasOwn(values, key) ? values[key] : undefined;
 const childRole = (role, key) => member(member(COLLECTION_ROLES, role), key) ?? member(member(OBJECT_ROLES, role), key) ?? null;
@@ -173,7 +174,7 @@ function sideValue(difference, side, label, atomic, choice = null) {
   return `<div class="merge-side"${choice ? ` data-merge-option="${side}" data-selected="${selected}"` : ''}><p class="merge-source">${esc(label)}</p><div class="merge-value">${present ? content : '<span class="merge-muted">Absent de cette copie</span>'}</div>${present ? differenceExcerpt(difference, side) : ''}${contentDiffers(difference) ? '<p class="merge-binary-change">Le contenu du fichier diffère entre les copies.</p>' : ''}${button}</div>`;
 }
 
-const shortName = (value) => String(value).replace(/^(?:Véhicule|Fiche|Composant|Contrat d['’]assurance|Ligne|Document) « ([\s\S]*) »$/, '$1');
+const shortName = (value) => String(value).replace(/^(?:Véhicule|Fiche|Composant|Contrat d['’]assurance|Contrôle régulier|Ligne|Document) « ([\s\S]*) »$/, '$1');
 
 /** Short visible names, while vehicle and entity IDs keep unrelated records apart. */
 function description(difference) {
@@ -185,7 +186,7 @@ function description(difference) {
   const entity = shortName(parts[0] || (inVehicle ? 'Informations du véhicule' : 'Informations du garage'));
   const field = [...parts.slice(1).map(shortName), shortName(difference.label)].join(' · ');
   return { vehicle, entity, field, vehicleKey: inVehicle ? path[1] : 'garage',
-    entityKey: JSON.stringify(inVehicle && ['records', 'components', 'insurances'].includes(path[2]) ? path.slice(0, 4) : [path[0], path[1], ...parts]),
+    entityKey: JSON.stringify(inVehicle && ['records', 'components', 'insurances', 'maintenanceChecks'].includes(path[2]) ? path.slice(0, 4) : [path[0], path[1], ...parts]),
     full: [vehicle, entity, field].join(' — '),
   };
 }

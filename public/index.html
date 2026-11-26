@@ -23,12 +23,14 @@
   <link rel="stylesheet" href="./assets/css/app-switcher.css">
   <link rel="stylesheet" href="./assets/css/backup-merge.css">
   <link rel="stylesheet" href="./assets/css/backup-panel.css">
+  <link rel="stylesheet" href="./assets/css/maintenance.css">
   <script type="module" src="./assets/js/app.js"></script>
   <script type="module" src="./assets/js/app-switcher.js"></script>
   <script type="module" src="./assets/js/pwa.js"></script>
 </head>
 <body data-layout="horizon" data-section="garage">
   <svg class="svg-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5ZM10 20h4M12 2v2"/></symbol>
     <symbol id="i-car" viewBox="0 0 24 24"><path d="m5 10 2-6h10l2 6M4 10h16a1 1 0 0 1 1 1v7H3v-7a1 1 0 0 1 1-1ZM6 18v3m12-3v3M6 14h2m8 0h2"/></symbol>
     <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 19a10 10 0 1 1 16 0ZM12 12l5-5M5 12h2m5-7v2m5 5h2"/><circle cx="12" cy="12" r="1"/></symbol>
     <symbol id="i-document" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6ZM14 3v5h4M9 12h6m-6 4h6"/></symbol>
@@ -65,6 +67,7 @@
     </details>
     <div class="header-vehicle-slot" data-vehicle-slot><label class="vehicle-picker" for="vehicle-select"><span class="sr-only">Véhicule</span><select id="vehicle-select"></select></label></div>
     <div class="app-bar-actions">
+      <button class="icon-button maintenance-trigger" id="maintenance-open" type="button" data-action="alerts" aria-label="Alertes d’entretien" title="Alertes d’entretien"> <svg class="icon ui-icon" aria-hidden="true"><use href="#i-bell"/></svg><span id="maintenance-count" class="maintenance-count" aria-hidden="true" hidden></span></button>
       <button class="icon-button command-trigger" id="commands-open" type="button" aria-label="Actions rapides" title="Actions rapides · Ctrl / ⌘ K"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-search"/></svg></button>
       <div class="app-bar-right">
         <details class="tools-menu" data-header-menu><summary class="icon-button" aria-label="Outils" title="Outils"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-more"/></svg></summary><div class="tools-content">
@@ -355,6 +358,30 @@
       </section>
       <p class="hint" data-help-keep>Les téléchargements sont des fichiers JSON complets. Vérifiez qu’ils sont bien présents dans vos fichiers. Les anciennes versions Drive restent conservées.</p>
     </details>
+  </dialog>
+  <dialog id="maintenance-dialog" class="maintenance-dialog" aria-labelledby="maintenance-title">
+    <div class="dialog-heading"><div><h2 id="maintenance-title">Alertes et entretien</h2><p id="maintenance-vehicle" class="hint"></p></div><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <div id="maintenance-content"></div>
+    <details class="maintenance-notifications"><summary>Notifications du navigateur</summary><p class="hint">Pour le véhicule sélectionné, tant que Garapp reste ouvert. Une même alerte n’est pas renvoyée à chaque ouverture ; son passage à l’échéance peut déclencher un nouveau rappel. Les noms du véhicule et des éléments concernés peuvent apparaître dans la notification.</p><p id="maintenance-notification-status" class="hint" role="status"></p><button id="maintenance-notification-toggle" type="button" class="ghost-button">Activer les notifications</button></details>
+  </dialog>
+  <dialog id="maintenance-check-dialog" aria-labelledby="maintenance-check-title">
+    <div class="dialog-heading"><h2 id="maintenance-check-title">Ajouter un contrôle régulier</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <form id="maintenance-check-form"><div class="form-grid">
+      <label class="full-width">Contrôle<input name="name" list="maintenance-suggestions" required maxlength="2000" placeholder="Pression des pneus, niveaux…"></label>
+      <datalist id="maintenance-suggestions"><option value="Pression des pneus"></option><option value="Niveau d’huile moteur"></option><option value="Niveau de liquide de refroidissement"></option><option value="Niveau de lave-glace"></option><option value="Éclairage et signalisation"></option></datalist>
+      <label>Fréquence (jours)<input name="intervalDays" type="number" min="1" max="36500" step="1" required placeholder="Ex. : 30"></label>
+      <label>Première échéance<input name="firstDate" type="date" required aria-describedby="maintenance-first-hint"></label>
+      <p id="maintenance-first-hint" class="hint full-width">La première échéance sert avant le premier contrôle enregistré. Ensuite, la fréquence repart de la date du dernier contrôle. Choisissez vos fréquences selon le véhicule et ses préconisations.</p>
+      <label class="full-width">Consignes ou notes<textarea name="notes" rows="2" maxlength="1000000"></textarea></label>
+      <label class="maintenance-enabled full-width"><input name="enabled" type="checkbox" checked> Rappel actif</label>
+    </div><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-action="alerts">Retour aux alertes</button><button class="primary-button" type="submit">Enregistrer le rappel</button></div></form>
+  </dialog>
+  <dialog id="maintenance-done-dialog" aria-labelledby="maintenance-done-title">
+    <div class="dialog-heading"><h2 id="maintenance-done-title">Noter le contrôle</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+    <p id="maintenance-done-name"></p><form id="maintenance-done-form"><div class="form-grid">
+      <label>Date du contrôle<input name="date" type="date" required></label><label>Kilométrage (facultatif)<input name="odometer" type="number" min="0" max="5000000" step="1" placeholder="Compteur observé"></label>
+      <label class="full-width">Observation (facultative)<textarea name="notes" rows="2" maxlength="1000000"></textarea></label>
+    </div><p class="hint">Une fiche de contrôle sera ajoutée au journal. Le compteur saisi reste un relevé historique et ne remplace pas automatiquement celui du véhicule.</p><p class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" class="ghost-button" data-action="alerts">Annuler</button><button class="primary-button" type="submit">Contrôle effectué</button></div></form>
   </dialog>
   <dialog id="drive-preview-dialog" class="backup-comparison-dialog" aria-labelledby="drive-preview-title">
     <div class="dialog-heading"><h2 id="drive-preview-title">Comparer avec Google Drive</h2><button type="button" class="icon-button" data-close aria-label="Fermer"><svg class="icon ui-icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>

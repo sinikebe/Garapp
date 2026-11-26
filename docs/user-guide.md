@@ -158,6 +158,42 @@ Il affiche le compteur pour un relevé, le budget d’un programme, la transacti
 achat ou d’une cession et le contexte de la cotisation pour une assurance liée à un
 contrat. Les titres personnalisés et types historiques sont conservés.
 
+## Alertes et vérifications régulières
+
+La **cloche** de la barre du haut ouvre les alertes du véhicule sélectionné. Son
+compteur regroupe les repères de pièces proches ou atteints et les contrôles à
+prévoir ou à faire. Les pièces sans repère exploitable sont signalées séparément.
+Pour les pièces, les intervalles en kilomètres et en mois se règlent dans
+**Composants** : le premier seuil atteint déclenche l’échéance, avec une alerte dès
+75 % de l’intervalle. Ce suivi ne mesure pas l’état physique des pièces.
+
+Dans **Vérifications régulières**, ajoutez un contrôle : pression des pneus,
+niveaux, éclairage ou un libellé personnalisé. Indiquez sa fréquence en jours et
+sa première échéance, selon le véhicule et ses préconisations. Les suggestions de
+libellés n’imposent aucune fréquence. Un contrôle passe à **Bientôt** dans le quart
+de sa fréquence précédant l’échéance, arrondi au jour supérieur et limité à 7 jours.
+
+**Noter le contrôle** enregistre sa date réelle, avec un compteur et une observation
+facultatifs, dans une fiche **Contrôle** du journal. La prochaine échéance part de
+la date du dernier contrôle réalisé et daté. Les fiches prévues, incomplètes,
+futures, sans date ou à la corbeille ne valident pas le rappel. Modifier la date ou
+mettre cette fiche à la corbeille recalcule l’échéance ; la restaurer rétablit son
+effet. Le compteur du véhicule n’est pas remplacé automatiquement. Désactivez
+**Rappel actif** pour mettre un contrôle en pause sans perdre son historique.
+
+Le volet **Notifications du navigateur** permet leur activation explicite sur cet
+appareil. Le navigateur demande son autorisation si nécessaire. Les notifications
+concernent le véhicule sélectionné et sont vérifiées tant que Garapp reste ouvert,
+ainsi qu’à son retour au premier plan. Elles ne sont pas programmées quand l’app
+est fermée. Une même alerte n’est pas renvoyée à chaque ouverture ; son passage de
+**Bientôt** à **À faire**, ou un nouveau cycle, peut produire un nouveau rappel.
+Un clic sur la notification ouvre les alertes. La compatibilité dépend du navigateur ;
+les alertes dans la cloche restent disponibles sans autorisation.
+
+Les définitions de contrôles et leurs fiches font partie du garage, des exports et
+de la synchronisation Drive. L’autorisation, l’activation et la mémoire d’envoi des
+notifications restent propres à l’appareil et à la version dev ou principale.
+
 ## Explorateur graphique
 
 La rubrique **Graphiques**, accessible par son icône dans le dock ou le menu latéral,

@@ -16,6 +16,9 @@ import { deploymentFor } from './deployment-config.js';
 import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
 import { initHeaderMenus } from './header-menus.js';
 import { initHeaderVehicle } from './header-vehicle.js';
+import { maintenanceSummary, saveMaintenanceCheck, completeMaintenanceCheck } from './maintenance.js';
+import { maintenanceMarkup, notificationStatus } from './maintenance-view.js';
+import { MaintenanceNotifications } from './maintenance-notifications.js';
 import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
@@ -64,6 +67,9 @@ let localConflict = false;
 let applyingRemote = false;
 let changingRecord = false;
 let pendingDiscard = null;
+let editingMaintenanceCheck = null;
+let maintenanceVehicleId = null;
+let completingMaintenanceCheck = null;
 let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
@@ -73,6 +79,10 @@ const openDialogs = () => [...document.querySelectorAll('dialog[open]')];
 const vehicle = () => garage.vehicles.find((one) => one.id === garage.activeId);
 const closeMenus = initHeaderMenus(document);
 initHeaderVehicle(document);
+const maintenanceNotifications = new MaintenanceNotifications({ key, base,
+  storage: { getItem: (name) => localStorage.getItem(name), setItem: (name, value) => localStorage.setItem(name, value) },
+  onOpen: openMaintenanceFromNotification,
+});
 initHelpTips();
 const announce = (message) => { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6000); };
 function storageWarning(message) { $('storage-warning').hidden = false; $('storage-message').textContent = message; $('save-status').textContent = 'Modifications non enregistrées'; }
@@ -211,6 +221,58 @@ function renderDashboard(current) {
   $('dashboard').innerHTML = dashboardMarkup(current);
   if (section === 'garage') disposeVehicleModel = mountVehicleModel($('dashboard'), current);
 }
+function renderNotificationSettings() {
+  $('maintenance-notification-status').textContent = notificationStatus(maintenanceNotifications);
+  const button = $('maintenance-notification-toggle');
+  button.textContent = maintenanceNotifications.enabled ? 'Désactiver sur cet appareil' : 'Activer les notifications';
+  button.disabled = !maintenanceNotifications.supported || maintenanceNotifications.permission === 'denied';
+}
+function refreshMaintenance(redraw = true) {
+  const current = vehicle(), summary = maintenanceSummary(current);
+  const count = summary.alerts.length;
+  $('maintenance-count').hidden = !count; $('maintenance-count').textContent = count > 99 ? '99+' : String(count);
+  $('maintenance-open').setAttribute('aria-label', `Alertes d’entretien${current ? ` · ${current.name}` : ''} · ${count} alerte(s)`);
+  if (redraw && $('maintenance-dialog').open) renderMaintenance();
+  if (!unsaved && !saving && !localConflict && !repository.invalid) void maintenanceNotifications.notify(current, summary.alerts).then(renderNotificationSettings);
+}
+function renderMaintenance() {
+  $('maintenance-vehicle').textContent = vehicle()?.name ?? 'Aucun véhicule sélectionné';
+  $('maintenance-content').innerHTML = maintenanceMarkup(vehicle());
+  renderNotificationSettings();
+}
+function openMaintenance() { renderMaintenance(); showDialog('maintenance-dialog'); }
+function openMaintenanceFromNotification() {
+  if (openDialogs().some((dialog) => dialog.querySelector('form'))) return announce('Les alertes sont disponibles dans la cloche, après la saisie en cours.');
+  openMaintenance();
+}
+function openMaintenanceCheck(id = null) {
+  if (!vehicle()) return openVehicle();
+  const check = vehicle().maintenanceChecks?.find((one) => one.id === id);
+  if (id && !check) return announce('Ce contrôle a changé. Rouvrez les alertes.');
+  editingMaintenanceCheck = id; maintenanceVehicleId = garage.activeId;
+  const form = $('maintenance-check-form'); form.reset(); form.querySelector('.form-error').hidden = true;
+  form.elements.name.value = check?.name ?? ''; form.elements.intervalDays.value = check?.intervalDays ?? '';
+  form.elements.firstDate.value = check?.firstDate ?? today(); form.elements.notes.value = check?.notes ?? '';
+  form.elements.enabled.checked = check?.enabled !== false;
+  $('maintenance-check-title').textContent = check ? 'Modifier le contrôle régulier' : 'Ajouter un contrôle régulier';
+  showDialog('maintenance-check-dialog');
+}
+function openMaintenanceDone(id) {
+  const check = vehicle()?.maintenanceChecks?.find((one) => one.id === id);
+  if (!check || check.enabled === false) return announce('Ce contrôle a changé ou est en pause. Rouvrez les alertes.');
+  completingMaintenanceCheck = id; maintenanceVehicleId = garage.activeId;
+  const form = $('maintenance-done-form'); form.reset(); form.querySelector('.form-error').hidden = true;
+  form.elements.date.value = today(); form.elements.date.max = today();
+  $('maintenance-done-name').textContent = check.name; showDialog('maintenance-done-dialog');
+}
+$('maintenance-notification-toggle').addEventListener('click', async (event) => {
+  event.currentTarget.disabled = true;
+  try {
+    if (maintenanceNotifications.enabled) maintenanceNotifications.disable(); else await maintenanceNotifications.enable();
+    refreshMaintenance();
+  } catch { maintenanceNotifications.problem = 'Activation impossible dans ce navigateur. Les alertes restent disponibles ici.'; }
+  finally { renderNotificationSettings(); }
+});
 const searchText = (text) => text.toLocaleLowerCase('fr').normalize('NFD').replace(/\p{Diacritic}/gu, '');
 function renderRecords() {
   const current = vehicle();
@@ -288,6 +350,7 @@ function render() {
   $('vehicle-select').innerHTML = garage.vehicles.length ? garage.vehicles.map((one) => `<option value="${one.id}">${esc(one.name)}${one.example ? ' · exemple' : ''}</option>`).join('') : '<option value="">Aucun véhicule</option>';
   $('vehicle-select').value = garage.activeId ?? '';
   $('vehicle-select').disabled = !garage.vehicles.length;
+  refreshMaintenance();
   $('example-banner').hidden = !current?.example;
   $('trash-open').textContent = `Corbeille (${current?.trashedRecords?.length ?? 0})`;
   if ($('trash-dialog').open) renderTrash();
@@ -342,11 +405,11 @@ function render() {
 const CORE = {
   garage: ['version', 'activeId', 'vehicles', 'documents'],
   document: ['id', 'name', 'mimeType', 'dataUrl', 'size', 'description'],
-  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'fuelTankCapacity', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances'],
+  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'fuelTankCapacity', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances', 'maintenanceChecks'],
   insurance: ['id', 'provider', 'reference', 'firstDate', 'debitDay', 'endDate', 'tariffs', 'skippedPeriods', 'notes', 'content', 'documents'],
   layout: ['wheelCount', 'doorCount', 'enginePosition'],
   component: ['id', 'name', 'group', 'description', 'intervalKm', 'intervalMonths', 'notes', 'content', 'documents', 'spatial'],
-  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel', 'insurance'],
+  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel', 'insurance', 'maintenanceCheckId'],
   spatial: ['kind', 'zone', 'side', 'presenceOrigin'],
   fuel: ['litres', 'fullTank'],
   line: ['id', 'label', 'kind', 'amount', 'componentId', 'componentIds', 'effect', 'description', 'notes', 'content', 'documents'],
@@ -848,10 +911,24 @@ async function submitForm(form, build) {
   form.dataset.saving = 'true';
   const button = form.querySelector('[type="submit"]'); button.disabled = true;
   const errorBox = form.querySelector('.form-error'); errorBox.hidden = true;
-  try { await save(build()); form.closest('dialog').close(); announce(unsaved ? 'La copie ouverte a été modifiée. Exportez-la avant de quitter.' : 'Modifications enregistrées sur cet appareil.'); }
-  catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+  try { await save(build()); form.closest('dialog').close(); announce(unsaved ? 'La copie ouverte a été modifiée. Exportez-la avant de quitter.' : 'Modifications enregistrées sur cet appareil.'); return true; }
+  catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; return false; }
   finally { delete form.dataset.saving; button.disabled = false; }
 }
+$('maintenance-check-form').addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  if (await submitForm(form, () => saveMaintenanceCheck(garage, maintenanceVehicleId, {
+    ...(editingMaintenanceCheck ? {} : { id: form.dataset.newId ??= uid() }), name: form.elements.name.value.trim(),
+    intervalDays: Number(form.elements.intervalDays.value), firstDate: form.elements.firstDate.value,
+    notes: form.elements.notes.value, enabled: form.elements.enabled.checked,
+  }, editingMaintenanceCheck ?? form.dataset.newId))) { delete form.dataset.newId; openMaintenance(); }
+});
+$('maintenance-done-form').addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  if (await submitForm(form, () => completeMaintenanceCheck(garage, maintenanceVehicleId, completingMaintenanceCheck, {
+    id: form.dataset.newId ??= uid(), date: form.elements.date.value, odometer: nullableNumber(form.elements.odometer.value), notes: form.elements.notes.value,
+  }))) { delete form.dataset.newId; openMaintenance(); }
+});
 $('insurance-form').addEventListener('submit', (event) => {
   event.preventDefault(); const form = event.currentTarget;
   void submitForm(form, () => {
@@ -965,6 +1042,8 @@ document.addEventListener('input', (event) => {
   }
 });
 const actions = {
+  alerts: openMaintenance, 'new-check': () => openMaintenanceCheck(),
+  'alert-components': () => { $('maintenance-dialog').close(); location.hash = 'composants'; },
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'delete-vehicle': () => vehicleRemoval.open(garage.activeId),
   'vehicle-layout': () => { openVehicle(true); $('vehicle-layout-options').open = true; $('vehicle-form').dataset.layoutEdited='true'; $('vehicle-form').elements.layoutWheelCount.focus(); },
@@ -994,6 +1073,7 @@ document.addEventListener('click', (event) => {
   const payment = target.closest('[data-insurance-payment]'); if (payment) return openInsurancePayment(payment.dataset.insurancePayment, payment.dataset.insurancePeriod);
   for (const [attribute, handler] of [
     ['data-insurance-contract', openInsurance], ['data-insurance-rate', openInsurancePayment],
+    ['data-edit-check', openMaintenanceCheck], ['data-complete-check', openMaintenanceDone],
     ['data-edit-record', (id) => openRecord(null, id)], ['data-edit-component', openComponent], ['data-record', detailRecord], ['data-component', detailComponent], ['data-replace', (id) => openRecord(id)], ['data-download', downloadDocument],
     ['data-trashed-record', (id) => detailRecord(id, true)], ['data-trash-record', (id) => { void changeRecord(id); }], ['data-restore-record', (id) => { void changeRecord(id, true); }], ['data-discard-record', confirmDiscard],
   ]) { const element = target.closest(`[${attribute}]`); if (element) return handler(element.getAttribute(attribute)); }
@@ -1127,9 +1207,16 @@ $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;
 applyPreferences(); render();
 await refreshInsurance();
-setInterval(() => { void refreshInsurance(); }, 60000);
-window.addEventListener('focus', () => { void refreshInsurance(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshInsurance(); });
+setInterval(() => { void refreshInsurance(); refreshMaintenance(false); }, 60000);
+window.addEventListener('focus', () => { void refreshInsurance(); refreshMaintenance(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { void refreshInsurance(); refreshMaintenance(); } });
+navigator.serviceWorker?.addEventListener('message', (event) => {
+  if (event.source?.scriptURL === new URL('sw.js', base).href && event.data?.type === 'GARAPP_OPEN_ALERTS') openMaintenanceFromNotification();
+});
+const launchAddress = new URL(location.href);
+if (launchAddress.searchParams.get('alerts') === '1') {
+  launchAddress.searchParams.delete('alerts'); history.replaceState(null, '', launchAddress); openMaintenanceFromNotification();
+}
 document.addEventListener('garapp:before-update', (event) => {
   if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || drive.busy() || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || ['import-dialog', 'drive-preview-dialog'].includes(dialog.id))) event.preventDefault();
 });
