@@ -14,6 +14,7 @@ const labels = {
   totalAmount: 'Total du justificatif', kind: 'Nature', effect: 'Action sur les composants',
   componentIds: 'Composants remplacés', observedComponentIds: 'Composants observés',
   intervalKm: 'Intervalle kilométrique', intervalMonths: 'Intervalle en mois', group: 'Groupe',
+  maintenanceChecks: 'Contrôles réguliers', maintenanceCheckId: 'Contrôle régulier associé', intervalDays: 'Fréquence en jours', enabled: 'Rappel actif',
   coverDocumentId: 'Visuel du véhicule', example: 'Véhicule de démonstration',
   litres: 'Quantité de carburant', fullTank: 'Plein complet', provider: 'Assureur', reference: 'Référence',
   firstDate: 'Première échéance', endDate: 'Fin du contrat', debitDay: 'Jour du prélèvement',
@@ -23,11 +24,11 @@ const labels = {
 };
 const collections = {
   garage: { vehicles: 'vehicle', documents: 'document' },
-  vehicle: { components: 'component', insurances: 'insurance', documents: 'document' },
+  vehicle: { components: 'component', insurances: 'insurance', maintenanceChecks: 'maintenanceCheck', documents: 'document' },
   record: { lines: 'line', documents: 'document' },
   component: { documents: 'document' }, insurance: { documents: 'document' }, line: { documents: 'document' },
 };
-const collectionNames = { vehicle: 'Véhicule', component: 'Composant', record: 'Fiche', line: 'Ligne', document: 'Document', insurance: 'Contrat d’assurance' };
+const collectionNames = { vehicle: 'Véhicule', component: 'Composant', record: 'Fiche', line: 'Ligne', document: 'Document', insurance: 'Contrat d’assurance', maintenanceCheck: 'Contrôle régulier' };
 const fieldLabel = (key) => Object.hasOwn(labels, key) ? labels[key] : key;
 
 function equal(left, right) {

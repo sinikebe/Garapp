@@ -68,6 +68,17 @@ self.addEventListener('message', (event) => {
   })());
 });
 
+self.addEventListener('notificationclick', (event) => {
+  if (event.notification.data?.type !== 'GARAPP_MAINTENANCE') return;
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const client = windows.find((one) => ownPage(one.url));
+    if (client) { await client.focus(); client.postMessage({ type: 'GARAPP_OPEN_ALERTS' }); }
+    else { const url = new URL(ROOT); url.searchParams.set('alerts', '1'); await self.clients.openWindow(url.href); }
+  })());
+});
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
