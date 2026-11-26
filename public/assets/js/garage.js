@@ -5,6 +5,7 @@ import { validateVisualDocument } from './vehicle-visual.js';
 import { validateComponentLayout } from './component-layout.js';
 import { validateInsuranceContract, validateInsurancePayment } from './insurance-schema.js';
 import { DEPLOYMENT, deploymentStoragePath } from './deployment-config.js';
+import { validateMaintenanceCheck, validateMaintenanceLink } from './maintenance-schema.js';
 export const VERSION = 2;
 export const MAX_BACKUP_BYTES = 512 * 1024 * 1024;
 export const MAX_DOCUMENT_BYTES = 64 * 1024 * 1024;
@@ -57,7 +58,7 @@ export const moneyInput = (text) => {
 
 /** A missing replacement date or mileage is kept unknown rather than inferred. */
 export function componentLife(vehicle, component, date = today()) {
-  const replacements = replacementHistory(vehicle, component.id);
+  const replacements = replacementHistory(vehicle, component.id).filter((record) => !record.date || record.date <= date);
   const last = replacements.find((record) => !record.date) ?? replacements[0];
   if (!last || (!component.intervalKm && !component.intervalMonths)) return { status: 'unknown', percent: null, last, km: null, months: null };
   const usages = [];
@@ -180,6 +181,10 @@ export function parseGarage(raw) {
     check(validDate(vehicle.odometerDate ?? null));
     check(isAmount(vehicle.fuelTankCapacity ?? null) && (vehicle.fuelTankCapacity == null || Number(vehicle.fuelTankCapacity) > 0 && Number(vehicle.fuelTankCapacity) <= 10000), 'La capacité théorique doit être une chaîne décimale positive en litres (au plus 10 000), ou null.');
     check(vehicle.example === undefined || typeof vehicle.example === 'boolean');
+    check(vehicle.maintenanceDefaultsVersion === undefined || integer(vehicle.maintenanceDefaultsVersion, 1000), 'La version des rappels par défaut est invalide.');
+    check(vehicle.maintenanceChecks === undefined || Array.isArray(vehicle.maintenanceChecks) && vehicle.maintenanceChecks.length <= 1000, 'Un véhicule peut contenir au plus 1 000 contrôles réguliers.');
+    const maintenanceIds = new Set();
+    const maintenanceChecks = (vehicle.maintenanceChecks ?? []).map((entry) => { uniqueId(entry, maintenanceIds); return validateMaintenanceCheck(entry); });
     check(vehicle.insurances === undefined || Array.isArray(vehicle.insurances) && vehicle.insurances.length <= 100, 'Un véhicule peut contenir au plus 100 contrats d’assurance.');
     const insuranceIds = new Set(), insurancePeriods = new Set();
     const insurances = (vehicle.insurances ?? []).map((contract) => {
@@ -204,6 +209,7 @@ export function parseGarage(raw) {
     const recordIds = new Set();
     const readRecord = (record) => {
       uniqueId(record, recordIds);
+      validateMaintenanceLink(record);
       check(label(record.title) && validDate(record.date ?? null) && nullableInteger(record.odometer ?? null));
       const type = record.type ?? 'unclassified';
       const status = record.status ?? 'done';
@@ -249,7 +255,7 @@ export function parseGarage(raw) {
       check(cover, 'Le fichier du visuel du véhicule est absent de ses documents.');
       validateVisualDocument(cover);
     }
-    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.insurances === undefined ? {} : { insurances }), ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...common };
+    return { ...vehicle, engine: vehicle.engine ?? '', year: vehicle.year ?? null, odometer: vehicle.odometer ?? null, odometerDate: vehicle.odometerDate ?? null, example: vehicle.example === true, components, records, ...(vehicle.maintenanceChecks === undefined ? {} : { maintenanceChecks }), ...(vehicle.insurances === undefined ? {} : { insurances }), ...(vehicle.trashedRecords === undefined ? {} : { trashedRecords }), ...common };
   });
   check(data.documents === undefined || Array.isArray(data.documents));
   check(data.activeId == null || ids.has(data.activeId), 'Le véhicule actif est absent de la sauvegarde.');

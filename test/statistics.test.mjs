@@ -43,7 +43,7 @@ test('a decreasing counter stays visible and prevents misleading distance and an
   const result = mileageHistory(current, { date });
   assert.equal(result.decreases.length, 1); assert.equal(result.distance, null); assert.equal(result.annualized, null);
   assert.deepEqual(result.groups.map((group) => group.values[0]), [1000, 900, 1200]);
-  assert.match(statisticsMarkup(current, { date }).html, /chart-warning-line/);
+  assert.match(statisticsMarkup(current, { date }).html, /Relevés à vérifier/);
 });
 
 test('the chart uses elapsed days rather than observation indexes and calendar calculations ignore DST', () => {
@@ -77,7 +77,7 @@ test('expense charts preserve exact invoice totals, refunds, partial subtotals, 
   assert.equal(result.buckets[1].amount, null); assert.equal(result.buckets[1].records.length, 1);
   assert.equal(result.buckets[2].amount, null); assert.equal(result.buckets[2].records.length, 0);
   assert.equal(result.buckets[3].amount, '0'); assert.equal(result.buckets[4].amount, '10.5');
-  assert.match(statisticsMarkup(current, { date }).html, /chart-bar-partial/);
+  assert.match(statisticsMarkup(current, { date }).html, /Sous-total connu/);
 });
 
 test('expense scope excludes planned records, future dates and undated entries without inventing a timeline', () => {
@@ -120,7 +120,8 @@ test('empty, flat and single-point charts remain finite and source labels are es
   for (const current of cases) {
     const result = statisticsMarkup(current, { date });
     assert.doesNotMatch(result.html, /NaN|Infinity|<img|<script/);
-    for (const point of result.plot.points) { assert.ok(Number.isFinite(point.x)); for (const y of point.ys) assert.ok(Number.isFinite(y)); }
+    assert.doesNotMatch(result.html, /<svg/);
+    for (const point of mileageGeometry(mileageHistory(current, { date })).points) { assert.ok(Number.isFinite(point.x)); for (const y of point.ys) assert.ok(Number.isFinite(y)); }
   }
   assert.match(statisticsMarkup(cases[2], { date }).html, /&lt;img/);
   const frame = { height: 200, top: 10, bottom: 20 };

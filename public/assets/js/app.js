@@ -15,10 +15,16 @@ import { suiteLinks } from './app-switcher.js';
 import { deploymentFor } from './deployment-config.js';
 import { navigationKey, defaultFilters, normalizeFilters, normalizeNavigation, readNavigation, writeNavigation, resolveSection } from './navigation.js';
 import { initHeaderMenus } from './header-menus.js';
+import { initHeaderVehicle } from './header-vehicle.js';
+import { maintenanceSummary, saveMaintenanceCheck, completeMaintenanceCheck } from './maintenance.js';
+import { maintenanceMarkup, notificationStatus } from './maintenance-view.js';
+import { MaintenanceNotifications } from './maintenance-notifications.js';
+import { ensureMaintenanceDefaults } from './maintenance-defaults.js';
 import { BackupPanel } from './backup-panel.js';
 import { readBackupFile, fingerprint, backupErrorMessage } from './backups.js';
 import { DrivePanel } from './drive-panel.js';
 import { renderStatistics } from './statistics-view.js';
+import { renderGraphs } from './graph-view.js';
 import { largestRecordedRefuel } from './fuel-statistics.js';
 import { updateFuelEntry, fuelUnitPrice } from './fuel-entry.js';
 import { eventProfile, eventEditorLayout } from './event-profiles.js';
@@ -62,6 +68,9 @@ let localConflict = false;
 let applyingRemote = false;
 let changingRecord = false;
 let pendingDiscard = null;
+let editingMaintenanceCheck = null;
+let maintenanceVehicleId = null;
+let completingMaintenanceCheck = null;
 let preferences = { layout: 'horizon', theme: 'auto' };
 const documentDrafts = new Map();
 const documentExtraDrafts = new Map();
@@ -70,6 +79,11 @@ let commandReturnFocus = null;
 const openDialogs = () => [...document.querySelectorAll('dialog[open]')];
 const vehicle = () => garage.vehicles.find((one) => one.id === garage.activeId);
 const closeMenus = initHeaderMenus(document);
+initHeaderVehicle(document);
+const maintenanceNotifications = new MaintenanceNotifications({ key, base,
+  storage: { getItem: (name) => localStorage.getItem(name), setItem: (name, value) => localStorage.setItem(name, value) },
+  onOpen: openMaintenanceFromNotification,
+});
 initHelpTips();
 const announce = (message) => { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => { $('toast').hidden = true; }, 6000); };
 function storageWarning(message) { $('storage-warning').hidden = false; $('storage-message').textContent = message; $('save-status').textContent = 'Modifications non enregistrées'; }
@@ -159,6 +173,8 @@ for (const type of ['click', 'change', 'input', 'submit', 'keydown']) document.a
 async function save(next) {
   if (saving) throw Error('Un enregistrement est déjà en cours.');
   next = parseGarage(JSON.stringify(next));
+  const defaults = ensureMaintenanceDefaults(next, today());
+  if (defaults.changed) next = parseGarage(JSON.stringify(defaults.garage));
   const insurance = reconcileInsurance(next);
   if (insurance.changed) next = parseGarage(JSON.stringify(insurance.garage));
   saving = true;
@@ -187,6 +203,13 @@ async function refreshInsurance() {
     if (result.changed) await save(result.garage);
   } catch (error) { $('insurance-error').textContent = error.message; $('insurance-error').hidden = false; }
 }
+async function refreshMaintenanceDefaults() {
+  if (unsaved || saving || localConflict || repository.invalid || drive.busy() || backups.files.busy || backups.picking || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form')) || document.visibilityState === 'hidden') return;
+  const defaults = ensureMaintenanceDefaults(garage, today());
+  if (!defaults.changed) return;
+  try { await save(defaults.garage); }
+  catch (error) { announce(`Rappels par défaut non préparés : ${error.message}`); }
+}
 function applyPreferences() {
   document.body.dataset.layout = preferences.layout;
   if (preferences.theme === 'auto') delete document.documentElement.dataset.theme;
@@ -208,6 +231,68 @@ function renderDashboard(current) {
   $('dashboard').innerHTML = dashboardMarkup(current);
   if (section === 'garage') disposeVehicleModel = mountVehicleModel($('dashboard'), current);
 }
+function renderNotificationSettings() {
+  $('maintenance-notification-status').textContent = notificationStatus(maintenanceNotifications);
+  const button = $('maintenance-notification-toggle');
+  button.textContent = maintenanceNotifications.enabled ? 'Désactiver sur cet appareil' : 'Activer les notifications';
+  button.disabled = !maintenanceNotifications.supported || maintenanceNotifications.permission === 'denied';
+}
+function refreshMaintenance(redraw = true) {
+  const current = vehicle(), summary = maintenanceSummary(current);
+  const count = summary.alerts.length;
+  $('maintenance-count').hidden = !count; $('maintenance-count').textContent = count > 99 ? '99+' : String(count);
+  $('maintenance-open').setAttribute('aria-label', `Alertes d’entretien${current ? ` · ${current.name}` : ''} · ${count} alerte(s)`);
+  if (redraw && $('maintenance-dialog').open) renderMaintenance();
+  if (!unsaved && !saving && !localConflict && !repository.invalid) void maintenanceNotifications.notify(current, summary.alerts).then(renderNotificationSettings);
+}
+function renderMaintenance() {
+  $('maintenance-vehicle').textContent = vehicle()?.name ?? 'Aucun véhicule sélectionné';
+  $('maintenance-content').innerHTML = maintenanceMarkup(vehicle());
+  renderNotificationSettings();
+}
+function openMaintenance() { renderMaintenance(); showDialog('maintenance-dialog'); }
+function openMaintenanceFromNotification() {
+  if (openDialogs().some((dialog) => dialog.querySelector('form'))) return announce('Les alertes sont disponibles dans la cloche, après la saisie en cours.');
+  openMaintenance();
+}
+function openMaintenanceCheck(id = null) {
+  if (!vehicle()) return openVehicle();
+  const check = vehicle().maintenanceChecks?.find((one) => one.id === id);
+  if (id && !check) return announce('Ce contrôle a changé. Rouvrez les alertes.');
+  editingMaintenanceCheck = id; maintenanceVehicleId = garage.activeId;
+  const form = $('maintenance-check-form'); form.reset(); form.querySelector('.form-error').hidden = true;
+  form.elements.name.value = check?.name ?? '';
+  form.elements.intervalUnit.value = check?.intervalKm ? 'km' : check?.intervalMonths ? 'months' : 'days';
+  form.elements.frequency.value = check?.intervalKm ?? check?.intervalMonths ?? check?.intervalDays ?? '';
+  updateMaintenanceFrequency();
+  form.elements.firstDate.value = check?.firstDate ?? today(); form.elements.notes.value = check?.notes ?? '';
+  form.elements.enabled.checked = check?.enabled !== false;
+  $('maintenance-check-title').textContent = check ? 'Modifier le contrôle régulier' : 'Ajouter un contrôle régulier';
+  showDialog('maintenance-check-dialog');
+}
+function openMaintenanceDone(id) {
+  const check = vehicle()?.maintenanceChecks?.find((one) => one.id === id);
+  if (!check || check.enabled === false) return announce('Ce contrôle a changé ou est en pause. Rouvrez les alertes.');
+  completingMaintenanceCheck = id; maintenanceVehicleId = garage.activeId;
+  const form = $('maintenance-done-form'); form.reset(); form.querySelector('.form-error').hidden = true;
+  form.elements.date.value = today(); form.elements.date.max = today();
+  form.elements.odometer.required = !!check.intervalKm;
+  $('maintenance-done-odometer-label').textContent = check.intervalKm ? 'Kilométrage au contrôle' : 'Kilométrage (facultatif)';
+  $('maintenance-done-name').textContent = check.name; showDialog('maintenance-done-dialog');
+}
+function updateMaintenanceFrequency() {
+  const form = $('maintenance-check-form');
+  form.elements.frequency.max = { days: 36500, months: 1200, km: 1000000 }[form.elements.intervalUnit.value];
+}
+$('maintenance-check-form').elements.intervalUnit.addEventListener('change', updateMaintenanceFrequency);
+$('maintenance-notification-toggle').addEventListener('click', async (event) => {
+  event.currentTarget.disabled = true;
+  try {
+    if (maintenanceNotifications.enabled) maintenanceNotifications.disable(); else await maintenanceNotifications.enable();
+    refreshMaintenance();
+  } catch { maintenanceNotifications.problem = 'Activation impossible dans ce navigateur. Les alertes restent disponibles ici.'; }
+  finally { renderNotificationSettings(); }
+});
 const searchText = (text) => text.toLocaleLowerCase('fr').normalize('NFD').replace(/\p{Diacritic}/gu, '');
 function renderRecords() {
   const current = vehicle();
@@ -251,12 +336,13 @@ function renderExpenses() {
   });
 }
 const views = {
-  garage: ['Votre véhicule, en un coup d’œil.', 'L’essentiel aujourd’hui. L’historique quand vous en avez besoin.'],
-  interventions: ['Une histoire qui se conserve.', 'Interventions, documents et événements, reliés au véhicule.'],
-  composants: ['Chaque pièce a son histoire.', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
-  assurance: ['L’assurance, mois après mois.', 'Les contrats, les cotisations et les prélèvements du véhicule.'],
-  depenses: ['Savoir où va votre budget.', 'Les dépenses connues et les montants à compléter.'],
-  statistiques: ['Le véhicule au fil du temps.', 'Kilométrage, rythme de roulage et dépenses, à partir des informations enregistrées.'],
+  garage: ['Vue d’ensemble', 'L’essentiel aujourd’hui. L’historique quand vous en avez besoin.'],
+  interventions: ['Journal', 'Interventions, documents et événements, reliés au véhicule.'],
+  composants: ['Composants', 'Retrouvez les remplacements, les contrôles et les repères d’entretien.'],
+  assurance: ['Assurance', 'Les contrats, les cotisations et les prélèvements du véhicule.'],
+  depenses: ['Dépenses', 'Les dépenses connues et les montants à compléter.'],
+  statistiques: ['Statistiques', 'Kilométrage, rythme de roulage et dépenses, à partir des informations enregistrées.'],
+  graphiques: ['Graphiques', 'Mesures et opérations à explorer, avec des échelles indépendantes.'],
 };
 let section = resolveSection(location.hash, navigation.section);
 
@@ -268,6 +354,7 @@ function rememberNavigation() {
     expenseYear: $('expense-year').value, expenseScope: $('expense-scope').value,
     insuranceYear: $('insurance-year').value,
     statisticsPeriod: $('statistics-period').value, statisticsScope: $('statistics-scope').value,
+    graphPeriod: $('graphs-period').value, graphScope: $('graphs-scope').value,
   }, today().slice(0, 4));
   try { writeNavigation(localStorage, navigationStorageKey, navigation); } catch { /* Optional UI context. */ }
 }
@@ -283,6 +370,7 @@ function render() {
   $('vehicle-select').innerHTML = garage.vehicles.length ? garage.vehicles.map((one) => `<option value="${one.id}">${esc(one.name)}${one.example ? ' · exemple' : ''}</option>`).join('') : '<option value="">Aucun véhicule</option>';
   $('vehicle-select').value = garage.activeId ?? '';
   $('vehicle-select').disabled = !garage.vehicles.length;
+  refreshMaintenance();
   $('example-banner').hidden = !current?.example;
   $('trash-open').textContent = `Corbeille (${current?.trashedRecords?.length ?? 0})`;
   if ($('trash-dialog').open) renderTrash();
@@ -300,6 +388,8 @@ function render() {
   $('expense-scope').value = filters.expenseScope;
   $('statistics-period').value = filters.statisticsPeriod;
   $('statistics-scope').value = filters.statisticsScope;
+  $('graphs-period').value = filters.graphPeriod;
+  $('graphs-scope').value = filters.graphScope;
   const previousType = filters.recordType;
   const types = [...new Set([...Object.keys(TYPES), ...current.records.map((record) => record.type)])];
   $('record-type').innerHTML = '<option value="all">Tous les types</option>' + types.map((type) => `<option value="${esc(type)}">${esc(typeLabel(type))}</option>`).join('');
@@ -327,17 +417,19 @@ function render() {
   else $('insurance-content').replaceChildren();
   if (section === 'statistiques') renderStatistics($('statistics-content'), current, { period: filters.statisticsPeriod, scope: filters.statisticsScope });
   else $('statistics-content').replaceChildren();
+  if (section === 'graphiques') renderGraphs($('graphs-content'), current, { period: filters.graphPeriod, scope: filters.graphScope });
+  else $('graphs-content').replaceChildren();
   rememberNavigation();
 }
 
 const CORE = {
   garage: ['version', 'activeId', 'vehicles', 'documents'],
   document: ['id', 'name', 'mimeType', 'dataUrl', 'size', 'description'],
-  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'fuelTankCapacity', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances'],
+  vehicle: ['id', 'name', 'year', 'engine', 'odometer', 'odometerDate', 'fuelTankCapacity', 'example', 'notes', 'content', 'documents', 'components', 'records', 'trashedRecords', 'coverDocumentId', 'componentLayout', 'insurances', 'maintenanceChecks', 'maintenanceDefaultsVersion'],
   insurance: ['id', 'provider', 'reference', 'firstDate', 'debitDay', 'endDate', 'tariffs', 'skippedPeriods', 'notes', 'content', 'documents'],
   layout: ['wheelCount', 'doorCount', 'enginePosition'],
   component: ['id', 'name', 'group', 'description', 'intervalKm', 'intervalMonths', 'notes', 'content', 'documents', 'spatial'],
-  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel', 'insurance'],
+  record: ['id', 'title', 'type', 'status', 'date', 'odometer', 'partsAmount', 'laborAmount', 'totalAmount', 'componentIds', 'observedComponentIds', 'lines', 'notes', 'content', 'documents', 'fuel', 'insurance', 'maintenanceCheckId'],
   spatial: ['kind', 'zone', 'side', 'presenceOrigin'],
   fuel: ['litres', 'fullTank'],
   line: ['id', 'label', 'kind', 'amount', 'componentId', 'componentIds', 'effect', 'description', 'notes', 'content', 'documents'],
@@ -839,10 +931,27 @@ async function submitForm(form, build) {
   form.dataset.saving = 'true';
   const button = form.querySelector('[type="submit"]'); button.disabled = true;
   const errorBox = form.querySelector('.form-error'); errorBox.hidden = true;
-  try { await save(build()); form.closest('dialog').close(); announce(unsaved ? 'La copie ouverte a été modifiée. Exportez-la avant de quitter.' : 'Modifications enregistrées sur cet appareil.'); }
-  catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; }
+  try { await save(build()); form.closest('dialog').close(); announce(unsaved ? 'La copie ouverte a été modifiée. Exportez-la avant de quitter.' : 'Modifications enregistrées sur cet appareil.'); return true; }
+  catch (error) { errorBox.textContent = error.message; errorBox.hidden = false; return false; }
   finally { delete form.dataset.saving; button.disabled = false; }
 }
+$('maintenance-check-form').addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  if (await submitForm(form, () => saveMaintenanceCheck(garage, maintenanceVehicleId, {
+    ...(editingMaintenanceCheck ? {} : { id: form.dataset.newId ??= uid() }), name: form.elements.name.value.trim(),
+    intervalDays: form.elements.intervalUnit.value === 'days' ? Number(form.elements.frequency.value) : null,
+    intervalMonths: form.elements.intervalUnit.value === 'months' ? Number(form.elements.frequency.value) : null,
+    intervalKm: form.elements.intervalUnit.value === 'km' ? Number(form.elements.frequency.value) : null,
+    firstDate: form.elements.firstDate.value,
+    notes: form.elements.notes.value, enabled: form.elements.enabled.checked,
+  }, editingMaintenanceCheck ?? form.dataset.newId))) { delete form.dataset.newId; openMaintenance(); }
+});
+$('maintenance-done-form').addEventListener('submit', async (event) => {
+  event.preventDefault(); const form = event.currentTarget;
+  if (await submitForm(form, () => completeMaintenanceCheck(garage, maintenanceVehicleId, completingMaintenanceCheck, {
+    id: form.dataset.newId ??= uid(), date: form.elements.date.value, odometer: nullableNumber(form.elements.odometer.value), notes: form.elements.notes.value,
+  }))) { delete form.dataset.newId; openMaintenance(); }
+});
 $('insurance-form').addEventListener('submit', (event) => {
   event.preventDefault(); const form = event.currentTarget;
   void submitForm(form, () => {
@@ -956,6 +1065,8 @@ document.addEventListener('input', (event) => {
   }
 });
 const actions = {
+  alerts: openMaintenance, 'new-check': () => openMaintenanceCheck(),
+  'alert-components': () => { $('maintenance-dialog').close(); location.hash = 'composants'; },
   'new-vehicle': () => openVehicle(), 'edit-vehicle': () => openVehicle(true), 'vehicle-details': detailVehicle,
   'delete-vehicle': () => vehicleRemoval.open(garage.activeId),
   'vehicle-layout': () => { openVehicle(true); $('vehicle-layout-options').open = true; $('vehicle-form').dataset.layoutEdited='true'; $('vehicle-form').elements.layoutWheelCount.focus(); },
@@ -985,6 +1096,7 @@ document.addEventListener('click', (event) => {
   const payment = target.closest('[data-insurance-payment]'); if (payment) return openInsurancePayment(payment.dataset.insurancePayment, payment.dataset.insurancePeriod);
   for (const [attribute, handler] of [
     ['data-insurance-contract', openInsurance], ['data-insurance-rate', openInsurancePayment],
+    ['data-edit-check', openMaintenanceCheck], ['data-complete-check', openMaintenanceDone],
     ['data-edit-record', (id) => openRecord(null, id)], ['data-edit-component', openComponent], ['data-record', detailRecord], ['data-component', detailComponent], ['data-replace', (id) => openRecord(id)], ['data-download', downloadDocument],
     ['data-trashed-record', (id) => detailRecord(id, true)], ['data-trash-record', (id) => { void changeRecord(id); }], ['data-restore-record', (id) => { void changeRecord(id, true); }], ['data-discard-record', confirmDiscard],
   ]) { const element = target.closest(`[${attribute}]`); if (element) return handler(element.getAttribute(attribute)); }
@@ -1024,6 +1136,10 @@ $('insurance-year').addEventListener('change', () => { rememberNavigation(); if 
 for (const id of ['statistics-period', 'statistics-scope']) $(id).addEventListener('change', () => {
   rememberNavigation();
   if (vehicle()) renderStatistics($('statistics-content'), vehicle(), { period: $('statistics-period').value, scope: $('statistics-scope').value });
+});
+for (const id of ['graphs-period', 'graphs-scope']) $(id).addEventListener('change', () => {
+  rememberNavigation();
+  if (vehicle()) renderGraphs($('graphs-content'), vehicle(), { period: $('graphs-period').value, scope: $('graphs-scope').value });
 });
 window.addEventListener('hashchange', () => {
   if (location.hash === '#main') return;
@@ -1112,11 +1228,21 @@ $('import-merge').addEventListener('click', () => { void confirmImport('merge');
 const suite = suiteLinks(base);
 $('dev-banner').hidden = !suite.preview;
 document.querySelector('[data-finapp-link]').href = suite.apps.find((one) => one.id === 'finapp').href;
-applyPreferences(); render();
+applyPreferences();
+await refreshMaintenanceDefaults();
+render();
 await refreshInsurance();
-setInterval(() => { void refreshInsurance(); }, 60000);
-window.addEventListener('focus', () => { void refreshInsurance(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshInsurance(); });
+async function refreshMaintenanceSchedule(redraw = false) { await refreshMaintenanceDefaults(); await refreshInsurance(); refreshMaintenance(redraw); }
+setInterval(() => { void refreshMaintenanceSchedule(); }, 60000);
+window.addEventListener('focus', () => { void refreshMaintenanceSchedule(true); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void refreshMaintenanceSchedule(true); });
+navigator.serviceWorker?.addEventListener('message', (event) => {
+  if (event.source?.scriptURL === new URL('sw.js', base).href && event.data?.type === 'GARAPP_OPEN_ALERTS') openMaintenanceFromNotification();
+});
+const launchAddress = new URL(location.href);
+if (launchAddress.searchParams.get('alerts') === '1') {
+  launchAddress.searchParams.delete('alerts'); history.replaceState(null, '', launchAddress); openMaintenanceFromNotification();
+}
 document.addEventListener('garapp:before-update', (event) => {
   if (unsaved || saving || localConflict || backups.needsFlush() || backups.picking || drive.busy() || $('import-confirm').dataset.importing || openDialogs().some((dialog) => dialog.querySelector('form') || ['import-dialog', 'drive-preview-dialog'].includes(dialog.id))) event.preventDefault();
 });

@@ -36,12 +36,12 @@ function memoryCaches() {
 
 function runtime(scope = 'https://example.test/Garapp/dev/', caches = memoryCaches()) {
   const listeners = new Map();
-  const state = { offline: false, corrupt: null, fetches: [], skipped: 0, claimed: 0 };
+  const state = { offline: false, corrupt: null, fetches: [], skipped: 0, claimed: 0, windows: [], opened: [] };
   const context = {
     URL, Request, Response, Uint8Array, crypto: webcrypto, caches,
     self: {
       registration: { scope },
-      clients: { async claim() { state.claimed++; } },
+      clients: { async claim() { state.claimed++; }, async matchAll() { return state.windows; }, async openWindow(url) { state.opened.push(url); } },
       async skipWaiting() { state.skipped++; },
       addEventListener(type, listener) { listeners.set(type, listener); },
     },
@@ -63,6 +63,11 @@ function runtime(scope = 'https://example.test/Garapp/dev/', caches = memoryCach
   const cacheName = prefix + release;
   return {
     state, caches, scope, prefix, cacheName,
+    async notificationClick(notification) {
+      const tasks = [];
+      listeners.get('notificationclick')({ notification, waitUntil(promise) { tasks.push(promise); } });
+      await Promise.all(tasks);
+    },
     async lifecycle(type) {
       const tasks = [];
       listeners.get(type)({ waitUntil(promise) { tasks.push(promise); } });
@@ -81,6 +86,26 @@ function runtime(scope = 'https://example.test/Garapp/dev/', caches = memoryCach
     },
   };
 }
+
+test('a maintenance notification opens the matching garage window without reaching another deployment', async () => {
+  const app = runtime(); let focused = false, closed = false; const messages = [];
+  app.state.windows = [
+    { url: 'https://example.test/Garapp/', focus() { throw Error('Wrong deployment'); } },
+    { url: app.scope + '#graphiques', async focus() { focused = true; }, postMessage(message) { messages.push(message); } },
+  ];
+  await app.notificationClick({ data: { type: 'GARAPP_MAINTENANCE' }, close() { closed = true; } });
+  assert.equal(focused, true); assert.equal(closed, true);
+  assert.equal(messages[0].type, 'GARAPP_OPEN_ALERTS'); assert.equal(app.state.opened.length, 0);
+});
+
+test('a maintenance notification can reopen only its own app scope when no matching window exists', async () => {
+  const app = runtime();
+  app.state.windows = [{ url: 'https://example.test/finapp/', focus() { throw Error('Wrong app'); } }];
+  await app.notificationClick({ data: { type: 'GARAPP_MAINTENANCE' }, close() {} });
+  assert.equal(app.state.opened[0], app.scope + '?alerts=1');
+  await app.notificationClick({ data: { type: 'UNRELATED' }, close() { throw Error('Unrelated notification'); } });
+  assert.equal(app.state.opened.length, 1);
+});
 
 test('the committed worker exactly covers the current public application', async () => {
   assert.equal(worker, await renderServiceWorker());

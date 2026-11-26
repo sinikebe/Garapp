@@ -17,9 +17,13 @@ des espaces distincts ; un export/import permet un transfert explicite entre eux
 | Assurance | Gérer les contrats, cotisations et changements de tarif |
 | Dépenses | Consulter les montants connus par période et par type |
 | Statistiques | Suivre les relevés kilométriques, dépenses et achats de carburant |
+| Graphiques | Explorer les mesures et opérations depuis leur accès dédié dans le dock |
 
 Les présentations **Horizon**, **Atelier** et **Panorama** adaptent la disposition du
-garage. Le bandeau distingue la présentation, l'apparence et les outils. Le logo
+garage. La présentation et l’apparence sont regroupées dans **Outils → Affichage**.
+Le choix du véhicule apparaît dans la barre du haut et se replie dans **Outils**
+quand la place manque. La rubrique active est indiquée dans le dock ou le menu
+latéral. L’en-tête compact garde les accès rapides, les outils et le profil Drive. Le logo
 ouvre le menu des applications finapps. Les liens relient les versions principales
 entre elles, et les versions de développement entre elles.
 
@@ -154,6 +158,113 @@ Il affiche le compteur pour un relevé, le budget d’un programme, la transacti
 achat ou d’une cession et le contexte de la cotisation pour une assurance liée à un
 contrat. Les titres personnalisés et types historiques sont conservés.
 
+## Alertes et vérifications régulières
+
+La **cloche** de la barre du haut ouvre les alertes du véhicule sélectionné. Son
+compteur regroupe les repères de pièces proches ou atteints et les contrôles à
+prévoir ou à faire. Les pièces sans repère exploitable sont signalées séparément.
+Pour les pièces, les intervalles en kilomètres et en mois se règlent dans
+**Composants** : le premier seuil atteint déclenche l’échéance, avec une alerte dès
+75 % de l’intervalle. Ce suivi ne mesure pas l’état physique des pièces.
+
+Les rappels standard sont préparés une fois pour chaque véhicule, sans remplacer
+les contrôles personnalisés existants : pression **chaque mois**, huile moteur
+**tous les 2 500 km**, refroidissement et liquide de frein **tous les 3 mois**.
+Ces fréquences proviennent des conseils de la Sécurité routière, non d’échéances
+légales périodiques : [guide du bon conducteur, entretien](https://www.securite-routiere.gouv.fr/sites/default/files/2024-09/dsr_guide_bon_conducteur.pdf).
+La pression doit suivre la notice du constructeur, à froid, avec un contrôle aussi
+avant un long trajet : [référence officielle sur les pneus](https://www.alpes-de-haute-provence.gouv.fr/content/download/25301/144413/file/Etat%2520des%2520pneus.pdf).
+Aucune pression universelle en bars n’est préremplie. Les conseils avant un trajet
+et les liens vers les références sont disponibles dans le centre d’alertes.
+
+Aucun contrôle passé n’est inventé : la première échéance est le jour de préparation,
+et il faut noter le premier contrôle réellement effectué pour démarrer son cycle.
+Le rappel d’huile est initialement en pause pour une motorisation explicitement
+renseignée comme électrique sans mention de motorisation thermique ou hybride.
+Les consignes restent à adapter au véhicule. Un rappel déjà modifié ou mis en pause
+n’est pas réinitialisé au rechargement ou à la mise à jour.
+
+Dans **Vérifications régulières**, les contrôles peuvent utiliser une fréquence en
+**jours**, **mois calendaires** ou **kilomètres**. Les mois se calculent de date à date,
+avec adaptation au dernier jour du mois si nécessaire. Les pré-alertes calendaires
+couvrent le dernier quart de l’intervalle, arrondi au jour supérieur et limité à
+7 jours ; les pré-alertes kilométriques couvrent le dernier quart de la distance.
+Ces seuils d’anticipation appartiennent à l’application.
+
+**Noter le contrôle** enregistre sa date réelle, avec un compteur et une observation
+facultatifs, dans une fiche **Contrôle** du journal. Le compteur devient obligatoire
+pour un rappel kilométrique. L’échéance repart de la date ou du compteur de ce contrôle.
+Le suivi en kilomètres prend ensuite les relevés datés cohérents les plus récents,
+y compris ceux du journal ; il demande une correction si les compteurs sont absents
+ou incohérents. Les fiches prévues, incomplètes,
+futures, sans date ou à la corbeille ne valident pas le rappel. Modifier la date ou
+mettre cette fiche à la corbeille recalcule l’échéance ; la restaurer rétablit son
+effet. Le compteur du véhicule n’est pas remplacé automatiquement. Désactivez
+**Rappel actif** pour mettre un contrôle en pause sans perdre son historique.
+
+Le volet **Notifications du navigateur** permet leur activation explicite sur cet
+appareil. Le navigateur demande son autorisation si nécessaire. Les notifications
+concernent le véhicule sélectionné et sont vérifiées tant que Garapp reste ouvert,
+ainsi qu’à son retour au premier plan. Elles ne sont pas programmées quand l’app
+est fermée. Une même alerte n’est pas renvoyée à chaque ouverture ; son passage de
+**Bientôt** à **À faire**, ou un nouveau cycle, peut produire un nouveau rappel.
+Un clic sur la notification ouvre les alertes. La compatibilité dépend du navigateur ;
+les alertes dans la cloche restent disponibles sans autorisation.
+
+Les définitions de contrôles et leurs fiches font partie du garage, des exports et
+de la synchronisation Drive. L’autorisation, l’activation et la mémoire d’envoi des
+notifications restent propres à l’appareil et à la version dev ou principale.
+
+## Explorateur graphique
+
+La rubrique **Graphiques**, accessible par son icône dans le dock ou le menu latéral,
+permet d’afficher ensemble
+le compteur, les dépenses mensuelles, les kilomètres parcourus, les litres ajoutés,
+la consommation, le prix au litre et le coût carburant estimé au km. Toutes les
+mesures et opérations sont activées au départ. Ouvrez **Éléments affichés** pour
+activer ou masquer une mesure ou un type d’opération depuis les légendes.
+Ces réglages sont repliés par défaut. Les pistes partagent les mêmes dates,
+mais chacune conserve son unité et une échelle adaptée aux valeurs affichées.
+Les champs **Du** et **Au** permettent de zoomer ; **Rétablir la période** revient
+à la période choisie dans cette rubrique. **Tout afficher** active toutes les
+mesures et tous les types d’opérations de cette période.
+
+La seconde légende filtre les **repères des opérations**, sans modifier les
+mesures calculées sur l’historique. Les dépenses conservent le périmètre choisi
+au-dessus du graphique. Les indicateurs mensuels sont placés en fin de mois.
+Les fiches prévues, futures, sans date ou à la corbeille restent exclues.
+
+Une opération avec un compteur connu apparaît par un losange sur la piste du
+compteur. Le bandeau inférieur affiche aussi les opérations sans compteur, à
+leur date réelle. Un repère unique ouvre la fiche ; un groupe chiffré donne
+accès aux opérations du même jour. Le sélecteur **Valeurs et opérations à consulter**
+permet aussi la consultation au clavier, avec les valeurs exactes et les sources.
+Les valeurs inconnues ne sont pas remplacées par zéro. Les estimations restent
+signalées et les compteurs contradictoires ne sont pas reliés par une courbe.
+
+Les visualisations sont regroupées dans **Graphiques**, y compris la répartition des
+montants par type. **Statistiques** garde les indicateurs et les tableaux de sources ;
+**Dépenses** conserve les montants par type sans leurs barres.
+
+Sur la piste du compteur, les **kilomètres parcourus** apparaissent en colonnes,
+**par an** au départ. Le choix **Kilomètres parcourus → Par mois** change ce découpage.
+La courbe du compteur et les colonnes ont chacune une échelle en km, indiquée à gauche
+et à droite. Les colonnes se masquent avec la mesure Kilomètres parcourus dans la
+légende. Si le compteur est masqué, les distances restent sur leur propre piste.
+
+La distance entre deux relevés valides est répartie entre les périodes traversées
+au prorata du nombre de jours. Ce découpage est une **estimation**, signalée par ≈.
+Les limites exactes entre relevés n’exigent pas d’interpolation. Aucun kilomètre n’est
+extrapolé avant le premier relevé ou après le dernier. Une année ou un mois observé
+partiellement reste signalé, et les intervalles incohérents ne sont pas inventés.
+Un clic sur une colonne, ou sa date dans le sélecteur, donne accès à sa valeur et aux
+relevés sources. Le zoom recalcule les colonnes sur l’intervalle visible.
+
+Les choix graphiques sont conservés pendant la session pour chaque véhicule.
+Sur petit écran, le graphique peut défiler horizontalement pour conserver des
+graduations lisibles ; la légende et le sélecteur restent accessibles sous forme
+de commandes classiques.
+
 ## Statistiques et carburant
 
 Le formulaire véhicule propose une **capacité théorique du réservoir** facultative.
@@ -162,12 +273,10 @@ gros ajout actif daté du véhicule, hors fiches prévues et futures. Cette réf
 peut augmenter après un achat et diminuer après une correction ou suppression ;
 la capacité théorique saisie reste conservée et les estimations sont recalculées.
 
-Deux graphiques mensuels partagent les mêmes dates :
-le premier compare la consommation et le prix d’achat au litre ; le second montre
-le coût carburant estimé en €/km, en orange pointillé, avec un axe partant de zéro.
-Les points précisent aussi l’équivalent en €/100 km. Un mois sans coût estimable
-interrompt la courbe ; il n’est pas assimilé à un coût nul. Les graphiques affichent
-les 36 derniers mois de la période, et le tableau conserve les autres mois.
+Dans **Graphiques**, la consommation, le prix d’achat et le coût carburant estimé
+conservent des pistes indépendantes sur les mêmes dates. Le coût reste exprimé en
+€/km, avec l’équivalent en €/100 km dans les détails. Les inconnues interrompent les
+courbes. **Statistiques** conserve les chiffres et le tableau mensuel complet.
 
 Le coût estimé valorise les litres consommés au prix moyen pondéré du carburant
 présent, puis mélange le reste avec l’achat suivant. Le premier plein complet
@@ -210,8 +319,8 @@ le volume, le remplissage, le prix au litre calculable, le compteur et le montan
 - **Prix moyen en €/L** : somme des montants complets connus divisée par la somme
   des litres des mêmes achats. La moyenne est donc pondérée par les litres. Les achats
   sans montant complet, sans litres ou avec un montant négatif sont exclus et signalés
-  dans le tableau. Un montant nul connu reste utilisable. La courbe verte utilise
-  l'axe de droite en €/L, distinct de la consommation.
+  dans le tableau. Un montant nul connu reste utilisable. La courbe du prix conserve
+  sa propre piste en €/L dans Graphiques.
 
 Les achats et leur prix suivent leur date. La consommation est rattachée au mois du
 plein final ; les distances entre relevés, au mois du relevé final. Un intervalle peut
@@ -220,8 +329,8 @@ estimée des cycles ; un bilan calendaire complet exige des relevés aux limites
 
 Une quantité manquante invalide le cycle concerné. Un ajout sans date empêche de situer
 les ajouts entre les pleins et laisse la consommation inconnue. Les périodes sans
-valeur calculable interrompent chaque série. La courbe montre les 36 derniers mois
-de la période choisie ; le tableau conserve toute cette période.
+valeur calculable interrompent chaque série. Les graphiques et le tableau conservent
+la période choisie, avec un zoom possible dans Graphiques.
 
 ## Photo ou modèle 3D du véhicule
 
