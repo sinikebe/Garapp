@@ -32,7 +32,7 @@ export class MaintenanceNotifications {
       const unseen = alerts.filter((alert) => !this.state.sent.includes(JSON.stringify([vehicle.id, alert.token])));
       if (!unseen.length) return;
       const title = `Garapp · ${unseen.length} alerte${unseen.length > 1 ? 's' : ''}`;
-      const options = { body: `${vehicle.name} : ${unseen.slice(0, 3).map((alert) => `${alert.name} (${alert.status === 'due' ? 'à faire' : 'bientôt'})`).join(' · ')}${unseen.length > 3 ? '…' : ''}`,
+      const options = { body: `${vehicle.name} : ${unseen.slice(0, 3).map((alert) => `${alert.name} (${alert.status === 'due' ? 'à faire' : alert.status === 'unknown' ? 'à compléter' : 'bientôt'})`).join(' · ')}${unseen.length > 3 ? '…' : ''}`,
         tag: `garapp-maintenance:${new URL(this.base).pathname}:${vehicle.id}`, icon: new URL('assets/icons/app-192.png', this.base).href,
         data: { type: 'GARAPP_MAINTENANCE' } };
       const registration = await this.platform.navigator?.serviceWorker?.getRegistration(this.base.href);

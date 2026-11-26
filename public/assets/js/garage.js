@@ -181,6 +181,7 @@ export function parseGarage(raw) {
     check(validDate(vehicle.odometerDate ?? null));
     check(isAmount(vehicle.fuelTankCapacity ?? null) && (vehicle.fuelTankCapacity == null || Number(vehicle.fuelTankCapacity) > 0 && Number(vehicle.fuelTankCapacity) <= 10000), 'La capacité théorique doit être une chaîne décimale positive en litres (au plus 10 000), ou null.');
     check(vehicle.example === undefined || typeof vehicle.example === 'boolean');
+    check(vehicle.maintenanceDefaultsVersion === undefined || integer(vehicle.maintenanceDefaultsVersion, 1000), 'La version des rappels par défaut est invalide.');
     check(vehicle.maintenanceChecks === undefined || Array.isArray(vehicle.maintenanceChecks) && vehicle.maintenanceChecks.length <= 1000, 'Un véhicule peut contenir au plus 1 000 contrôles réguliers.');
     const maintenanceIds = new Set();
     const maintenanceChecks = (vehicle.maintenanceChecks ?? []).map((entry) => { uniqueId(entry, maintenanceIds); return validateMaintenanceCheck(entry); });

@@ -25,6 +25,10 @@
 .maintenance-notifications p { margin-bottom: var(--space-lg); }
 .form-grid .maintenance-enabled { display: flex; align-items: center; gap: var(--space-sm); }
 .maintenance-enabled input { width: 20px; min-height: 20px; }
+.maintenance-advice { margin-bottom: var(--space-xl); padding: var(--space-lg); border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); font-size: var(--type-sm); }
+.maintenance-advice summary { min-height: 32px; }
+.maintenance-advice p { margin-block: var(--space-lg) 0; }
+.maintenance-row[data-status="unknown"] { border-left-color: light-dark(#9c4a15, #f8bc8b); }
 @media (max-width: 520px) {
   .maintenance-part { grid-template-columns: minmax(0, 1fr) 20px; }
   .maintenance-part > .status-pill { grid-column: 1; justify-self: start; }
